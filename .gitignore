@@ -1,0 +1,67 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Dependencies
+node_modules/
+vendor/
+.venv/
+venv/
+env/
+
+# Build output and caches
+dist/
+build/
+out/
+target/
+.next/
+.nuxt/
+.cache/
+coverage/
+*.class
+*.py[cod]
+__pycache__/
+
+# Logs and runtime files
+*.log
+logs/
+*.pid
+*.seed
+
+# Local databases and uploaded data
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary and backup files
+tmp/
+temp/
+*.tmp
+*.bak
+*~
+
+# AI/chat working files
+.codex/
+.claude/
+.cursor/
+*.chatlog
+prompts/
