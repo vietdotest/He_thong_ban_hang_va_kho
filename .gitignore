@@ -19,6 +19,7 @@ env/
 dist/
 build/
 out/
+output/
 target/
 .next/
 .nuxt/
@@ -59,9 +60,15 @@ temp/
 *.bak
 *~
 
-# AI/chat working files
-.codex/
-.claude/
-.cursor/
-*.chatlog
-prompts/
+# Local application servers and IDE/runtime state
+.tools/
+.netbeans/
+nbproject/private/
+*.lck
+
+# Local browser and design-tool state
+.tmp-chrome-*/
+design-system-state-*.json
+
+#TaiLieuKeHoachBiMat
+SPRINT_1_KHOI_DONG_CHI_TIET.md

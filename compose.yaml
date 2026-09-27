@@ -1,0 +1,40 @@
+name: sales-inventory-dev
+
+services:
+  mysql:
+    image: mysql:8.4.11
+    environment:
+      MYSQL_DATABASE: sales_inventory
+      MYSQL_USER: sales_app
+      MYSQL_PASSWORD: sales_app123
+      MYSQL_ROOT_PASSWORD: root123
+      TZ: UTC
+    command:
+      - --default-time-zone=+00:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      TZ: UTC
+    volumes:
+      - mailpit_data:/data
+
+volumes:
+  mysql_data:
+  mailpit_data:
