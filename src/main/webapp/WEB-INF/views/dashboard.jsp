@@ -18,6 +18,11 @@
         <a class="nav-item active" href="${pageContext.request.contextPath}/dashboard" aria-current="page">
             <span class="nav-icon" aria-hidden="true">⌂</span>Tổng quan
         </a>
+        <c:if test="${currentUser.hasRole('ADMIN')}">
+            <a class="nav-item" href="${pageContext.request.contextPath}/admin/users">
+                <span class="nav-icon" aria-hidden="true">♙</span>Người dùng
+            </a>
+        </c:if>
         <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password">
             <span class="nav-icon" aria-hidden="true">⚙</span>Tài khoản
         </a>

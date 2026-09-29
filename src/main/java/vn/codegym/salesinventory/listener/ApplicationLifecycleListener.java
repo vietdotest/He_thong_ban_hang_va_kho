@@ -17,14 +17,17 @@ import vn.codegym.salesinventory.dao.JdbcLoginAttemptRepository;
 import vn.codegym.salesinventory.dao.JdbcPasswordResetTokenRepository;
 import vn.codegym.salesinventory.dao.JdbcSessionRepository;
 import vn.codegym.salesinventory.dao.JdbcUserRepository;
+import vn.codegym.salesinventory.dao.JdbcUserManagementRepository;
 import vn.codegym.salesinventory.security.BCryptPasswordHasher;
 import vn.codegym.salesinventory.security.CsrfTokenManager;
 import vn.codegym.salesinventory.security.SecureTokenGenerator;
+import vn.codegym.salesinventory.security.TemporaryPasswordGenerator;
 import vn.codegym.salesinventory.service.AuthenticationService;
 import vn.codegym.salesinventory.service.PasswordChangeService;
 import vn.codegym.salesinventory.service.PasswordResetService;
 import vn.codegym.salesinventory.service.SessionService;
 import vn.codegym.salesinventory.service.SmtpMailService;
+import vn.codegym.salesinventory.service.UserManagementService;
 
 public final class ApplicationLifecycleListener implements ServletContextListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationLifecycleListener.class);
@@ -46,6 +49,10 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             JdbcAuditLogRepository audits = new JdbcAuditLogRepository();
             JdbcSessionRepository sessions = new JdbcSessionRepository();
             BCryptPasswordHasher passwordHasher = new BCryptPasswordHasher();
+            SmtpMailService mailService = new SmtpMailService(
+                    config.passwordReset().mailHost(),
+                    config.passwordReset().mailPort(),
+                    config.passwordReset().mailFrom());
             AuthenticationService authenticationService = new AuthenticationService(
                     dataSource,
                     users,
@@ -69,10 +76,7 @@ public final class ApplicationLifecycleListener implements ServletContextListene
                     sessions,
                     audits,
                     passwordHasher,
-                    new SmtpMailService(
-                            config.passwordReset().mailHost(),
-                            config.passwordReset().mailPort(),
-                            config.passwordReset().mailFrom()),
+                    mailService,
                     new SecureTokenGenerator(),
                     clock,
                     Duration.ofMinutes(config.passwordReset().expiryMinutes()),
@@ -80,12 +84,23 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             );
             PasswordChangeService passwordChangeService = new PasswordChangeService(
                     dataSource, users, sessions, audits, passwordHasher, clock);
+            UserManagementService userManagementService = new UserManagementService(
+                    dataSource,
+                    new JdbcUserManagementRepository(),
+                    sessions,
+                    audits,
+                    passwordHasher,
+                    mailService,
+                    new TemporaryPasswordGenerator(),
+                    clock
+            );
 
             servletContext.setAttribute(ApplicationContextKeys.DATA_SOURCE, dataSource);
             servletContext.setAttribute(ApplicationContextKeys.AUTHENTICATION_SERVICE, authenticationService);
             servletContext.setAttribute(ApplicationContextKeys.SESSION_SERVICE, sessionService);
             servletContext.setAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE, passwordResetService);
             servletContext.setAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE, passwordChangeService);
+            servletContext.setAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE, userManagementService);
             servletContext.setAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER, new CsrfTokenManager());
             LOGGER.info("Application initialized and database migrations completed");
         } catch (RuntimeException exception) {

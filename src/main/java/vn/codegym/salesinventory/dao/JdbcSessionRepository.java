@@ -6,7 +6,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import vn.codegym.salesinventory.model.ServerSession;
 import vn.codegym.salesinventory.model.UserStatus;
 
@@ -37,7 +40,12 @@ public final class JdbcSessionRepository implements SessionRepository {
         String sql = """
                 SELECT s.id, s.user_id, s.token_hash, s.created_at, s.last_activity_at,
                        s.expires_at, s.revoked_at,
-                       u.username, u.email, u.full_name, u.status, u.locked_until
+                       u.username, u.email, u.full_name, u.must_change_password,
+                       u.status, u.locked_until,
+                       (SELECT GROUP_CONCAT(r.code ORDER BY r.code SEPARATOR ',')
+                        FROM user_roles ur
+                        JOIN roles r ON r.id = ur.role_id
+                        WHERE ur.user_id = u.id) AS role_codes
                 FROM user_sessions s
                 JOIN users u ON u.id = s.user_id
                 WHERE s.token_hash = ?
@@ -126,6 +134,8 @@ public final class JdbcSessionRepository implements SessionRepository {
                 resultSet.getString("username"),
                 resultSet.getString("email"),
                 resultSet.getString("full_name"),
+                parseRoleCodes(resultSet.getString("role_codes")),
+                resultSet.getBoolean("must_change_password"),
                 UserStatus.valueOf(resultSet.getString("status")),
                 lockedUntil == null ? null : lockedUntil.toInstant(),
                 resultSet.getTimestamp("created_at").toInstant(),
@@ -133,5 +143,12 @@ public final class JdbcSessionRepository implements SessionRepository {
                 resultSet.getTimestamp("expires_at").toInstant(),
                 revokedAt == null ? null : revokedAt.toInstant()
         );
+    }
+
+    private static Set<String> parseRoleCodes(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>(Arrays.asList(value.split(",")));
     }
 }

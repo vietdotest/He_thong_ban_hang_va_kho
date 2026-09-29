@@ -34,6 +34,9 @@ import org.testcontainers.mysql.MySQLContainer;
 import vn.codegym.salesinventory.dto.AuthenticationContext;
 import vn.codegym.salesinventory.dto.AuthenticationResult;
 import vn.codegym.salesinventory.dto.LoginRequest;
+import vn.codegym.salesinventory.dto.UserAccountCommand;
+import vn.codegym.salesinventory.dto.UserSearchCriteria;
+import vn.codegym.salesinventory.model.UserStatus;
 import vn.codegym.salesinventory.security.BCryptPasswordHasher;
 import vn.codegym.salesinventory.security.CurrentUser;
 import vn.codegym.salesinventory.security.SecureTokenGenerator;
@@ -212,6 +215,35 @@ class AuthenticationDatabaseIT {
                     .orElseThrow();
             connection.rollback();
             assertThat(new BCryptPasswordHasher().matches("Newpass123", admin.passwordHash())).isTrue();
+        }
+    }
+
+    @Test
+    void userManagementMigrationSupportsCreatePhoneSearchAndUniquePhone() throws Exception {
+        JdbcUserManagementRepository managedUsers = new JdbcUserManagementRepository();
+        UserAccountCommand first = new UserAccountCommand(
+                "lan.nguyen", "lan@example.com", "Nguyễn Lan", "0901234567",
+                "SALES", UserStatus.ACTIVE, 0);
+        UserAccountCommand duplicatePhone = new UserAccountCommand(
+                "minh.tran", "minh@example.com", "Trần Minh", "0901 234 567",
+                "WAREHOUSE", UserStatus.ACTIVE, 0);
+
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            long userId = managedUsers.create(connection, first, ADMIN_PASSWORD_HASH, NOW);
+            managedUsers.replaceRole(connection, userId, "SALES");
+
+            assertThat(managedUsers.search(connection,
+                    new UserSearchCriteria("090-123", "SALES", "ACTIVE", 1)))
+                    .singleElement()
+                    .satisfies(user -> {
+                        assertThat(user.username()).isEqualTo("lan.nguyen");
+                        assertThat(user.roleCode()).isEqualTo("SALES");
+                        assertThat(user.mustChangePassword()).isTrue();
+                    });
+            assertThatThrownBy(() -> managedUsers.create(connection, duplicatePhone, ADMIN_PASSWORD_HASH, NOW))
+                    .isInstanceOf(SQLException.class);
+            connection.rollback();
         }
     }
 
