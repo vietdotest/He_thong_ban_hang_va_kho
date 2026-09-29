@@ -15,5 +15,7 @@ public interface UserRepository {
 
     void recordSuccessfulLogin(Connection connection, long userId, Instant loginTime) throws SQLException;
 
-    void updatePassword(Connection connection, long userId, String passwordHash) throws SQLException;
+    void updatePassword(Connection connection, long userId, String passwordHash)
+   boolean updateStatus(long userId, UserStatus status, Instant lockedUntil);
 }
+

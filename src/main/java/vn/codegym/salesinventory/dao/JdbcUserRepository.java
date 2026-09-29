@@ -113,3 +113,23 @@ public final class JdbcUserRepository implements UserRepository {
         );
     }
 }
+@Override
+    public boolean updateStatus(long userId, UserStatus status, Instant lockedUntil) {
+        String sql = "UPDATE users SET status = ?, locked_until = ? WHERE id = ?";
+        try (Connection conn = AuthenticationDatabase.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            
+            ps.setString(1, status.name());
+            if (lockedUntil != null) {
+                ps.setTimestamp(2, Timestamp.from(lockedUntil));
+            } else {
+                ps.setNull(2, java.sql.Types.TIMESTAMP);
+            }
+            ps.setLong(3, userId);
+
+            return ps.executeUpdate() > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }

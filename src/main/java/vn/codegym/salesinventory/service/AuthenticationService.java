@@ -186,9 +186,19 @@ public final class AuthenticationService {
 
     private static void rollbackQuietly(Connection connection) {
         try {
-            connection.rollback();
+           connection.rollback();
         } catch (SQLException ignored) {
             // The original database error is more useful to the caller.
         }
+    }
+
+    // Khóa tài khoản
+    public boolean lockAccount(long userId) {
+        return userRepository.updateStatus(userId, UserStatus.LOCKED, null);
+    }
+
+    // Mở khóa tài khoản
+    public boolean unlockAccount(long userId) {
+        return userRepository.updateStatus(userId, UserStatus.ACTIVE, null);
     }
 }
