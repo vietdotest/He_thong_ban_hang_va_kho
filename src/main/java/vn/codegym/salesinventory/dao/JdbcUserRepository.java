@@ -6,13 +6,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import vn.codegym.salesinventory.model.User;
 import vn.codegym.salesinventory.model.UserStatus;
 
 public final class JdbcUserRepository implements UserRepository {
     private static final String FIND_FOR_UPDATE = """
-            SELECT id, username, email, full_name, password_hash, status,
+            SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
                    failed_login_count, locked_until
             FROM users
             WHERE username_normalized = ? OR email_normalized = ?
@@ -20,7 +22,7 @@ public final class JdbcUserRepository implements UserRepository {
             FOR UPDATE
             """;
     private static final String FIND_BY_ID_FOR_UPDATE = """
-            SELECT id, username, email, full_name, password_hash, status,
+            SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
                    failed_login_count, locked_until
             FROM users
             WHERE id = ?
@@ -46,6 +48,27 @@ public final class JdbcUserRepository implements UserRepository {
                 return resultSet.next() ? Optional.of(mapUser(resultSet)) : Optional.empty();
             }
         }
+    }
+
+    @Override
+    public Set<String> findRoleCodes(Connection connection, long userId) throws SQLException {
+        String sql = """
+                SELECT r.code
+                FROM user_roles ur
+                JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = ?
+                ORDER BY r.code
+                """;
+        Set<String> roles = new LinkedHashSet<>();
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setLong(1, userId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    roles.add(resultSet.getString("code"));
+                }
+            }
+        }
+        return roles;
     }
 
     @Override
@@ -89,7 +112,8 @@ public final class JdbcUserRepository implements UserRepository {
     public void updatePassword(Connection connection, long userId, String passwordHash) throws SQLException {
         String sql = """
                 UPDATE users
-                SET password_hash = ?, failed_login_count = 0, locked_until = NULL, version = version + 1
+                SET password_hash = ?, must_change_password = FALSE,
+                    failed_login_count = 0, locked_until = NULL, version = version + 1
                 WHERE id = ?
                 """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -106,30 +130,12 @@ public final class JdbcUserRepository implements UserRepository {
                 resultSet.getString("username"),
                 resultSet.getString("email"),
                 resultSet.getString("full_name"),
+                resultSet.getString("phone"),
                 resultSet.getString("password_hash"),
+                resultSet.getBoolean("must_change_password"),
                 UserStatus.valueOf(resultSet.getString("status")),
                 resultSet.getInt("failed_login_count"),
                 lockedUntil == null ? null : lockedUntil.toInstant()
         );
     }
 }
-@Override
-    public boolean updateStatus(long userId, UserStatus status, Instant lockedUntil) {
-        String sql = "UPDATE users SET status = ?, locked_until = ? WHERE id = ?";
-        try (Connection conn = AuthenticationDatabase.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            
-            ps.setString(1, status.name());
-            if (lockedUntil != null) {
-                ps.setTimestamp(2, Timestamp.from(lockedUntil));
-            } else {
-                ps.setNull(2, java.sql.Types.TIMESTAMP);
-            }
-            ps.setLong(3, userId);
-
-            return ps.executeUpdate() > 0;
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }

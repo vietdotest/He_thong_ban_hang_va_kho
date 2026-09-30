@@ -72,11 +72,16 @@ Email đặt lại mật khẩu được gửi vào Mailpit tại `http://localh
 - `GET|POST /reset-password`: đặt mật khẩu mới bằng token một lần.
 - `GET|POST /account/change-password`: đổi mật khẩu khi đang đăng nhập.
 - `GET /dashboard`: yêu cầu session đã xác thực.
+- `GET /admin/users`: tìm kiếm, lọc và phân trang danh sách tài khoản (chỉ `ADMIN`).
+- `GET|POST /admin/users/new`: tạo tài khoản và gửi mật khẩu tạm qua email (chỉ `ADMIN`).
+- `GET|POST /admin/users/edit?id={id}`: sửa thông tin, vai trò và trạng thái (chỉ `ADMIN`).
 
 Sau năm lần nhập sai liên tiếp, tài khoản bị khóa tạm 15 phút. Request trong thời gian khóa không kéo dài thời gian khóa. Khi hết hạn, lần thử sai tiếp theo được tính lại từ lần một.
 
 Phiên đăng nhập được lưu phía server, hết hạn sau 30 phút không hoạt động hoặc tối đa 8 giờ. Logout thu hồi phiên hiện tại; đổi mật khẩu thu hồi các phiên khác; đặt lại mật khẩu thu hồi toàn bộ phiên.
 
+Tài khoản do quản trị viên tạo nhận mật khẩu tạm qua Mailpit và bắt buộc đổi mật khẩu ở lần đăng nhập đầu tiên. Username, email và số điện thoại được chuẩn hóa và có ràng buộc duy nhất tại database. Danh sách tài khoản tìm theo tên, username hoặc số điện thoại; lọc theo vai trò/trạng thái và hiển thị 20 tài khoản mỗi trang. Các vai trò local gồm `ADMIN`, `SALES` và `WAREHOUSE`.
+
 ## Phạm vi hiện tại
 
-Đăng nhập, khóa tạm, quản lý phiên, logout, quên mật khẩu và đổi mật khẩu đã được triển khai. Phân quyền chi tiết, quản trị người dùng, kho và địa bàn chưa nằm trong phần này.
+Đăng nhập, khóa tạm, quản lý phiên, logout, quên/đổi mật khẩu và quản trị người dùng theo vai trò đã được triển khai. Chức năng kho, bán hàng và địa bàn chưa nằm trong phần này.

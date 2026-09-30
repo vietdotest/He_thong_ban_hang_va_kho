@@ -1,0 +1,69 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
+</head>
+<body class="app-page">
+<aside class="sidebar">
+    <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard">
+        <span class="wordmark-symbol" aria-hidden="true">BH</span><span>Quản lý bán hàng</span>
+    </a>
+    <nav class="sidebar-nav" aria-label="Điều hướng chính">
+        <a class="nav-item" href="${pageContext.request.contextPath}/dashboard"><span class="nav-icon">⌂</span>Tổng quan</a>
+        <a class="nav-item active" href="${pageContext.request.contextPath}/admin/users"><span class="nav-icon">♙</span>Người dùng</a>
+        <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password"><span class="nav-icon">⚙</span>Tài khoản</a>
+    </nav>
+    <div class="sidebar-user">
+        <span class="avatar" aria-hidden="true"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span>
+        <span class="sidebar-user-name"><strong><c:out value="${currentUser.fullName()}"/></strong><small><c:out value="${currentUser.email()}"/></small></span>
+    </div>
+</aside>
+
+<div class="app-content">
+    <header class="app-topbar">
+        <div><p class="breadcrumb">Quản trị / Người dùng</p><h1>${editing ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản mới'}</h1></div>
+        <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Quay lại danh sách</a>
+    </header>
+    <main class="page-body narrow-body">
+        <section class="content-panel account-panel">
+            <div class="panel-heading"><div><h2>Thông tin tài khoản</h2><p>${editing ? 'Cập nhật thông tin, vai trò và trạng thái sử dụng.' : 'Mật khẩu tạm sẽ được gửi đến email sau khi tạo thành công.'}</p></div></div>
+            <c:if test="${not empty formError}"><div class="alert alert-error"><c:out value="${formError}"/></div></c:if>
+            <form class="account-form user-form" method="post" action="${pageContext.request.contextPath}${editing ? '/admin/users/edit' : '/admin/users/new'}" novalidate>
+                <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
+                <c:if test="${editing}"><input type="hidden" name="id" value="<c:out value='${userId}'/>"><input type="hidden" name="version" value="<c:out value='${form.version()}'/>"></c:if>
+
+                <div class="form-grid">
+                    <label class="field"><span>Họ và tên <b>*</b></span><input name="fullName" maxlength="150" autocomplete="name" value="<c:out value='${form.fullName()}'/>" required><c:if test="${not empty errors.fullName}"><small class="field-error"><c:out value="${errors.fullName}"/></small></c:if></label>
+                    <label class="field"><span>Tên đăng nhập <b>*</b></span><input name="username" maxlength="64" autocomplete="username" value="<c:out value='${form.username()}'/>" required><c:if test="${not empty errors.username}"><small class="field-error"><c:out value="${errors.username}"/></small></c:if></label>
+                    <label class="field"><span>Email <b>*</b></span><input type="email" name="email" maxlength="254" autocomplete="email" value="<c:out value='${form.email()}'/>" required><c:if test="${not empty errors.email}"><small class="field-error"><c:out value="${errors.email}"/></small></c:if></label>
+                    <label class="field"><span>Số điện thoại <b>*</b></span><input type="tel" name="phone" maxlength="20" autocomplete="tel" placeholder="0901234567" value="<c:out value='${form.phone()}'/>" required><c:if test="${not empty errors.phone}"><small class="field-error"><c:out value="${errors.phone}"/></small></c:if></label>
+                    <label class="field"><span>Vai trò <b>*</b></span><select name="roleCode" required>
+                        <c:forEach var="role" items="${roles}">
+                            <c:choose>
+                                <c:when test="${form.roleCode() == role.code()}"><option value="${role.code()}" selected><c:out value="${role.name()}"/></option></c:when>
+                                <c:otherwise><option value="${role.code()}"><c:out value="${role.name()}"/></option></c:otherwise>
+                            </c:choose>
+                        </c:forEach>
+                    </select><c:if test="${not empty errors.roleCode}"><small class="field-error"><c:out value="${errors.roleCode}"/></small></c:if></label>
+                    <label class="field"><span>Trạng thái <b>*</b></span><select name="status" required>
+                        <c:choose><c:when test="${form.status().name() == 'ACTIVE'}"><option value="ACTIVE" selected>Đang hoạt động</option></c:when><c:otherwise><option value="ACTIVE">Đang hoạt động</option></c:otherwise></c:choose>
+                        <c:choose><c:when test="${form.status().name() == 'DISABLED'}"><option value="DISABLED" selected>Đã vô hiệu hóa</option></c:when><c:otherwise><option value="DISABLED">Đã vô hiệu hóa</option></c:otherwise></c:choose>
+                        <c:choose><c:when test="${form.status().name() == 'ADMIN_LOCKED'}"><option value="ADMIN_LOCKED" selected>Bị khóa bởi quản trị viên</option></c:when><c:otherwise><option value="ADMIN_LOCKED">Bị khóa bởi quản trị viên</option></c:otherwise></c:choose>
+                    </select></label>
+                </div>
+
+                <div class="form-actions">
+                    <button class="button button-primary" type="submit">${editing ? 'Lưu thay đổi' : 'Tạo và gửi email'}</button>
+                    <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Hủy</a>
+                </div>
+            </form>
+        </section>
+    </main>
+</div>
+</body>
+</html>

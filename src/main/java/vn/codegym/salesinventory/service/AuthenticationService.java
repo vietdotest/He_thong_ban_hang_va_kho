@@ -130,9 +130,11 @@ public final class AuthenticationService {
                         context.userAgent(),
                         now
                 );
+                java.util.Set<String> roleCodes = users.findRoleCodes(connection, user.id());
                 connection.commit();
                 return AuthenticationResult.success(
-                        new CurrentUser(user.id(), user.username(), user.email(), user.fullName())
+                        new CurrentUser(user.id(), user.username(), user.email(), user.fullName(),
+                                roleCodes, user.mustChangePassword())
                 );
             } catch (SQLException | RuntimeException exception) {
                 rollbackQuietly(connection);
@@ -186,19 +188,9 @@ public final class AuthenticationService {
 
     private static void rollbackQuietly(Connection connection) {
         try {
-           connection.rollback();
+            connection.rollback();
         } catch (SQLException ignored) {
             // The original database error is more useful to the caller.
         }
-    }
-
-    // Khóa tài khoản
-    public boolean lockAccount(long userId) {
-        return userRepository.updateStatus(userId, UserStatus.LOCKED, null);
-    }
-
-    // Mở khóa tài khoản
-    public boolean unlockAccount(long userId) {
-        return userRepository.updateStatus(userId, UserStatus.ACTIVE, null);
     }
 }
