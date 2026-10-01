@@ -185,6 +185,14 @@
         <servlet-name>AvatarServlet</servlet-name>
         <url-pattern>/account/avatar</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>AuditServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AuditServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AuditServlet</servlet-name>
+        <url-pattern>/admin/audit</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>

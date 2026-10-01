@@ -91,4 +91,23 @@ class SprintAcceptanceIT {
         var status=new AccountStatusService(source);status.change(1,id,true,"Tạm ngưng");status.change(1,id,false,"");
         assertThat(Sql.transaction(source,c -> Sql.one(c,"SELECT status FROM users WHERE id=?",id)).get("status")).isEqualTo("PENDING_ACTIVATION");
     }
+    @Test void profileChangesOnlyContactFieldsAndAuditNeverReturnsCostToAdministrator() {
+        long id=user("SALES");var before=Sql.transaction(source,c -> Sql.one(c,"SELECT username,status FROM users WHERE id=?",id));
+        new ProfileService(source).update(id,"Tên mới",String.format("09%08d",id));
+        var after=Sql.transaction(source,c -> Sql.one(c,"SELECT username,status,full_name FROM users WHERE id=?",id));
+        assertThat(after.get("username")).isEqualTo(before.get("username"));assertThat(after.get("status")).isEqualTo("ACTIVE");assertThat(after.get("full_name")).isEqualTo("Tên mới");
+        Sql.transaction(source,c -> {AuditService.record(c,1,"PRODUCT_UPDATED","PRODUCT",id,Map.of("name","Lon cũ","cost_price",new java.math.BigDecimal("98765.4321")),Map.of("name","Lon mới","cost_price",new java.math.BigDecimal("12345.6789")));return null;});
+        var adminAccess=new AccessService(source).load(1);
+        var rows=Sql.transaction(source,c -> AuditService.read(c,adminAccess," WHERE a.object_type='PRODUCT' AND a.object_id=?",new Object[]{id},0));
+        assertThat(rows).hasSize(1);assertThat(rows.get(0)).doesNotContainKey("before_cost");assertThat(rows.toString()).doesNotContain("98765","12345","cost_price");
+        long manager=user("ADMIN");new AssignmentService(source).assign(1,manager,Set.of("ADMIN","SALES_MANAGER"),Set.of(),Set.of());
+        var permitted=new AccessService(source).load(manager);
+        var allowed=Sql.transaction(source,c -> AuditService.read(c,permitted," WHERE a.object_type='PRODUCT' AND a.object_id=?",new Object[]{id},0));
+        assertThat(allowed.get(0).get("before_cost").toString()).contains("98765.4321");
+    }
+    @Test void businessChangesAndAuditSnapshotsRollbackTogether() {
+        long id=user("SALES");
+        assertThatThrownBy(() -> Sql.transaction(source,c -> {AuditService.record(c,1,"ROLLBACK_TEST","TEST",id,null,Map.of("name","Không được lưu"));throw new IllegalStateException("Hủy giao dịch");})).isInstanceOf(IllegalStateException.class);
+        var records=Sql.transaction(source,c -> Sql.query(c,"SELECT id FROM audit_logs WHERE event_type='ROLLBACK_TEST' AND object_id=?",id));assertThat(records).isEmpty();
+    }
 }
