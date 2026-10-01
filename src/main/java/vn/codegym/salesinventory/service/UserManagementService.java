@@ -93,6 +93,10 @@ public final class UserManagementService {
             long actorUserId,
             AuthenticationContext context
     ) {
+        return createAssigned(command,actorUserId,context,null,null,null);
+    }
+    public UserManagementResult createAssigned(UserAccountCommand command,long actorUserId,AuthenticationContext context,java.util.Set<String> roles,java.util.Set<Long> warehouses,java.util.Set<Long> territories) {
+        if(roles!=null) AssignmentService.validate(actorUserId,-1,roles,warehouses);
         Instant now = clock.instant();
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -109,6 +113,7 @@ public final class UserManagementService {
                 UserAccountCommand effective = activationService == null ? command : new UserAccountCommand(command.username(),command.email(),command.fullName(),command.phone(),command.roleCode(),UserStatus.PENDING_ACTIVATION,command.version());
                 long userId = users.create(connection, effective, passwordHasher.hash(temporaryPassword), now);
                 users.replaceRole(connection, userId, command.roleCode());
+                if(roles!=null) AssignmentService.replace(connection,userId,roles,warehouses,territories);
                 audits.record(connection, actorUserId, "USER_CREATED",
                         "targetUserId=" + userId + ";role=" + command.roleCode() + ";status=" + command.status(),
                         context.ipAddress(), context.userAgent(), now);
