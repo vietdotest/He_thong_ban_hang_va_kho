@@ -59,7 +59,9 @@ public final class UserEditServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         long userId = positiveLong(request.getParameter("id"));
         long version = nonNegativeLong(request.getParameter("version"));
-        UserAccountCommand command = UserCreateServlet.commandFrom(request, version);
+        UserAccountCommand submitted = UserCreateServlet.commandFrom(request, version);
+        ManagedUser existing = userManagementService.find(userId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
+        UserAccountCommand command=new UserAccountCommand(submitted.username(),submitted.email(),submitted.fullName(),submitted.phone(),existing.roleCode(),existing.status(),submitted.version());
         request.setAttribute("userId", userId);
         request.setAttribute("form", command);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
