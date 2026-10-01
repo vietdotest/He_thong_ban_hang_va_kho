@@ -125,4 +125,5 @@ class SprintAcceptanceIT {
         assertThat(new AccessService(source).load(Sql.id(account.get("id"))).roles()).containsExactlyInAnyOrder("SALES","ACCOUNTANT");
         assertThatThrownBy(()->imports.confirm(1,preview,preview.getToken(),new AuthenticationContext("127.0.0.1","JUnit"))).isInstanceOf(IllegalArgumentException.class);
     }
+ @Test void categoryTreeSupportsThreeLevelsAndRejectsCyclesAndNonemptyDeletion(){long manager=user("SALES_MANAGER");var categories=new CategoryService(source);long a=categories.save(manager,0,"CA","Nhóm gốc",null,0),b=categories.save(manager,0,"CB","Nhóm con",a,0),d=categories.save(manager,0,"CC","Nhóm cấp ba",b,0);assertThat(categories.tree().stream().filter(row->Sql.id(row.get("id"))==d).findFirst().orElseThrow().get("depth")).isEqualTo(2);assertThatThrownBy(()->categories.save(manager,a,"CA","Vòng lặp",d,1)).isInstanceOf(IllegalArgumentException.class);assertThatThrownBy(()->categories.delete(manager,a)).isInstanceOf(IllegalArgumentException.class);categories.delete(manager,d);}
 }
