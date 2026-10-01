@@ -114,7 +114,8 @@ public final class UserManagementService {
                 long userId = users.create(connection, effective, passwordHasher.hash(temporaryPassword), now);
                 users.replaceRole(connection, userId, command.roleCode());
                 if(roles!=null) AssignmentService.replace(connection,userId,roles,warehouses,territories);
-                audits.record(connection, actorUserId, "USER_CREATED",
+                if(activationService!=null) AuditService.record(connection,actorUserId,"USER_CREATED","USER",userId,null,java.util.Map.of("username",command.username(),"email",command.email(),"full_name",command.fullName(),"phone",command.phone(),"status",effective.status().name()));
+                else audits.record(connection, actorUserId, "USER_CREATED",
                         "targetUserId=" + userId + ";role=" + command.roleCode() + ";status=" + command.status(),
                         context.ipAddress(), context.userAgent(), now);
                 try {
@@ -181,7 +182,8 @@ public final class UserManagementService {
                 if (command.status() != UserStatus.ACTIVE) {
                     sessions.revokeAllForUser(connection, userId, now, "ACCOUNT_STATUS_CHANGED");
                 }
-                audits.record(connection, actorUserId, "USER_UPDATED",
+                if(activationService!=null) AuditService.record(connection,actorUserId,"USER_UPDATED","USER",userId,java.util.Map.of("email",found.get().email(),"full_name",found.get().fullName(),"phone",java.util.Objects.toString(found.get().phone(),"")),java.util.Map.of("email",command.email(),"full_name",command.fullName(),"phone",command.phone()));
+                else audits.record(connection, actorUserId, "USER_UPDATED",
                         "targetUserId=" + userId + ";role=" + command.roleCode() + ";status=" + command.status(),
                         context.ipAddress(), context.userAgent(), now);
                 connection.commit();

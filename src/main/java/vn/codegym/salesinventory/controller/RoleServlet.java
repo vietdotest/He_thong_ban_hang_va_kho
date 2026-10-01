@@ -20,9 +20,10 @@ public final class RoleServlet extends PortalServlet {
             if(Sql.text(role.get("code")).equals("ADMIN") && (!chosen.contains("USER_MANAGE") || !chosen.contains("ROLE_MANAGE") || !chosen.contains("PROFILE"))) throw new IllegalArgumentException("Phải giữ quyền quản trị và hồ sơ của vai trò quản trị hệ thống.");
             if(!Sql.text(role.get("code")).equals("SALES_MANAGER") && (chosen.contains("COST_READ") || chosen.contains("COST_WRITE"))) throw new IllegalArgumentException("Giá vốn chỉ dành cho Quản lý kinh doanh.");
             for(String p:chosen) Sql.one(c,"SELECT id FROM permissions WHERE code=?",p);
+            var before=Sql.query(c,"SELECT p.code FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id WHERE rp.role_id=?",roleId);
             Sql.update(c,"DELETE FROM role_permissions WHERE role_id=?",roleId);
             for(String p:chosen) Sql.update(c,"INSERT INTO role_permissions(role_id,permission_id) SELECT ?,id FROM permissions WHERE code=?",roleId,p);
-            new vn.codegym.salesinventory.dao.JdbcAuditLogRepository().record(c,actor(r).id(),"ROLE_PERMISSIONS_UPDATED","roleId="+roleId,r.getRemoteAddr(),r.getHeader("User-Agent"),java.time.Instant.now()); return null;
+            vn.codegym.salesinventory.service.AuditService.record(c,actor(r).id(),"ROLE_PERMISSIONS_UPDATED","ROLE",roleId,Map.of("permissions",before.toString()),Map.of("permissions",chosen.toString())); return null;
         }); redirect(r,s,"/admin/roles");
     }
 }
