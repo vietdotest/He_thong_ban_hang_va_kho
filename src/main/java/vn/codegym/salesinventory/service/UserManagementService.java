@@ -32,6 +32,7 @@ public final class UserManagementService {
     private final MailService mailService;
     private final TemporaryPasswordGenerator passwordGenerator;
     private final Clock clock;
+    private ActivationService activationService;
 
     public UserManagementService(
             DataSource dataSource,
@@ -51,6 +52,10 @@ public final class UserManagementService {
         this.mailService = mailService;
         this.passwordGenerator = passwordGenerator;
         this.clock = clock;
+    }
+
+    public UserManagementService(DataSource source,UserManagementRepository users,SessionRepository sessions,AuditLogRepository audits,PasswordHasher hasher,MailService mail,TemporaryPasswordGenerator generator,Clock clock,ActivationService activation) {
+        this(source,users,sessions,audits,hasher,mail,generator,clock); this.activationService=activation;
     }
 
     public UserPage search(UserSearchCriteria requested) {
@@ -101,14 +106,15 @@ public final class UserManagementService {
                     return UserManagementResult.failure(UserManagementResult.Status.INVALID_ROLE);
                 }
                 String temporaryPassword = passwordGenerator.generate();
-                long userId = users.create(connection, command, passwordHasher.hash(temporaryPassword), now);
+                UserAccountCommand effective = activationService == null ? command : new UserAccountCommand(command.username(),command.email(),command.fullName(),command.phone(),command.roleCode(),UserStatus.PENDING_ACTIVATION,command.version());
+                long userId = users.create(connection, effective, passwordHasher.hash(temporaryPassword), now);
                 users.replaceRole(connection, userId, command.roleCode());
                 audits.record(connection, actorUserId, "USER_CREATED",
                         "targetUserId=" + userId + ";role=" + command.roleCode() + ";status=" + command.status(),
                         context.ipAddress(), context.userAgent(), now);
                 try {
-                    mailService.sendTemporaryPassword(
-                            command.email(), command.fullName(), command.username(), temporaryPassword);
+                    if(activationService == null) mailService.sendTemporaryPassword(command.email(),command.fullName(),command.username(),temporaryPassword);
+                    else activationService.send(command.email(),command.fullName(),command.username(),temporaryPassword,activationService.issue(connection,userId));
                 } catch (RuntimeException deliveryFailure) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.EMAIL_DELIVERY_FAILED);

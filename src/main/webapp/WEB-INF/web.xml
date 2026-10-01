@@ -140,6 +140,22 @@
         <servlet-name>ScopeServlet</servlet-name>
         <url-pattern>/admin/scopes</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>ActivationServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ActivationServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ActivationServlet</servlet-name>
+        <url-pattern>/activate</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ActivationResendServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ActivationResendServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ActivationResendServlet</servlet-name>
+        <url-pattern>/admin/users/activation</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
