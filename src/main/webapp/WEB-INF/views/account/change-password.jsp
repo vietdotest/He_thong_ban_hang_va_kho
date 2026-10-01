@@ -14,6 +14,7 @@
     <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a>
     <nav class="sidebar-nav" aria-label="Điều hướng chính">
         <a class="nav-item" href="${pageContext.request.contextPath}/dashboard"><span class="nav-icon">⌂</span>Tổng quan</a>
+        <c:if test="${currentUser.hasRole('ADMIN')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/users"><span class="nav-icon">♙</span>Người dùng</a></c:if>
         <a class="nav-item active" href="${pageContext.request.contextPath}/account/change-password" aria-current="page"><span class="nav-icon">⚙</span>Tài khoản</a>
     </nav>
     <div class="sidebar-user"><span class="avatar"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span><span class="sidebar-user-name"><strong><c:out value="${currentUser.fullName()}"/></strong><small><c:out value="${currentUser.email()}"/></small></span></div>
@@ -23,6 +24,7 @@
     <main class="page-body narrow-body">
         <section class="content-panel account-panel">
             <div class="panel-heading"><div><h2>Cập nhật mật khẩu</h2><p>Sau khi đổi, các thiết bị khác đang đăng nhập sẽ được đăng xuất.</p></div></div>
+            <c:if test="${param.required == 'true'}"><div class="alert alert-warning">Đây là lần đăng nhập đầu tiên. Bạn cần đổi mật khẩu tạm trước khi tiếp tục.</div></c:if>
             <c:if test="${not empty successMessage}"><div class="alert alert-success" role="status"><c:out value="${successMessage}"/></div></c:if>
             <c:if test="${not empty formError}"><div class="alert alert-error" role="alert"><c:out value="${formError}"/></div></c:if>
             <form class="form-stack account-form" method="post" action="${pageContext.request.contextPath}/account/change-password" novalidate>
