@@ -214,6 +214,27 @@
         <servlet-name>CategoryServlet</servlet-name>
         <url-pattern>/catalog/categories</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>ProductServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProductServlet</servlet-class>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>11534336</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProductServlet</servlet-name>
+        <url-pattern>/catalog/products</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProductImageServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProductImageServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProductImageServlet</servlet-name>
+        <url-pattern>/catalog/products/image</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
