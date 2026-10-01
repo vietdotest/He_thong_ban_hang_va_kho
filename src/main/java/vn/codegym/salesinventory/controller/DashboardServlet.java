@@ -17,6 +17,9 @@ public final class DashboardServlet extends HttpServlet {
         CsrfTokenManager csrf = (CsrfTokenManager) getServletContext()
                 .getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         request.setAttribute("csrfToken", csrf.getOrCreate(request.getSession(false)));
+        vn.codegym.salesinventory.security.Access access=(vn.codegym.salesinventory.security.Access)request.getAttribute("access");
+        request.setAttribute("heading",vn.codegym.salesinventory.service.DashboardService.heading(access));
+        request.setAttribute("workAreas",vn.codegym.salesinventory.service.DashboardService.areas(access));
         request.getRequestDispatcher("/WEB-INF/views/dashboard.jsp").forward(request, response);
     }
 }
