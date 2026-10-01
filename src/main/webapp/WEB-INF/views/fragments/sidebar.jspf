@@ -1,6 +1,7 @@
+<%@ page pageEncoding="UTF-8" %>
 <aside class="sidebar">
     <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard"><span class="wordmark-symbol" aria-hidden="true">BH</span><span>Quản lý bán hàng</span></a>
-    <nav class="sidebar-nav" aria-label="Điều hướng chính">
+    <details class="sidebar-navigation" open><summary>Menu chức năng</summary><nav class="sidebar-nav" aria-label="Điều hướng chính">
         <a class="nav-item" href="${pageContext.request.contextPath}/dashboard">Tổng quan</a>
         <c:if test="${access.allows('USER_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/users">Người dùng</a><a class="nav-item" href="${pageContext.request.contextPath}/admin/scopes">Kho và địa bàn</a><a class="nav-item" href="${pageContext.request.contextPath}/admin/users/import">Nhập người dùng từ Excel</a></c:if>
         <c:if test="${access.allows('ROLE_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/roles">Phân quyền</a></c:if>
@@ -10,10 +11,11 @@
         <c:if test="${access.allows('PRICE_READ')}"><a class="nav-item" href="${pageContext.request.contextPath}/pricing/lists">Bảng giá</a></c:if>
         <a class="nav-item" href="${pageContext.request.contextPath}/account/profile">Hồ sơ cá nhân</a>
         <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password">Đổi mật khẩu</a>
-    </nav>
+    </nav></details>
     <div class="sidebar-user"><span class="sidebar-user-name"><strong><c:out value="${currentUser.fullName()}"/></strong>
         <c:forEach var="role" items="${access.roleNames()}"><small><c:out value="${role.name}"/></small></c:forEach>
         <c:forEach var="w" items="${access.warehouses()}"><small>Kho: <c:out value="${w.name}"/></small></c:forEach>
         <c:forEach var="t" items="${access.territories()}"><small>Địa bàn: <c:out value="${t.name}"/></small></c:forEach>
     </span></div>
 </aside>
+<script src="${pageContext.request.contextPath}/assets/js/navigation.js" defer></script>
