@@ -9,32 +9,7 @@
     <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
 </head>
 <body class="app-page">
-<aside class="sidebar">
-    <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard">
-        <span class="wordmark-symbol" aria-hidden="true">BH</span>
-        <span>Quản lý bán hàng</span>
-    </a>
-    <nav class="sidebar-nav" aria-label="Điều hướng chính">
-        <a class="nav-item active" href="${pageContext.request.contextPath}/dashboard" aria-current="page">
-            <span class="nav-icon" aria-hidden="true">⌂</span>Tổng quan
-        </a>
-        <c:if test="${currentUser.hasRole('ADMIN')}">
-            <a class="nav-item" href="${pageContext.request.contextPath}/admin/users">
-                <span class="nav-icon" aria-hidden="true">♙</span>Người dùng
-            </a>
-        </c:if>
-        <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password">
-            <span class="nav-icon" aria-hidden="true">⚙</span>Tài khoản
-        </a>
-    </nav>
-    <div class="sidebar-user">
-        <span class="avatar" aria-hidden="true"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span>
-        <span class="sidebar-user-name">
-            <strong><c:out value="${currentUser.fullName()}"/></strong>
-            <small><c:out value="${currentUser.email()}"/></small>
-        </span>
-    </div>
-</aside>
+<%@ include file="fragments/sidebar.jspf" %>
 
 <div class="app-content">
     <header class="app-topbar">
