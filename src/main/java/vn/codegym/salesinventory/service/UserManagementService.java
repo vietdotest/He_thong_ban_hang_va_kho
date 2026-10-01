@@ -165,6 +165,9 @@ public final class UserManagementService {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.SELF_PROTECTION);
                 }
+                if(command.status()!=found.get().status()) {
+                    connection.rollback(); return UserManagementResult.failure(UserManagementResult.Status.FORBIDDEN);
+                }
                 if (users.update(connection, userId, command) != 1) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.STALE_UPDATE);

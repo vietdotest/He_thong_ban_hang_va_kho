@@ -71,4 +71,24 @@ class SprintAcceptanceIT {
         var later=new ActivationService(source,Clock.fixed(now.plus(Duration.ofHours(24)),ZoneOffset.UTC),"http://localhost",(a,b,d,e) -> { });
         assertThat(later.activate(token)).isFalse();
     }
+    @Test void accountLockRequiresReasonRevokesOpenSessionAndFlagsRegisteredDealer() {
+        long id=user("SALES");String httpSession="http-"+UUID.randomUUID();
+        var sessions=new SessionService(source,new JdbcSessionRepository(),new JdbcAuditLogRepository(),Clock.systemUTC(),Duration.ofMinutes(30),Duration.ofHours(8));
+        sessions.create(new CurrentUser(id,"staff","staff@test.local","Nhân viên"),httpSession,new AuthenticationContext("127.0.0.1","JUnit"));
+        Sql.transaction(source,c -> {Sql.update(c,"INSERT INTO dealer_staff_references VALUES('DAILY-01',?)",id);return null;});
+        var status=new AccountStatusService(source);
+        assertThatThrownBy(() -> status.change(1,id,true," ")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(sessions.validate(httpSession).valid()).isTrue();
+        status.change(1,id,true,"Nhân viên nghỉ việc");
+        assertThat(sessions.validate(httpSession).valid()).isFalse();
+        var warnings=Sql.transaction(source,c -> Sql.query(c,"SELECT id FROM handover_warnings WHERE user_id=? AND resolved_at IS NULL",id));
+        assertThat(warnings).hasSize(1);
+        status.change(1,id,false,"");
+        assertThat(sessions.validate(httpSession).valid()).isFalse();
+    }
+    @Test void unlockingPendingAccountCannotBypassEmailActivation() {
+        long id=user("SALES");Sql.transaction(source,c -> {Sql.update(c,"UPDATE users SET status='PENDING_ACTIVATION' WHERE id=?",id);return null;});
+        var status=new AccountStatusService(source);status.change(1,id,true,"Tạm ngưng");status.change(1,id,false,"");
+        assertThat(Sql.transaction(source,c -> Sql.one(c,"SELECT status FROM users WHERE id=?",id)).get("status")).isEqualTo("PENDING_ACTIVATION");
+    }
 }
