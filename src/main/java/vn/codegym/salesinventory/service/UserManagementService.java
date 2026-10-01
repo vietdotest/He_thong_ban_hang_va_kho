@@ -163,7 +163,7 @@ public final class UserManagementService {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.STALE_UPDATE);
                 }
-                users.replaceRole(connection, userId, command.roleCode());
+                /* Vai trò được cập nhật riêng qua AssignmentService. */
                 if (command.status() != UserStatus.ACTIVE) {
                     sessions.revokeAllForUser(connection, userId, now, "ACCOUNT_STATUS_CHANGED");
                 }

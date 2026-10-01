@@ -55,6 +55,7 @@ public final class UserCreateServlet extends HttpServlet {
             return;
         }
         Map<String, String> errors = new LinkedHashMap<>(validator.validate(command));
+        if (command.roleCode().equals("WAREHOUSE") || command.roleCode().equals("WAREHOUSE_MANAGER")) { errors.put("roleCode", "Tạo hồ sơ với vai trò kinh doanh trước, sau đó gán vai trò kho cùng kho phụ trách tại Phân công."); }
         if (!errors.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             request.setAttribute("errors", errors);
