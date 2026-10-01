@@ -235,6 +235,14 @@
         <servlet-name>ProductImageServlet</servlet-name>
         <url-pattern>/catalog/products/image</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>UnitServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UnitServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UnitServlet</servlet-name>
+        <url-pattern>/catalog/units</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
