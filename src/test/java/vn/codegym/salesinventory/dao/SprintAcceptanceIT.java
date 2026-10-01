@@ -126,4 +126,12 @@ class SprintAcceptanceIT {
         assertThatThrownBy(()->imports.confirm(1,preview,preview.getToken(),new AuthenticationContext("127.0.0.1","JUnit"))).isInstanceOf(IllegalArgumentException.class);
     }
  @Test void categoryTreeSupportsThreeLevelsAndRejectsCyclesAndNonemptyDeletion(){long manager=user("SALES_MANAGER");var categories=new CategoryService(source);long a=categories.save(manager,0,"CA","Nhóm gốc",null,0),b=categories.save(manager,0,"CB","Nhóm con",a,0),d=categories.save(manager,0,"CC","Nhóm cấp ba",b,0);assertThat(categories.tree().stream().filter(row->Sql.id(row.get("id"))==d).findFirst().orElseThrow().get("depth")).isEqualTo(2);assertThatThrownBy(()->categories.save(manager,a,"CA","Vòng lặp",d,1)).isInstanceOf(IllegalArgumentException.class);assertThatThrownBy(()->categories.delete(manager,a)).isInstanceOf(IllegalArgumentException.class);categories.delete(manager,d);}
+ @Test void productEnforcesSkuCostCategoryTransferAndReferenceDeletion(){
+  long manager=user("SALES_MANAGER"),reader=user("SALES");var categories=new CategoryService(source);long a=categories.save(manager,0,"PROD-A","Nhóm đầu",null,0),b=categories.save(manager,0,"PROD-B","Nhóm sau",null,0);var service=new ProductService(source);
+  var in=new ProductService.Input("SKU-TEST","Mặt hàng",a,"Cái","Thùng",new java.math.BigDecimal("76543.2100"),null,"ACTIVE",0);long id=service.save(manager,0,in);
+  assertThat(service.find(reader,id)).doesNotContainKey("cost_price");assertThat(service.find(1,id).toString()).doesNotContain("76543");assertThat(service.find(manager,id).get("cost_price")).isEqualTo(new java.math.BigDecimal("76543.2100"));
+  assertThatThrownBy(()->service.save(reader,id,in)).isInstanceOf(SecurityException.class);assertThatThrownBy(()->service.save(manager,0,in)).isInstanceOf(IllegalArgumentException.class);assertThatThrownBy(()->categories.delete(manager,a)).isInstanceOf(IllegalArgumentException.class);
+  service.save(manager,id,new ProductService.Input("SKU-TEST","Mặt hàng",b,"Cái","Thùng",null,null,"ACTIVE",1));categories.delete(manager,a);
+  Sql.transaction(source,c->{Sql.update(c,"INSERT INTO product_transaction_references VALUES(?,'TEST','GD-01')",id);return null;});assertThatThrownBy(()->service.delete(manager,id)).isInstanceOf(IllegalArgumentException.class);
+ }
 }
