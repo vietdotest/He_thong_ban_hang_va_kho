@@ -110,4 +110,19 @@ class SprintAcceptanceIT {
         assertThatThrownBy(() -> Sql.transaction(source,c -> {AuditService.record(c,1,"ROLLBACK_TEST","TEST",id,null,Map.of("name","Không được lưu"));throw new IllegalStateException("Hủy giao dịch");})).isInstanceOf(IllegalStateException.class);
         var records=Sql.transaction(source,c -> Sql.query(c,"SELECT id FROM audit_logs WHERE event_type='ROLLBACK_TEST' AND object_id=?",id));assertThat(records).isEmpty();
     }
+    @Test void userExcelImportsOnlyValidRowsAndCannotConfirmTwice() {
+        MailService mail=new MailService(){public void sendPasswordReset(String a,String b,String d,int e){} public void sendActivation(String a,String b,String u,String p,String link){}};
+        var activation=new ActivationService(source,Clock.systemUTC(),"http://localhost",mail);
+        var management=new UserManagementService(source,new JdbcUserManagementRepository(),new JdbcSessionRepository(),new JdbcAuditLogRepository(),new BCryptPasswordHasher(),mail,new TemporaryPasswordGenerator(),Clock.systemUTC(),activation);
+        var imports=new UserImportService(source,management);
+        String name="excel-"+UUID.randomUUID().toString().substring(0,8);
+        var valid=List.of(name,name+"@test.local","Người nhập","0912345678","SALES,ACCOUNTANT","","");
+        var preview=imports.preview(1,Xlsx.write(List.of(UserImportService.HEADERS,valid,valid,List.of("bad","email","X","bad","WAREHOUSE","",""))));
+        assertThat(preview.getLines().stream().filter(ImportPreview.Line::isValid).count()).isEqualTo(1);
+        var report=imports.confirm(1,preview,preview.getToken(),new AuthenticationContext("127.0.0.1","JUnit"));
+        assertThat(report.stream().filter(ImportPreview.Line::isValid).count()).isEqualTo(1);
+        var account=Sql.transaction(source,c->Sql.one(c,"SELECT id,status FROM users WHERE username=?",name));assertThat(account.get("status")).isEqualTo("PENDING_ACTIVATION");
+        assertThat(new AccessService(source).load(Sql.id(account.get("id"))).roles()).containsExactlyInAnyOrder("SALES","ACCOUNTANT");
+        assertThatThrownBy(()->imports.confirm(1,preview,preview.getToken(),new AuthenticationContext("127.0.0.1","JUnit"))).isInstanceOf(IllegalArgumentException.class);
+    }
 }
