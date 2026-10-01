@@ -442,3 +442,23 @@ a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+/* Điều hướng và biểu mẫu cho màn hình cửa hàng nhỏ. */
+.sidebar-nav { max-height:65vh; overflow-y:auto; }
+.sidebar-user-name small { display:block; }
+.content-panel { padding:20px; margin:16px 0; }
+input,select,textarea { max-width:100%; }
+label { overflow-wrap:anywhere; }
+.table-wrap { overflow-x:auto; }
+@media(max-width:640px) {
+ .app-page { display:block; }
+ .sidebar { position:static; width:100%; height:auto; }
+ .sidebar-nav { display:flex; flex-wrap:wrap; max-height:none; gap:4px; }
+ .sidebar-user { display:block; }
+ .app-content { margin-left:0!important; width:100%; }
+ .page-body { padding:12px; }
+ .content-panel { padding:12px; }
+ .form-grid { grid-template-columns:1fr; }
+ .app-topbar { flex-wrap:wrap; gap:12px; }
+ .button { white-space:normal; }
+}

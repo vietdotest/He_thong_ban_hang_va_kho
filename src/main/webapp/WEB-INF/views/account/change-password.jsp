@@ -10,15 +10,7 @@
     <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
 </head>
 <body class="app-page">
-<aside class="sidebar">
-    <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a>
-    <nav class="sidebar-nav" aria-label="Điều hướng chính">
-        <a class="nav-item" href="${pageContext.request.contextPath}/dashboard"><span class="nav-icon">⌂</span>Tổng quan</a>
-        <c:if test="${currentUser.hasRole('ADMIN')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/users"><span class="nav-icon">♙</span>Người dùng</a></c:if>
-        <a class="nav-item active" href="${pageContext.request.contextPath}/account/change-password" aria-current="page"><span class="nav-icon">⚙</span>Tài khoản</a>
-    </nav>
-    <div class="sidebar-user"><span class="avatar"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span><span class="sidebar-user-name"><strong><c:out value="${currentUser.fullName()}"/></strong><small><c:out value="${currentUser.email()}"/></small></span></div>
-</aside>
+<%@ include file="../fragments/sidebar.jspf" %>
 <div class="app-content">
     <header class="app-topbar"><div><p class="breadcrumb">Tài khoản</p><h1>Đổi mật khẩu</h1></div><a class="button button-secondary" href="${pageContext.request.contextPath}/dashboard">Quay lại</a></header>
     <main class="page-body narrow-body">
