@@ -78,7 +78,7 @@
                                 </c:choose>
                                 <c:if test="${user.mustChangePassword()}"><small class="status-note">Chờ đổi mật khẩu</small></c:if>
                             </td>
-                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Chỉnh sửa</a></td>
+                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Chỉnh sửa</a> <a href="${pageContext.request.contextPath}/admin/assignments?id=${user.id()}">Phân công</a></td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty userPage.items()}"><tr><td class="table-empty" colspan="5">Không có tài khoản phù hợp với bộ lọc.</td></tr></c:if>

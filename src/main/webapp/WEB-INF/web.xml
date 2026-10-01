@@ -124,6 +124,22 @@
         <servlet-name>roleServlet</servlet-name>
         <url-pattern>/admin/roles</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>AssignmentServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AssignmentServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AssignmentServlet</servlet-name>
+        <url-pattern>/admin/assignments</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ScopeServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ScopeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ScopeServlet</servlet-name>
+        <url-pattern>/admin/scopes</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>

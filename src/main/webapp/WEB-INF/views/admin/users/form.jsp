@@ -42,7 +42,7 @@
                     <label class="field"><span>Tên đăng nhập <b>*</b></span><input name="username" maxlength="64" autocomplete="username" value="<c:out value='${form.username()}'/>" required><c:if test="${not empty errors.username}"><small class="field-error"><c:out value="${errors.username}"/></small></c:if></label>
                     <label class="field"><span>Email <b>*</b></span><input type="email" name="email" maxlength="254" autocomplete="email" value="<c:out value='${form.email()}'/>" required><c:if test="${not empty errors.email}"><small class="field-error"><c:out value="${errors.email}"/></small></c:if></label>
                     <label class="field"><span>Số điện thoại <b>*</b></span><input type="tel" name="phone" maxlength="20" autocomplete="tel" placeholder="0901234567" value="<c:out value='${form.phone()}'/>" required><c:if test="${not empty errors.phone}"><small class="field-error"><c:out value="${errors.phone}"/></small></c:if></label>
-                    <label class="field"><span>Vai trò <b>*</b></span><select name="roleCode" required>
+                    <label class="field"><span>Vai trò <b>*</b></span><c:if test="${editing}"><a href="${pageContext.request.contextPath}/admin/assignments?id=${userId}">Gán nhiều vai trò và phạm vi</a></c:if><select name="roleCode" required>
                         <c:forEach var="role" items="${roles}">
                             <c:choose>
                                 <c:when test="${form.roleCode() == role.code()}"><option value="${role.code()}" selected><c:out value="${role.name()}"/></option></c:when>
