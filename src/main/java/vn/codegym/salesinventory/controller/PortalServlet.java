@@ -25,7 +25,7 @@ public abstract class PortalServlet extends HttpServlet {
             if(post && !((CsrfTokenManager)getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER)).isValid(r.getSession(false),r.getParameter("_csrf"))) { s.sendError(403); return; }
             if(post) post(r,s); else get(r,s);
         } catch(SecurityException e) { s.sendError(403); }
-        catch(IllegalArgumentException e) { s.setStatus(400); r.setAttribute("message",e.getMessage()); view(r,s,"message"); }
+        catch(IllegalArgumentException e) { s.setStatus(400); r.setAttribute("message",e.getMessage()); r.setAttribute("returnPath",r.getRequestURI()); view(r,s,"message"); }
         catch(Exception e) { getServletContext().log("Không thể xử lý yêu cầu",e); s.sendError(500); }
     }
 }
