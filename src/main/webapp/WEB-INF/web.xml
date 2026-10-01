@@ -264,6 +264,14 @@
         <servlet-name>ProductImportServlet</servlet-name>
         <url-pattern>/catalog/products/import</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>PricingServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.PricingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PricingServlet</servlet-name>
+        <url-pattern>/pricing/lists</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
