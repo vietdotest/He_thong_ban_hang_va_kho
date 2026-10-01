@@ -243,6 +243,14 @@
         <servlet-name>UnitServlet</servlet-name>
         <url-pattern>/catalog/units</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>SupplierServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.SupplierServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SupplierServlet</servlet-name>
+        <url-pattern>/catalog/suppliers</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
