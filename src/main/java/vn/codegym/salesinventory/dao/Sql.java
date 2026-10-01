@@ -41,6 +41,11 @@ public final class Sql {
     }
     public static long id(Object value) { return ((Number)value).longValue(); }
     public static String text(Object value) { return value==null ? "" : value.toString(); }
+    public static java.time.Instant instant(Object value) {
+        if(value instanceof Timestamp t) return t.toInstant();
+        if(value instanceof java.time.LocalDateTime t) return t.toInstant(java.time.ZoneOffset.UTC);
+        throw new IllegalArgumentException("Thời điểm không hợp lệ.");
+    }
     private static void bind(PreparedStatement s,Object[] args) throws SQLException {
         for(int i=0;i<args.length;i++) s.setObject(i+1,args[i]);
     }
