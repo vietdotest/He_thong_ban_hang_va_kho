@@ -84,6 +84,8 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             );
             PasswordChangeService passwordChangeService = new PasswordChangeService(
                     dataSource, users, sessions, audits, passwordHasher, clock);
+            vn.codegym.salesinventory.service.ActivationService activationService=new vn.codegym.salesinventory.service.ActivationService(dataSource,clock,config.passwordReset().appBaseUrl(),mailService);
+            servletContext.setAttribute("app.activationService",activationService);
             UserManagementService userManagementService = new UserManagementService(
                     dataSource,
                     new JdbcUserManagementRepository(),
@@ -92,7 +94,7 @@ public final class ApplicationLifecycleListener implements ServletContextListene
                     passwordHasher,
                     mailService,
                     new TemporaryPasswordGenerator(),
-                    clock
+                    clock, activationService
             );
 
             servletContext.setAttribute(ApplicationContextKeys.DATA_SOURCE, dataSource);

@@ -32,6 +32,7 @@ public final class UserManagementService {
     private final MailService mailService;
     private final TemporaryPasswordGenerator passwordGenerator;
     private final Clock clock;
+    private ActivationService activationService;
 
     public UserManagementService(
             DataSource dataSource,
@@ -51,6 +52,10 @@ public final class UserManagementService {
         this.mailService = mailService;
         this.passwordGenerator = passwordGenerator;
         this.clock = clock;
+    }
+
+    public UserManagementService(DataSource source,UserManagementRepository users,SessionRepository sessions,AuditLogRepository audits,PasswordHasher hasher,MailService mail,TemporaryPasswordGenerator generator,Clock clock,ActivationService activation) {
+        this(source,users,sessions,audits,hasher,mail,generator,clock); this.activationService=activation;
     }
 
     public UserPage search(UserSearchCriteria requested) {
@@ -88,6 +93,10 @@ public final class UserManagementService {
             long actorUserId,
             AuthenticationContext context
     ) {
+        return createAssigned(command,actorUserId,context,null,null,null);
+    }
+    public UserManagementResult createAssigned(UserAccountCommand command,long actorUserId,AuthenticationContext context,java.util.Set<String> roles,java.util.Set<Long> warehouses,java.util.Set<Long> territories) {
+        if(roles!=null) AssignmentService.validate(actorUserId,-1,roles,warehouses);
         Instant now = clock.instant();
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -101,14 +110,16 @@ public final class UserManagementService {
                     return UserManagementResult.failure(UserManagementResult.Status.INVALID_ROLE);
                 }
                 String temporaryPassword = passwordGenerator.generate();
-                long userId = users.create(connection, command, passwordHasher.hash(temporaryPassword), now);
+                UserAccountCommand effective = activationService == null ? command : new UserAccountCommand(command.username(),command.email(),command.fullName(),command.phone(),command.roleCode(),UserStatus.PENDING_ACTIVATION,command.version());
+                long userId = users.create(connection, effective, passwordHasher.hash(temporaryPassword), now);
                 users.replaceRole(connection, userId, command.roleCode());
+                if(roles!=null) AssignmentService.replace(connection,userId,roles,warehouses,territories);
                 audits.record(connection, actorUserId, "USER_CREATED",
                         "targetUserId=" + userId + ";role=" + command.roleCode() + ";status=" + command.status(),
                         context.ipAddress(), context.userAgent(), now);
                 try {
-                    mailService.sendTemporaryPassword(
-                            command.email(), command.fullName(), command.username(), temporaryPassword);
+                    if(activationService == null) mailService.sendTemporaryPassword(command.email(),command.fullName(),command.username(),temporaryPassword);
+                    else activationService.send(command.email(),command.fullName(),command.username(),temporaryPassword,activationService.issue(connection,userId));
                 } catch (RuntimeException deliveryFailure) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.EMAIL_DELIVERY_FAILED);
@@ -158,6 +169,9 @@ public final class UserManagementService {
                         && (command.status() != UserStatus.ACTIVE || !"ADMIN".equals(command.roleCode()))) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.SELF_PROTECTION);
+                }
+                if(command.status()!=found.get().status()) {
+                    connection.rollback(); return UserManagementResult.failure(UserManagementResult.Status.FORBIDDEN);
                 }
                 if (users.update(connection, userId, command) != 1) {
                     connection.rollback();

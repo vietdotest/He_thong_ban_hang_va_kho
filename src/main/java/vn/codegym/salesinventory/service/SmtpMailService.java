@@ -49,6 +49,9 @@ public final class SmtpMailService implements MailService {
                 """.formatted(fullName, username, temporaryPassword));
     }
 
+    @Override public void sendActivation(String email,String name,String username,String password,String url) {
+        send(email,"Kích hoạt tài khoản bán hàng và kho","Xin chào " + name + "\nTên đăng nhập: " + username + "\nMật khẩu tạm: " + password + "\nLiên kết kích hoạt (24 giờ, một lần): " + url + "\nHãy đổi mật khẩu ở lần đăng nhập đầu tiên.");
+    }
     private void send(String recipient, String subject, String body) {
         Properties properties = new Properties();
         properties.setProperty("mail.smtp.host", host);

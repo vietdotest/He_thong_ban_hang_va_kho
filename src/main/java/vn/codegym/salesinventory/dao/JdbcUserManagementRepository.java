@@ -194,8 +194,6 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 UPDATE users
                 SET username = ?, username_normalized = ?, email = ?, email_normalized = ?,
                     full_name = ?, phone = ?, phone_normalized = ?, status = ?,
-                    failed_login_count = CASE WHEN ? = 'ACTIVE' THEN 0 ELSE failed_login_count END,
-                    locked_until = CASE WHEN ? = 'ACTIVE' THEN NULL ELSE locked_until END,
                     version = version + 1
                 WHERE id = ? AND version = ?
                 """;
@@ -208,10 +206,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
             statement.setString(6, command.phone());
             statement.setString(7, command.normalizedPhone());
             statement.setString(8, command.status().name());
-            statement.setString(9, command.status().name());
-            statement.setString(10, command.status().name());
-            statement.setLong(11, userId);
-            statement.setLong(12, command.version());
+            statement.setLong(9, userId);
+            statement.setLong(10, command.version());
             return statement.executeUpdate();
         }
     }

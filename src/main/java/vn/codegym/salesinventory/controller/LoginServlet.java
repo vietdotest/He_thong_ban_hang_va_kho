@@ -74,6 +74,8 @@ public final class LoginServlet extends HttpServlet {
         String reason = request.getParameter("reason");
         if ("logged_out".equals(reason)) {
             request.setAttribute("notice", "Bạn đã đăng xuất.");
+        } else if ("activated".equals(reason)) {
+            request.setAttribute("successMessage","Tài khoản đã được kích hoạt. Vui lòng đăng nhập bằng mật khẩu tạm.");
         } else if ("session_expired".equals(reason)) {
             request.setAttribute("notice", "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         } else if ("password_reset".equals(reason)) {
