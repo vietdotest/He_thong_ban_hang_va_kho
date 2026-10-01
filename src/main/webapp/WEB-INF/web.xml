@@ -43,6 +43,19 @@
         <filter-name>authenticationFilter</filter-name>
         <url-pattern>/logout</url-pattern>
     </filter-mapping>
+    <filter-mapping>
+        <filter-name>authenticationFilter</filter-name>
+        <url-pattern>/admin/*</url-pattern>
+    </filter-mapping>
+
+    <filter>
+        <filter-name>adminAuthorizationFilter</filter-name>
+        <filter-class>vn.codegym.salesinventory.filter.AdminAuthorizationFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>adminAuthorizationFilter</filter-name>
+        <url-pattern>/admin/*</url-pattern>
+    </filter-mapping>
 
     <servlet>
         <servlet-name>healthServlet</servlet-name>
@@ -105,6 +118,33 @@
     <servlet-mapping>
         <servlet-name>logoutServlet</servlet-name>
         <url-pattern>/logout</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>userListServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userListServlet</servlet-name>
+        <url-pattern>/admin/users</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>userCreateServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserCreateServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userCreateServlet</servlet-name>
+        <url-pattern>/admin/users/new</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>userEditServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserEditServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userEditServlet</servlet-name>
+        <url-pattern>/admin/users/edit</url-pattern>
     </servlet-mapping>
 
     <session-config>

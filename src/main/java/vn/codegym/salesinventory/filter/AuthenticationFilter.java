@@ -62,11 +62,21 @@ public final class AuthenticationFilter implements Filter {
             redirectToLogin(httpRequest, httpResponse, true);
             return;
         }
-        session.setAttribute(SessionKeys.CURRENT_USER, validation.currentUser());
+        CurrentUser refreshedUser = validation.currentUser();
+        session.setAttribute(SessionKeys.CURRENT_USER, refreshedUser);
         session.setAttribute(SessionKeys.SERVER_SESSION_ID, validation.serverSessionId());
 
         httpResponse.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         httpResponse.setHeader("Pragma", "no-cache");
+        String requestPath = httpRequest.getRequestURI();
+        if (refreshedUser.mustChangePassword()
+                && !requestPath.equals(httpRequest.getContextPath() + "/account/change-password")
+                && !requestPath.equals(httpRequest.getContextPath() + "/logout")) {
+            httpResponse.setStatus(HttpServletResponse.SC_SEE_OTHER);
+            httpResponse.setHeader("Location", httpResponse.encodeRedirectURL(
+                    httpRequest.getContextPath() + "/account/change-password?required=true"));
+            return;
+        }
         chain.doFilter(request, response);
     }
 

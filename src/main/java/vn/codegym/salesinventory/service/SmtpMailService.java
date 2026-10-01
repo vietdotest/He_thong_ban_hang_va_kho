@@ -21,6 +21,35 @@ public final class SmtpMailService implements MailService {
 
     @Override
     public void sendPasswordReset(String recipient, String fullName, String resetUrl, int expiryMinutes) {
+        send(recipient, "Đặt lại mật khẩu", """
+                Xin chào %s,
+
+                Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+                Mở liên kết sau để tạo mật khẩu mới:
+
+                %s
+
+                Liên kết có hiệu lực trong %d phút và chỉ sử dụng được một lần.
+                Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.
+                """.formatted(fullName, resetUrl, expiryMinutes));
+    }
+
+    @Override
+    public void sendTemporaryPassword(String recipient, String fullName, String username, String temporaryPassword) {
+        send(recipient, "Tài khoản bán hàng và kho đã được tạo", """
+                Xin chào %s,
+
+                Tài khoản của bạn trên hệ thống bán hàng và kho đã được tạo.
+
+                Tên đăng nhập: %s
+                Mật khẩu tạm thời: %s
+
+                Vui lòng đăng nhập và đổi mật khẩu ngay trong lần sử dụng đầu tiên.
+                Không chuyển tiếp email này cho người khác.
+                """.formatted(fullName, username, temporaryPassword));
+    }
+
+    private void send(String recipient, String subject, String body) {
         Properties properties = new Properties();
         properties.setProperty("mail.smtp.host", host);
         properties.setProperty("mail.smtp.port", Integer.toString(port));
@@ -31,21 +60,11 @@ public final class SmtpMailService implements MailService {
             MimeMessage message = new MimeMessage(mailSession);
             message.setFrom(new InternetAddress(from));
             message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
-            message.setSubject("Đặt lại mật khẩu", "UTF-8");
-            message.setText("""
-                    Xin chào %s,
-
-                    Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
-                    Mở liên kết sau để tạo mật khẩu mới:
-
-                    %s
-
-                    Liên kết có hiệu lực trong %d phút và chỉ sử dụng được một lần.
-                    Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.
-                    """.formatted(fullName, resetUrl, expiryMinutes), "UTF-8");
+            message.setSubject(subject, "UTF-8");
+            message.setText(body, "UTF-8");
             Transport.send(message);
         } catch (MessagingException exception) {
-            throw new IllegalStateException("Password reset email could not be sent", exception);
+            throw new IllegalStateException("Email could not be sent", exception);
         }
     }
 }

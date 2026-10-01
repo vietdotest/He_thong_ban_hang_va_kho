@@ -81,6 +81,7 @@ public final class ChangePasswordServlet extends HttpServlet {
                 RequestMetadata.seeOther(response, request.getContextPath() + "/login?reason=session_expired");
                 return;
             } else {
+                session.setAttribute(SessionKeys.CURRENT_USER, user.passwordChangeCompleted());
                 csrfTokenManager.rotate(session);
                 request.setAttribute("successMessage", "Mật khẩu đã được cập nhật. Các phiên đăng nhập khác đã được kết thúc.");
             }
