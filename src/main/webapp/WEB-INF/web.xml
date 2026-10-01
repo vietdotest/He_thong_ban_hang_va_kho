@@ -206,6 +206,14 @@
         <servlet-name>UserImportServlet</servlet-name>
         <url-pattern>/admin/users/import</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>CategoryServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.CategoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CategoryServlet</servlet-name>
+        <url-pattern>/catalog/categories</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
