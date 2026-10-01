@@ -14,7 +14,7 @@ public final class AvatarServlet extends PortalServlet {
         var part=r.getPart("image");if(part==null || part.getSize()>ImageStorage.MAX_BYTES)throw new IllegalArgumentException("Chọn ảnh JPG/PNG tối đa 2MB.");
         byte[] bytes;try(var input=part.getInputStream()) {bytes=input.readNBytes(ImageStorage.MAX_BYTES+1);}
         ImageStorage storage=ImageStorage.configured();String key=storage.save(bytes);String old;
-        try { old=Sql.transaction(source(),c -> {var before=Sql.one(c,"SELECT avatar_key FROM users WHERE id=? FOR UPDATE",actor(r).id());Sql.update(c,"UPDATE users SET avatar_key=?,version=version+1 WHERE id=?",key,actor(r).id());return Sql.text(before.get("avatar_key"));}); }
+        try { old=Sql.transaction(source(),c -> {var before=Sql.one(c,"SELECT avatar_key FROM users WHERE id=? FOR UPDATE",actor(r).id());Sql.update(c,"UPDATE users SET avatar_key=?,version=version+1 WHERE id=?",key,actor(r).id());vn.codegym.salesinventory.service.AuditService.record(c,actor(r).id(),"AVATAR_UPDATED","USER",actor(r).id(),before,java.util.Map.of("avatar_key",key));return Sql.text(before.get("avatar_key"));}); }
         catch(RuntimeException e) {storage.remove(key);throw e;}
         storage.remove(old);redirect(r,s,"/account/profile?notice=saved");
     }
