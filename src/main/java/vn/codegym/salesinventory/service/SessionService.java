@@ -52,6 +52,8 @@ public final class SessionService {
                 user.username(),
                 user.email(),
                 user.fullName(),
+                user.roleCodes(),
+                user.mustChangePassword(),
                 UserStatus.ACTIVE,
                 null,
                 now,
@@ -100,7 +102,8 @@ public final class SessionService {
             }
             sessions.touch(connection, session.id(), now);
             CurrentUser user = new CurrentUser(
-                    session.userId(), session.username(), session.email(), session.fullName());
+                    session.userId(), session.username(), session.email(), session.fullName(),
+                    session.roleCodes(), session.mustChangePassword());
             return SessionValidationResult.valid(user, session.id());
         });
     }

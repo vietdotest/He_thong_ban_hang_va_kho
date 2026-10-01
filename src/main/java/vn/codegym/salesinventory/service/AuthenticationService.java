@@ -130,9 +130,11 @@ public final class AuthenticationService {
                         context.userAgent(),
                         now
                 );
+                java.util.Set<String> roleCodes = users.findRoleCodes(connection, user.id());
                 connection.commit();
                 return AuthenticationResult.success(
-                        new CurrentUser(user.id(), user.username(), user.email(), user.fullName())
+                        new CurrentUser(user.id(), user.username(), user.email(), user.fullName(),
+                                roleCodes, user.mustChangePassword())
                 );
             } catch (SQLException | RuntimeException exception) {
                 rollbackQuietly(connection);

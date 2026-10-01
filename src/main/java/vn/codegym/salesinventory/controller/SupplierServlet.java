@@ -1,0 +1,6 @@
+package vn.codegym.salesinventory.controller;
+import jakarta.servlet.http.*;import vn.codegym.salesinventory.service.*;import vn.codegym.salesinventory.dao.Sql;
+public final class SupplierServlet extends PortalServlet {
+ protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception{var suppliers=new SupplierService(source()).list(actor(r).id(),value(r,"q"));r.setAttribute("suppliers",suppliers);r.setAttribute("warehouses",access(r).warehouses());if(!value(r,"id").isEmpty()){long id=number(r,"id");r.setAttribute("edit",suppliers.stream().filter(row->Sql.id(row.get("id"))==id).findFirst().orElseThrow(()->new IllegalArgumentException("Không tìm thấy nhà cung cấp trong phạm vi.")));}view(r,s,"catalog/suppliers");}
+ protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{var service=new SupplierService(source());long id=value(r,"id").isEmpty()?0:number(r,"id");if(value(r,"action").equals("delete"))service.delete(actor(r).id(),id);else service.save(actor(r).id(),id,new SupplierService.Input(value(r,"code"),value(r,"name"),value(r,"taxCode"),value(r,"contact"),value(r,"phone"),value(r,"terms"),number(r,"warehouse"),value(r,"status"),value(r,"version").isEmpty()?0:number(r,"version")));redirect(r,s,"/catalog/suppliers");}
+}

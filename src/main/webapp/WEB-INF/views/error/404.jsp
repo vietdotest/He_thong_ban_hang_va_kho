@@ -1,25 +1,2 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>404 - Trang không tồn tại</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background-color: #f8f9fa; }
-        .box { background: #fff; padding: 40px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        h1 { font-size: 72px; color: #dc3545; margin: 0; }
-        h2 { color: #333; }
-        p { color: #6c757d; margin-bottom: 25px; }
-        .btn { padding: 10px 20px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; }
-        .btn:hover { background-color: #0b5ed7; }
-    </style>
-</head>
-<body>
-    <div class="box">
-        <h1>404</h1>
-        <h2>Trang không tồn tại</h2>
-        <p>Địa chỉ bạn truy cập không đúng hoặc trang này đã bị xóa.</p>
-        <a href="${pageContext.request.contextPath}/" class="btn">Quay lại trang chủ</a>
-    </div>
-</body>
-</html>
+<%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>404 — Trang không tồn tại</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001"></head><body class="app-page"><c:set var="currentUser" value="${sessionScope['auth.currentUser']}"/><c:if test="${not empty currentUser}"><%@ include file="../fragments/sidebar.jspf" %></c:if><main class="page-body app-content"><section class="content-panel"><p class="breadcrumb">Thông báo 404</p><h1>Trang không tồn tại</h1><p>Đường dẫn không tồn tại hoặc dữ liệu đã được chuyển sang vị trí khác.</p><c:choose><c:when test="${not empty currentUser}"><a class="button button-primary" href="${pageContext.request.contextPath}/dashboard">Về phần việc của tôi</a></c:when><c:otherwise><a class="button button-primary" href="${pageContext.request.contextPath}/login">Đăng nhập</a></c:otherwise></c:choose></section></main></body></html>

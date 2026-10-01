@@ -8,6 +8,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -84,6 +85,27 @@ class AuthenticationFilterTest {
 
         verify(session).invalidate();
         verify(response).setHeader("Location", "/login?reason=session_expired");
+        verify(chain, never()).doFilter(request, response);
+    }
+
+    @Test
+    void firstLoginIsRedirectedToRequiredPasswordChange() throws Exception {
+        CurrentUser pendingUser = new CurrentUser(
+                8L, "lan.nguyen", "lan@example.com", "Nguyễn Lan", Set.of("SALES"), true);
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute(SessionKeys.CURRENT_USER)).thenReturn(pendingUser);
+        when(session.getId()).thenReturn("first-login-session");
+        when(sessionService.validate("first-login-session"))
+                .thenReturn(SessionValidationResult.valid(pendingUser, "server-session-id"));
+        when(request.getRequestURI()).thenReturn("/dashboard");
+        when(request.getContextPath()).thenReturn("");
+        when(response.encodeRedirectURL("/account/change-password?required=true"))
+                .thenReturn("/account/change-password?required=true");
+
+        filter.doFilter(request, response, chain);
+
+        verify(response).setStatus(HttpServletResponse.SC_SEE_OTHER);
+        verify(response).setHeader("Location", "/account/change-password?required=true");
         verify(chain, never()).doFilter(request, response);
     }
 }

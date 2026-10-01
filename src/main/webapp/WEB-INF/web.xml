@@ -1,14 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
-         version="6.0">
+<?xml version='1.0' encoding='utf-8'?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd" version="6.0">
     <display-name>Hệ thống bán hàng và kho</display-name>
-
     <listener>
         <listener-class>vn.codegym.salesinventory.listener.ApplicationLifecycleListener</listener-class>
     </listener>
-
     <filter>
         <filter-name>characterEncodingFilter</filter-name>
         <filter-class>vn.codegym.salesinventory.filter.CharacterEncodingFilter</filter-class>
@@ -17,7 +12,6 @@
         <filter-name>characterEncodingFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
-
     <filter>
         <filter-name>securityHeadersFilter</filter-name>
         <filter-class>vn.codegym.salesinventory.filter.SecurityHeadersFilter</filter-class>
@@ -26,24 +20,22 @@
         <filter-name>securityHeadersFilter</filter-name>
         <url-pattern>/*</url-pattern>
     </filter-mapping>
-
     <filter>
         <filter-name>authenticationFilter</filter-name>
         <filter-class>vn.codegym.salesinventory.filter.AuthenticationFilter</filter-class>
     </filter>
     <filter-mapping>
         <filter-name>authenticationFilter</filter-name>
-        <url-pattern>/dashboard</url-pattern>
+        <url-pattern>/*</url-pattern>
     </filter-mapping>
+    <filter>
+        <filter-name>authorizationFilter</filter-name>
+        <filter-class>vn.codegym.salesinventory.filter.AuthorizationFilter</filter-class>
+    </filter>
     <filter-mapping>
-        <filter-name>authenticationFilter</filter-name>
-        <url-pattern>/account/*</url-pattern>
+        <filter-name>authorizationFilter</filter-name>
+        <url-pattern>/*</url-pattern>
     </filter-mapping>
-    <filter-mapping>
-        <filter-name>authenticationFilter</filter-name>
-        <url-pattern>/logout</url-pattern>
-    </filter-mapping>
-
     <servlet>
         <servlet-name>healthServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.HealthServlet</servlet-class>
@@ -52,7 +44,6 @@
         <servlet-name>healthServlet</servlet-name>
         <url-pattern>/health</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>loginServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.LoginServlet</servlet-class>
@@ -61,7 +52,6 @@
         <servlet-name>loginServlet</servlet-name>
         <url-pattern>/login</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>forgotPasswordServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.ForgotPasswordServlet</servlet-class>
@@ -70,7 +60,6 @@
         <servlet-name>forgotPasswordServlet</servlet-name>
         <url-pattern>/forgot-password</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>resetPasswordServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.ResetPasswordServlet</servlet-class>
@@ -79,7 +68,6 @@
         <servlet-name>resetPasswordServlet</servlet-name>
         <url-pattern>/reset-password</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>dashboardServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.DashboardServlet</servlet-class>
@@ -88,7 +76,6 @@
         <servlet-name>dashboardServlet</servlet-name>
         <url-pattern>/dashboard</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>changePasswordServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.ChangePasswordServlet</servlet-class>
@@ -97,7 +84,6 @@
         <servlet-name>changePasswordServlet</servlet-name>
         <url-pattern>/account/change-password</url-pattern>
     </servlet-mapping>
-
     <servlet>
         <servlet-name>logoutServlet</servlet-name>
         <servlet-class>vn.codegym.salesinventory.controller.LogoutServlet</servlet-class>
@@ -106,7 +92,186 @@
         <servlet-name>logoutServlet</servlet-name>
         <url-pattern>/logout</url-pattern>
     </servlet-mapping>
-
+    <servlet>
+        <servlet-name>userListServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userListServlet</servlet-name>
+        <url-pattern>/admin/users</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>userCreateServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserCreateServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userCreateServlet</servlet-name>
+        <url-pattern>/admin/users/new</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>userEditServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserEditServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>userEditServlet</servlet-name>
+        <url-pattern>/admin/users/edit</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>roleServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.RoleServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>roleServlet</servlet-name>
+        <url-pattern>/admin/roles</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>AssignmentServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AssignmentServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AssignmentServlet</servlet-name>
+        <url-pattern>/admin/assignments</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ScopeServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ScopeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ScopeServlet</servlet-name>
+        <url-pattern>/admin/scopes</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ActivationServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ActivationServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ActivationServlet</servlet-name>
+        <url-pattern>/activate</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ActivationResendServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ActivationResendServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ActivationResendServlet</servlet-name>
+        <url-pattern>/admin/users/activation</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>AccountStatusServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AccountStatusServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AccountStatusServlet</servlet-name>
+        <url-pattern>/admin/users/status</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProfileServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProfileServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProfileServlet</servlet-name>
+        <url-pattern>/account/profile</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>AvatarServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AvatarServlet</servlet-class>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>11534336</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AvatarServlet</servlet-name>
+        <url-pattern>/account/avatar</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>AuditServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AuditServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AuditServlet</servlet-name>
+        <url-pattern>/admin/audit</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>UserImportServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UserImportServlet</servlet-class>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>11534336</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UserImportServlet</servlet-name>
+        <url-pattern>/admin/users/import</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>CategoryServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.CategoryServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CategoryServlet</servlet-name>
+        <url-pattern>/catalog/categories</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProductServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProductServlet</servlet-class>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>11534336</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProductServlet</servlet-name>
+        <url-pattern>/catalog/products</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProductImageServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProductImageServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProductImageServlet</servlet-name>
+        <url-pattern>/catalog/products/image</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>UnitServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.UnitServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>UnitServlet</servlet-name>
+        <url-pattern>/catalog/units</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>SupplierServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.SupplierServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>SupplierServlet</servlet-name>
+        <url-pattern>/catalog/suppliers</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>ProductImportServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.ProductImportServlet</servlet-class>
+        <multipart-config>
+            <max-file-size>10485760</max-file-size>
+            <max-request-size>11534336</max-request-size>
+            <file-size-threshold>0</file-size-threshold>
+        </multipart-config>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProductImportServlet</servlet-name>
+        <url-pattern>/catalog/products/import</url-pattern>
+    </servlet-mapping>
+    <servlet>
+        <servlet-name>PricingServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.PricingServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PricingServlet</servlet-name>
+        <url-pattern>/pricing/lists</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
@@ -115,8 +280,19 @@
         </cookie-config>
         <tracking-mode>COOKIE</tracking-mode>
     </session-config>
-
     <welcome-file-list>
         <welcome-file>login</welcome-file>
     </welcome-file-list>
+    <error-page>
+        <error-code>403</error-code>
+        <location>/WEB-INF/views/error/403.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>404</error-code>
+        <location>/WEB-INF/views/error/404.jsp</location>
+    </error-page>
+    <error-page>
+        <error-code>500</error-code>
+        <location>/WEB-INF/views/error/500.jsp</location>
+    </error-page>
 </web-app>
