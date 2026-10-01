@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
+    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
 </head>
 <body class="app-page">
 <%@ include file="../../fragments/sidebar.jspf" %>
@@ -50,3 +50,4 @@
 </div>
 </body>
 </html>
+
