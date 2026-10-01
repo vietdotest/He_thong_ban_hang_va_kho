@@ -156,6 +156,14 @@
         <servlet-name>ActivationResendServlet</servlet-name>
         <url-pattern>/admin/users/activation</url-pattern>
     </servlet-mapping>
+    <servlet>
+        <servlet-name>AccountStatusServlet</servlet-name>
+        <servlet-class>vn.codegym.salesinventory.controller.AccountStatusServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AccountStatusServlet</servlet-name>
+        <url-pattern>/admin/users/status</url-pattern>
+    </servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
