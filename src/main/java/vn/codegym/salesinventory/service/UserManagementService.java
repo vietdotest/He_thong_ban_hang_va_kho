@@ -92,7 +92,7 @@ public final class UserManagementService {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                if (!users.userHasRole(connection, actorUserId, "ADMIN")) {
+                if (!users.userHasRole(connection, actorUserId, "ADMIN") && !users.userHasPermission(connection, actorUserId, "USER_MANAGE")) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.FORBIDDEN);
                 }
@@ -141,7 +141,7 @@ public final class UserManagementService {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             try {
-                if (!users.userHasRole(connection, actorUserId, "ADMIN")) {
+                if (!users.userHasRole(connection, actorUserId, "ADMIN") && !users.userHasPermission(connection, actorUserId, "USER_MANAGE")) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.FORBIDDEN);
                 }

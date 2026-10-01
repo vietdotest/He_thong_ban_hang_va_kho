@@ -43,6 +43,8 @@ public final class AuthenticationFilter implements Filter {
             throws IOException, ServletException {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        String path = httpRequest.getRequestURI() == null ? "" : httpRequest.getRequestURI().substring(httpRequest.getContextPath().length());
+        if (vn.codegym.salesinventory.security.RoutePermissions.publicPath(path)) { chain.doFilter(request,response); return; }
         HttpSession session = httpRequest.getSession(false);
         Object currentUser = session == null ? null : session.getAttribute(SessionKeys.CURRENT_USER);
 
