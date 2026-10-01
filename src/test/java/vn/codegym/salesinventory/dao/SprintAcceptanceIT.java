@@ -23,7 +23,10 @@ class SprintAcceptanceIT {
         HikariConfig config=new HikariConfig();config.setJdbcUrl(MYSQL.getJdbcUrl()+"?serverTimezone=UTC");config.setUsername(MYSQL.getUsername());config.setPassword(MYSQL.getPassword());source=new HikariDataSource(config);
         // Nâng cấp database cũ, thay vì chỉ thử database trống.
         Flyway.configure().dataSource(source).target("4").load().migrate();
+        // Tài khoản, vai trò và phiên có dữ liệu trước khi nâng cấp lên Sprint 2.
+        Sql.transaction(source,c->{long legacy=Sql.insert(c,"INSERT INTO users(username,username_normalized,email,email_normalized,full_name,password_hash,status) SELECT 'legacy-preserved','legacy-preserved','legacy@test.local','legacy@test.local','Tài khoản cũ',password_hash,'ACTIVE' FROM users WHERE id=1");Sql.update(c,"INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE code='SALES'",legacy);Sql.update(c,"INSERT INTO user_sessions(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)","00000000-0000-0000-0000-000000000099",legacy,"9".repeat(64),java.sql.Timestamp.from(now.plusSeconds(86400)));return null;});
         Flyway.configure().dataSource(source).load().migrate();
+        var legacy=Sql.transaction(source,c->Sql.one(c,"SELECT u.username,u.status,r.code,s.token_hash FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN user_sessions s ON s.user_id=u.id WHERE u.username='legacy-preserved'"));assertThat(legacy.get("status")).isEqualTo("ACTIVE");assertThat(legacy.get("code")).isEqualTo("SALES");assertThat(legacy.get("token_hash")).isEqualTo("9".repeat(64));
     }
     @AfterAll void close() { source.close(); }
     long user(String role) {
