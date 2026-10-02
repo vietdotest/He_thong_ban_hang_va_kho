@@ -23,11 +23,12 @@
             <h2 id="audit-filter-heading">Bộ lọc nhật ký</h2>
             <p class="audit-helper">Tra cứu người thực hiện và đối chiếu dữ liệu trước, sau thay đổi.</p>
             <form method="get" action="${pageContext.request.contextPath}/admin/audit" class="audit-filters">
+                <c:if test="${not empty filterError}"><p class="field-error" role="alert"><c:out value="${filterError}"/></p></c:if>
                 <label class="field">Người thực hiện
                     <select name="userId">
                         <option value="">Tất cả</option>
                         <c:forEach var="u" items="${users}">
-                            <option value="${u.id}" ${param.userId == u.id ? 'selected' : ''}><c:out value="${u.full_name}"/></option>
+                            <option value="${u.id}" ${param.userId == u.id.toString() ? 'selected' : ''}><c:out value="${u.full_name}"/></option>
                         </c:forEach>
                     </select>
                 </label>

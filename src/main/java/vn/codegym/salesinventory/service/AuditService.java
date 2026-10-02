@@ -5,13 +5,18 @@ import vn.codegym.salesinventory.dao.Sql;
 /** Module tồn kho/công nợ/hóa đơn dùng record trong cùng giao dịch ghi sổ. */
 public final class AuditService {
     private static final Set<String> SENSITIVE=Set.of("cost_price","cost","margin","profit_margin");
-    private static final Set<String> SECRET=Set.of("password","password_hash","token","token_hash","temporary_password");
+    private static final Set<String> SECRET=Set.of("password","password_hash","token","token_hash","temporary_password","password_confirmation","csrf_token","_csrf","reset_token","activation_token");
     private AuditService() { }
     public static String snapshot(Map<String,?> values,boolean sensitive) {
         if(values==null)return null;StringJoiner json=new StringJoiner(",","{","}");
-        values.forEach((key,value) -> { if(!SECRET.contains(key) && SENSITIVE.contains(key)==sensitive)json.add(quote(key)+":"+jsonValue(value)); });return json.toString();
+        values.forEach((key,value) -> { String normalized=key.toLowerCase(Locale.ROOT);if(!SECRET.contains(normalized) && SENSITIVE.contains(normalized)==sensitive)json.add(quote(key)+":"+jsonValue(value,sensitive)); });return json.toString();
     }
-    private static String jsonValue(Object v) { if(v==null)return "null";if(v instanceof Number || v instanceof Boolean)return v.toString();return quote(v.toString()); }
+    private static String jsonValue(Object v,boolean sensitive) {
+        if(v==null)return "null";if(v instanceof Number || v instanceof Boolean)return v.toString();
+        if(v instanceof Map<?,?> map) {var values=new LinkedHashMap<String,Object>();map.forEach((k,value)->values.put(String.valueOf(k),value));return snapshot(values,sensitive);}
+        if(v instanceof Collection<?> items) {StringJoiner json=new StringJoiner(",","[","]");items.forEach(item->json.add(jsonValue(item,sensitive)));return json.toString();}
+        return quote(v.toString());
+    }
     private static String quote(String value) {
         StringBuilder s=new StringBuilder("\"");for(char ch:value.toCharArray()) {switch(ch) {case '"' -> s.append("\\\"");case '\\' -> s.append("\\\\");case '\n' -> s.append("\\n");case '\r' -> s.append("\\r");case '\t' -> s.append("\\t");default -> {if(ch<32)s.append(String.format("\\u%04x",(int)ch));else s.append(ch);} }}return s.append('"').toString();
     }
@@ -20,6 +25,7 @@ public final class AuditService {
     }
     public static List<Map<String,Object>> read(Connection c,vn.codegym.salesinventory.security.Access access,String filter,Object[] args,int offset) throws SQLException {
         access.require("AUDIT_READ");
+        if(offset<0)throw new IllegalArgumentException("Trang không hợp lệ.");
         String sensitive=access.allows("COST_READ") ? ",a.before_cost,a.after_cost" : "";
         var rows=Sql.query(c,"SELECT a.id,a.event_type,a.object_type,a.object_id,a.before_values,a.after_values,a.occurred_at,u.full_name"+sensitive+" FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id"+filter+" ORDER BY a.occurred_at DESC,a.id DESC LIMIT 100 OFFSET "+offset,args);
         for(var row:rows) row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
