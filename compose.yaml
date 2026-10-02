@@ -8,9 +8,9 @@ services:
       MYSQL_USER: sales_app
       MYSQL_PASSWORD: sales_app123
       MYSQL_ROOT_PASSWORD: root123
-      TZ: UTC
+      TZ: Asia/Ho_Chi_Minh
     command:
-      - --default-time-zone=+00:00
+      - --default-time-zone=+07:00
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_0900_ai_ci
     ports:
@@ -31,7 +31,7 @@ services:
       - "8025:8025"
     environment:
       MP_DATABASE: /data/mailpit.db
-      TZ: UTC
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - mailpit_data:/data
 

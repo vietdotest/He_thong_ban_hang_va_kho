@@ -16,7 +16,7 @@ public final class AuditService {
         StringBuilder s=new StringBuilder("\"");for(char ch:value.toCharArray()) {switch(ch) {case '"' -> s.append("\\\"");case '\\' -> s.append("\\\\");case '\n' -> s.append("\\n");case '\r' -> s.append("\\r");case '\t' -> s.append("\\t");default -> {if(ch<32)s.append(String.format("\\u%04x",(int)ch));else s.append(ch);} }}return s.append('"').toString();
     }
     public static void record(Connection c,long actor,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
-        Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(?,?,?,?,?,?,?,?,UTC_TIMESTAMP(6))",actor,event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
+        Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",actor,event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
     }
     public static List<Map<String,Object>> read(Connection c,vn.codegym.salesinventory.security.Access access,String filter,Object[] args,int offset) throws SQLException {
         access.require("AUDIT_READ");
