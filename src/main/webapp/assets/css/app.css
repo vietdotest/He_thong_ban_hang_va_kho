@@ -478,6 +478,33 @@ label { overflow-wrap:anywhere; }
  .profile-details { grid-template-columns: 1fr; gap: 16px; }
  .profile-section { padding: 20px 0; }
 }
+.user-import-page { width:calc(100% - 236px); min-width:0; }
+.user-import-page h1 { font-size:24px; overflow-wrap:anywhere; }
+.user-import-page h2 { font-size:19px; }
+.user-import-page .import-upload { padding:18px 0; background:transparent; border:0; border-block:1px solid var(--border); border-radius:0; box-shadow:none; }
+.user-import-page .import-upload-form { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:end; margin-top:18px; }
+.user-import-page .import-upload-form .field { min-width:0; }
+.user-import-page input[type=file] { width:100%; min-width:0; }
+.user-import-page .field-error { grid-column:1 / -1; margin:0; }
+.user-import-page .import-table { max-width:100%; margin:16px 0; }
+.user-import-page .import-table table { min-width:1080px; }
+.user-import-page .import-table td { max-width:250px; overflow-wrap:anywhere; }
+.user-import-page .import-row-error td:last-child { color:var(--danger); }
+.user-import-page .import-confirm { margin:20px 0; }
+.user-import-page .button:disabled { opacity:.55; cursor:not-allowed; }
+@media(max-width:720px) {
+ .user-import-page { width:100%; }
+ .user-import-page .import-upload-form { grid-template-columns:minmax(0,1fr); }
+ .user-import-page .import-upload-form .button { justify-self:start; }
+ .user-import-page .import-confirm .button { width:100%; }
+}
+.products-page { min-width:0; width:min(calc(100% - 236px),1280px); }
+.products-page .filter-form > label { min-width:0; max-width:100%; }
+.products-page .filter-form input,.products-page .filter-form select { max-width:100%; }
+.products-page .product-form { width:100%; max-width:640px; }
+.products-page .product-form input,.products-page .product-form select { min-width:0; max-width:100%; }
+.products-page .alert,.products-page .field-error { overflow-wrap:anywhere; }
+@media(max-width:720px) { .products-page { width:100%; } }
 @media(max-width:640px) {
  .app-page { display:block; }
  .sidebar { position:static; width:100%; height:auto; }
