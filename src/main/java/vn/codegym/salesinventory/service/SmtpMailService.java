@@ -7,16 +7,17 @@ import jakarta.mail.Transport;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import java.util.Properties;
+import vn.codegym.salesinventory.config.AppConfig;
 
 public final class SmtpMailService implements MailService {
-    private final String host;
-    private final int port;
-    private final String from;
+    private final AppConfig.MailSettings settings;
 
     public SmtpMailService(String host, int port, String from) {
-        this.host = host;
-        this.port = port;
-        this.from = from;
+        this(new AppConfig.MailSettings(host, port, from, "", "", false, false, false));
+    }
+
+    public SmtpMailService(AppConfig.MailSettings settings) {
+        this.settings = java.util.Objects.requireNonNull(settings);
     }
 
     @Override
@@ -52,22 +53,33 @@ public final class SmtpMailService implements MailService {
     @Override public void sendActivation(String email,String name,String username,String password,String url) {
         send(email,"Kích hoạt tài khoản bán hàng và kho","Xin chào " + name + "\nTên đăng nhập: " + username + "\nMật khẩu tạm: " + password + "\nLiên kết kích hoạt (24 giờ, một lần): " + url + "\nHãy đổi mật khẩu ở lần đăng nhập đầu tiên.");
     }
-    private void send(String recipient, String subject, String body) {
+    Properties transportProperties() {
         Properties properties = new Properties();
-        properties.setProperty("mail.smtp.host", host);
-        properties.setProperty("mail.smtp.port", Integer.toString(port));
+        properties.setProperty("mail.smtp.host", settings.host());
+        properties.setProperty("mail.smtp.port", Integer.toString(settings.port()));
+        properties.setProperty("mail.smtp.auth", Boolean.toString(settings.authEnabled()));
+        properties.setProperty("mail.smtp.starttls.enable", Boolean.toString(settings.starttlsEnabled()));
+        properties.setProperty("mail.smtp.starttls.required", Boolean.toString(settings.starttlsRequired()));
+        properties.setProperty("mail.smtp.ssl.checkserveridentity", "true");
+        properties.setProperty("mail.smtp.ssl.protocols", "TLSv1.3 TLSv1.2");
         properties.setProperty("mail.smtp.connectiontimeout", "5000");
         properties.setProperty("mail.smtp.timeout", "5000");
-        Session mailSession = Session.getInstance(properties);
+        properties.setProperty("mail.smtp.writetimeout", "5000");
+        return properties;
+    }
+
+    private void send(String recipient, String subject, String body) {
+        Session mailSession = Session.getInstance(transportProperties());
         try {
             MimeMessage message = new MimeMessage(mailSession);
-            message.setFrom(new InternetAddress(from));
-            message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
+            message.setFrom(new InternetAddress(settings.from(), true));
+            message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient, true));
             message.setSubject(subject, "UTF-8");
             message.setText(body, "UTF-8");
-            Transport.send(message);
+            if (settings.authEnabled()) Transport.send(message, settings.username(), settings.password());
+            else Transport.send(message);
         } catch (MessagingException exception) {
-            throw new IllegalStateException("Email could not be sent", exception);
+            throw new IllegalStateException("Không thể gửi email qua SMTP.", exception);
         }
     }
 }

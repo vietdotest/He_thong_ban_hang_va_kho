@@ -43,7 +43,7 @@ public final class Sql {
     public static String text(Object value) { return value==null ? "" : value.toString(); }
     public static java.time.Instant instant(Object value) {
         if(value instanceof Timestamp t) return t.toInstant();
-        if(value instanceof java.time.LocalDateTime t) return t.toInstant(java.time.ZoneOffset.UTC);
+        if(value instanceof java.time.LocalDateTime t) return t.atZone(vn.codegym.salesinventory.config.VietnamTime.ZONE).toInstant();
         throw new IllegalArgumentException("Thời điểm không hợp lệ.");
     }
     private static void bind(PreparedStatement s,Object[] args) throws SQLException {

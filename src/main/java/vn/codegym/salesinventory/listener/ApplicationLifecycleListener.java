@@ -36,23 +36,21 @@ public final class ApplicationLifecycleListener implements ServletContextListene
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
         AppConfig config = AppConfig.load();
-        HikariDataSource dataSource = DatabaseFactory.create(config.database());
-        try {
+        try (HikariDataSource migrationSource = DatabaseFactory.createMigrationSource(config.database())) {
             Flyway.configure()
-                    .dataSource(dataSource)
+                    .dataSource(migrationSource)
                     .locations(config.flywayLocations())
                     .load()
                     .migrate();
-
-            Clock clock = Clock.systemUTC();
+        }
+        HikariDataSource dataSource = DatabaseFactory.create(config.database());
+        try {
+            Clock clock = Clock.system(vn.codegym.salesinventory.config.VietnamTime.ZONE);
             JdbcUserRepository users = new JdbcUserRepository();
             JdbcAuditLogRepository audits = new JdbcAuditLogRepository();
             JdbcSessionRepository sessions = new JdbcSessionRepository();
             BCryptPasswordHasher passwordHasher = new BCryptPasswordHasher();
-            SmtpMailService mailService = new SmtpMailService(
-                    config.passwordReset().mailHost(),
-                    config.passwordReset().mailPort(),
-                    config.passwordReset().mailFrom());
+            SmtpMailService mailService = new SmtpMailService(config.mail());
             AuthenticationService authenticationService = new AuthenticationService(
                     dataSource,
                     users,
