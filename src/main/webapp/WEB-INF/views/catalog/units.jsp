@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Đơn vị quy đổi</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=s207"></head>
-<body class="app-page"><%@ include file="../fragments/sidebar.jspf" %><main class="page-body app-content catalog-page"><h1>Đơn vị quy đổi</h1>
+<body class="app-page"><%@ include file="../fragments/sidebar.jspf" %><main class="page-body app-content catalog-page units-page"><h1>Đơn vị quy đổi</h1>
 <form method="get" class="filter-form"><label>Tìm SKU <input name="q" value="<c:out value='${param.q}'/>"></label><button class="button">Tìm</button></form>
 <form method="get" class="filter-form"><label>Sản phẩm <select name="product"><c:forEach items="${products}" var="p"><option value="${p.id}" ${p.id == productId ? 'selected' : ''}><c:out value="${p.sku}"/> — <c:out value="${p.name}"/></option></c:forEach></select></label><button class="button">Xem đơn vị</button></form>
 <c:if test="${param.notice == 'saved'}"><p class="alert" role="status">Đã lưu thay đổi đơn vị.</p></c:if>

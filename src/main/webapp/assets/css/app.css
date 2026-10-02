@@ -545,6 +545,8 @@ label { overflow-wrap:anywhere; }
 .catalog-page h1 { overflow-wrap:anywhere; }
 .catalog-page .account-form { max-width:640px; }
 .catalog-page .field-error { overflow-wrap:anywhere; }
+.units-page .filter-form > label { display:grid; gap:7px; min-width:0; max-width:100%; flex:1 1 240px; }
+.units-page .filter-form input,.units-page .filter-form select { width:100%; min-width:0; }
 @media(max-width:720px) { .catalog-page { width:100%; } }
 @media(max-width:720px) { .products-page { width:100%; } }
 @media(max-width:640px) {
