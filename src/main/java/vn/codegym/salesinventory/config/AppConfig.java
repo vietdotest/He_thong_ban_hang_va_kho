@@ -56,6 +56,28 @@ public final class AppConfig {
         );
     }
 
+    public MailSettings mail() {
+        return new MailSettings(value("mail.host", "MAIL_HOST"), integerValue("mail.port", "MAIL_PORT"),
+                value("mail.from", "MAIL_FROM"), optionalValue("mail.username", "MAIL_USERNAME").trim(),
+                optionalValue("mail.password", "MAIL_PASSWORD"),
+                booleanValue("mail.authEnabled", "MAIL_AUTH_ENABLED"),
+                booleanValue("mail.starttlsEnabled", "MAIL_STARTTLS_ENABLED"),
+                booleanValue("mail.starttlsRequired", "MAIL_STARTTLS_REQUIRED"));
+    }
+
+    private String optionalValue(String propertyName, String environmentName) {
+        String value = System.getProperty(propertyName);
+        if (value == null) value = System.getenv(environmentName);
+        return value == null ? properties.getProperty(propertyName, "") : value;
+    }
+
+    private boolean booleanValue(String propertyName, String environmentName) {
+        String value = optionalValue(propertyName, environmentName).trim();
+        if (!value.equalsIgnoreCase("true") && !value.equalsIgnoreCase("false"))
+            throw new IllegalStateException("Configuration must be a boolean: " + propertyName);
+        return Boolean.parseBoolean(value);
+    }
+
     private String value(String propertyName, String environmentName) {
         String systemValue = System.getProperty(propertyName);
         if (systemValue != null && !systemValue.isBlank()) {
@@ -99,6 +121,22 @@ public final class AppConfig {
     }
 
     public record SessionSettings(int idleTimeoutMinutes, int absoluteTimeoutHours) {
+    }
+
+    public record MailSettings(String host, int port, String from, String username, String password,
+                               boolean authEnabled, boolean starttlsEnabled, boolean starttlsRequired) {
+        public MailSettings {
+            if (host == null || host.isBlank() || from == null || from.isBlank() || port < 1 || port > 65535)
+                throw new IllegalStateException("Cấu hình SMTP không hợp lệ.");
+            if (authEnabled && (username == null || username.isBlank() || password == null || password.isBlank()))
+                throw new IllegalStateException("SMTP xác thực cần tài khoản và mật khẩu ứng dụng.");
+            if (starttlsRequired && !starttlsEnabled)
+                throw new IllegalStateException("STARTTLS bắt buộc cần được bật.");
+        }
+        @Override public String toString() {
+            return "MailSettings[host=" + host + ", port=" + port + ", authEnabled=" + authEnabled
+                    + ", starttlsRequired=" + starttlsRequired + ", credentials=REDACTED]";
+        }
     }
 
     public record PasswordResetSettings(

@@ -50,10 +50,7 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             JdbcAuditLogRepository audits = new JdbcAuditLogRepository();
             JdbcSessionRepository sessions = new JdbcSessionRepository();
             BCryptPasswordHasher passwordHasher = new BCryptPasswordHasher();
-            SmtpMailService mailService = new SmtpMailService(
-                    config.passwordReset().mailHost(),
-                    config.passwordReset().mailPort(),
-                    config.passwordReset().mailFrom());
+            SmtpMailService mailService = new SmtpMailService(config.mail());
             AuthenticationService authenticationService = new AuthenticationService(
                     dataSource,
                     users,
