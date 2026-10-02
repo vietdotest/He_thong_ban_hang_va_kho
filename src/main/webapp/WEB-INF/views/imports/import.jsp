@@ -8,7 +8,7 @@
 </head>
 <body class="app-page">
 <%@ include file="../fragments/sidebar.jspf" %>
-<main class="page-body app-content ${userImportPage ? 'user-import-page' : ''}">
+<main class="page-body app-content ${userImportPage ? 'user-import-page' : 'catalog-page'}">
     <h1><c:out value="${title}"/></h1>
     <section class="content-panel import-upload">
         <c:if test="${not userImportPage}">
@@ -36,7 +36,7 @@
     <c:if test="${not empty preview}">
         <h2>Xem trước</h2>
         <c:choose>
-            <c:when test="${userImportPage}">
+            <c:when test="${userImportPage or not empty validCount}">
                 <p class="import-summary">Hợp lệ: <strong><c:out value="${validCount}"/></strong>. Có lỗi: <strong><c:out value="${invalidCount}"/></strong>.</p>
             </c:when>
             <c:otherwise><p>Chỉ nhập các dòng hợp lệ. Dữ liệu và quyền sẽ được kiểm tra lại khi xác nhận.</p></c:otherwise>
@@ -67,7 +67,7 @@
             <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
             <input type="hidden" name="action" value="confirm">
             <input type="hidden" name="token" value="<c:out value='${preview.token}'/>">
-            <button class="button button-primary" ${userImportPage and validCount == 0 ? 'disabled' : ''}>Xác nhận nhập dòng hợp lệ</button>
+            <button class="button button-primary" ${validCount == 0 ? 'disabled' : ''}>Xác nhận nhập dòng hợp lệ</button>
         </form>
     </c:if>
 </main>
