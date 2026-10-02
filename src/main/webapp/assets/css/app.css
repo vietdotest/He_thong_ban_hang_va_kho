@@ -457,6 +457,13 @@ label { overflow-wrap:anywhere; }
 .table-wrap td pre { max-width:400px; white-space:pre-wrap; overflow-wrap:anywhere; }
 .filter-form { display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin:16px 0; }
 .account-form > .field { margin-bottom:14px; }
+.products-page { min-width:0; width:min(calc(100% - 236px),1280px); }
+.products-page .filter-form > label { min-width:0; max-width:100%; }
+.products-page .filter-form input,.products-page .filter-form select { max-width:100%; }
+.products-page .product-form { width:100%; max-width:640px; }
+.products-page .product-form input,.products-page .product-form select { min-width:0; max-width:100%; }
+.products-page .alert,.products-page .field-error { overflow-wrap:anywhere; }
+@media(max-width:720px) { .products-page { width:100%; } }
 @media(max-width:640px) {
  .app-page { display:block; }
  .sidebar { position:static; width:100%; height:auto; }
