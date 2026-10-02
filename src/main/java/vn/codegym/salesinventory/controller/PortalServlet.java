@@ -18,14 +18,19 @@ public abstract class PortalServlet extends HttpServlet {
     protected void redirect(HttpServletRequest r,HttpServletResponse s,String path) { s.setStatus(303); s.setHeader("Location",r.getContextPath()+path); }
     protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
+    protected void preparePost(HttpServletRequest r) throws Exception { }
+    protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws ServletException,IOException {
+        s.setStatus(400); r.setAttribute("message",message); r.setAttribute("returnPath",r.getRequestURI()); view(r,s,"message");
+    }
     @Override protected final void doGet(HttpServletRequest r,HttpServletResponse s) throws ServletException,IOException { dispatch(r,s,false); }
     @Override protected final void doPost(HttpServletRequest r,HttpServletResponse s) throws ServletException,IOException { dispatch(r,s,true); }
     private void dispatch(HttpServletRequest r,HttpServletResponse s,boolean post) throws ServletException,IOException {
         try {
+            if(post) preparePost(r);
             if(post && !((CsrfTokenManager)getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER)).isValid(r.getSession(false),r.getParameter("_csrf"))) { s.sendError(403); return; }
             if(post) post(r,s); else get(r,s);
         } catch(SecurityException e) { s.sendError(403); }
-        catch(IllegalArgumentException e) { s.setStatus(400); r.setAttribute("message",e.getMessage()); r.setAttribute("returnPath",r.getRequestURI()); view(r,s,"message"); }
+        catch(IllegalArgumentException e) { badRequest(r,s,e.getMessage()); }
         catch(Exception e) { getServletContext().log("Không thể xử lý yêu cầu",e); s.sendError(500); }
     }
 }

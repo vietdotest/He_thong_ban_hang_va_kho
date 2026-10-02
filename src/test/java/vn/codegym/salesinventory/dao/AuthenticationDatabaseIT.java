@@ -75,6 +75,9 @@ class AuthenticationDatabaseIT {
         hikari.setMaximumPoolSize(6);
         dataSource = new HikariDataSource(hikari);
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        dataSource.close();
+        dataSource = vn.codegym.salesinventory.config.DatabaseFactory.create(new vn.codegym.salesinventory.config.AppConfig.DatabaseSettings(
+                MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword(), 6, 1, 10000));
         users = new JdbcUserRepository();
     }
 
