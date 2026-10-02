@@ -26,6 +26,9 @@ public final class ImageStorage {
                 reader.setInput(input,true,true);int width=reader.getWidth(0),height=reader.getHeight(0);
                 if(width<1 || height<1 || (long)width*height>20_000_000L)throw new IllegalArgumentException("Kích thước ảnh quá lớn.");
                 image=reader.read(0);
+                if(image==null)throw new IllegalArgumentException("Tệp ảnh bị hỏng hoặc không đọc được.");
+            } catch(javax.imageio.IIOException invalid) {
+                throw new IllegalArgumentException("Tệp ảnh bị hỏng hoặc không đọc được.",invalid);
             } finally { reader.dispose(); }
         }
         String key=UUID.randomUUID().toString();Files.createDirectories(root);

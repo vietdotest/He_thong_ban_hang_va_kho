@@ -46,7 +46,9 @@
         <c:if test="${not empty profile.avatar_key}"><img width="128" height="128" alt="Ảnh đại diện" src="${pageContext.request.contextPath}/account/avatar"></c:if>
         <form method="post" enctype="multipart/form-data" action="${pageContext.request.contextPath}/account/avatar">
             <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
-            <label class="field">Ảnh JPG/PNG tối đa 2MB <input type="file" name="image" accept="image/jpeg,image/png" required></label>
+            <label class="field">Ảnh JPG/PNG tối đa 2MB <input type="file" name="image" accept="image/jpeg,image/png" required aria-invalid="${not empty errors.image}" aria-describedby="avatar-error">
+                <small id="avatar-error" class="field-error" role="alert"><c:out value="${errors.image}"/></small>
+            </label>
             <button type="submit" class="button button-primary">Cập nhật ảnh</button>
         </form>
     </section>
