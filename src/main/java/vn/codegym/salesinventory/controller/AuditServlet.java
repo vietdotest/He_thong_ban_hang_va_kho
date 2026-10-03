@@ -32,13 +32,17 @@ public final class AuditServlet extends PortalServlet {
             options(r);view(r,s,"admin/audit");return;
         }
         Sql.transaction(source(),c -> {
-            r.setAttribute("logs",vn.codegym.salesinventory.service.AuditService.read(c,access(r),filter.sql(),filter.args().toArray(),(filter.page()-1)*100));return null;
+            r.setAttribute("logs",vn.codegym.salesinventory.service.AuditService.read(c,access(r),filter.sql(),filter.args().toArray(),(filter.page()-1)*100));
+            long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM audit_logs a"+filter.sql(),filter.args().toArray()).get("total"));
+            r.setAttribute("hasNext",filter.page()*100L<total);return null;
         });options(r);r.setAttribute("pageNumber",filter.page());view(r,s,"admin/audit");
     }
     private void options(HttpServletRequest r) {
         Sql.transaction(source(),c -> {
             r.setAttribute("users",Sql.query(c,"SELECT id,full_name FROM users ORDER BY full_name"));
-            r.setAttribute("types",Sql.query(c,"SELECT DISTINCT object_type FROM audit_logs WHERE object_type IS NOT NULL"));return null;
+            var types=Sql.query(c,"SELECT DISTINCT object_type FROM audit_logs WHERE object_type IS NOT NULL");
+            for(var type:types)type.put("object_label",vn.codegym.salesinventory.service.AuditService.objectLabel(Sql.text(type.get("object_type"))));
+            r.setAttribute("types",types);return null;
         });
     }
 }

@@ -26,6 +26,8 @@ public final class PricingServlet extends PortalServlet {
         if(!value(r,"id").isEmpty()){
             long id=fieldId(r,"id");var edit=versions.stream().filter(v->Sql.id(v.get("id"))==id).findFirst().orElseThrow(()->FieldValidationException.field("form","Không tìm thấy phiên bản."));
             r.setAttribute("edit",edit);r.setAttribute("items",service.items(actor(r).id(),id));
+        }else if(!versions.isEmpty()&&!value(r,"new").equals("1")){
+            var first=versions.get(0);r.setAttribute("edit",first);r.setAttribute("items",service.items(actor(r).id(),Sql.id(first.get("id"))));
         }
         r.setAttribute("products",products().list(actor(r).id(),value(r,"q"),null,"",1));r.setAttribute("today",LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE));
     }

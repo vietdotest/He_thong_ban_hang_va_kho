@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 class ProductDatabaseIT {
     @Container static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.11")
             .withDatabaseName("product_acceptance").withUsername("test").withPassword("test")
-            .withCommand("--log-bin-trust-function-creators=1");
+            .withCommand("--log-bin-trust-function-creators=1", "--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     HikariDataSource source;
     @TempDir Path uploads;
     ImageStorage images;

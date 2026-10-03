@@ -34,6 +34,9 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        access(request).require("USER_MANAGE");
+        if(value(request,"report").equals("1")){ImportFlow.download(request,response,"userImport",actor(request).id(),access(request));return;}
+        if(value(request,"new").equals("1"))ImportFlow.clear(request,"userImport");
         if (value(request, "template").equals("1")) {
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setHeader("Content-Disposition", "attachment; filename=nguoi-dung.xlsx");
@@ -41,10 +44,17 @@ public final class UserImportServlet extends PortalServlet {
                     List.of("nhanvien01", "nhanvien@example.com", "Nguyễn Văn An", "0901234567", "SALES", "", ""))));
             return;
         }
+        Object report=request.getSession().getAttribute("userImportReport");
+        Object preview=request.getSession().getAttribute("userImport");
+        if(preview instanceof ImportPreview pending && pending.available(actor(request).id(),java.time.Instant.now()))
+            ImportFlow.preview(request,"userImport",pending,ImportFlow.filename((String)request.getSession().getAttribute("userImportFile")));
+        else if(report instanceof ImportReport saved)ImportFlow.show(request,saved,actor(request).id(),access(request));
+        else request.getSession().removeAttribute("userImport");
         render(request, response);
     }
 
     @Override protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        access(request).require("USER_MANAGE");
         boolean confirm = value(request, "action").equals("confirm");
         try {
             if (confirm) {
@@ -53,22 +63,17 @@ public final class UserImportServlet extends PortalServlet {
                 try {
                     var result = service().confirm(actor(request).id(), preview, value(request, "token"),
                             RequestMetadata.authenticationContext(request));
-                    request.setAttribute("report", result);
-                    request.setAttribute("successCount", result.stream().filter(ImportPreview.Line::isValid).count());
-                    request.setAttribute("failureCount", result.stream().filter(line -> !line.isValid()).count());
+                    ImportFlow.result(request,"userImport",actor(request).id(),true,UserImportService.HEADERS,result,access(request));
                 } finally { request.getSession().removeAttribute("userImport"); }
             } else {
-                request.getSession().removeAttribute("userImport");
+                ImportFlow.clear(request,"userImport");
                 var file = request.getPart("file");
                 if (file == null || file.getSize() == 0) throw new IllegalArgumentException("Vui lòng chọn tệp XLSX.");
                 if (file.getSize() > Xlsx.MAX_BYTES) throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");
                 byte[] bytes;
                 try (var input = file.getInputStream()) { bytes = input.readNBytes(Xlsx.MAX_BYTES + 1); }
                 var preview = service().preview(actor(request).id(), bytes);
-                request.getSession().setAttribute("userImport", preview);
-                request.setAttribute("preview", preview);
-                request.setAttribute("validCount", preview.getLines().stream().filter(ImportPreview.Line::isValid).count());
-                request.setAttribute("invalidCount", preview.getLines().stream().filter(line -> !line.isValid()).count());
+                ImportFlow.preview(request,"userImport",preview,ImportFlow.filename(file.getSubmittedFileName()));
             }
         } catch (IllegalArgumentException e) {
             response.setStatus(400);
@@ -78,7 +83,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void badRequest(HttpServletRequest request, HttpServletResponse response, String message) throws ServletException, IOException {
-        if (request.getSession(false) != null) request.getSession(false).removeAttribute("userImport");
+        if ("POST".equals(request.getMethod()))ImportFlow.clear(request,"userImport");
         response.setStatus(400);
         request.setAttribute("errors", Map.of("file", message));
         render(request, response);
@@ -87,7 +92,8 @@ public final class UserImportServlet extends PortalServlet {
     private void render(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         request.setAttribute("userImportPage", true);
         request.setAttribute("title", "Nhập người dùng Excel");
-        request.setAttribute("headers", UserImportService.HEADERS);
+        if(request.getAttribute("headers")==null)request.setAttribute("headers", UserImportService.HEADERS);
+        if(request.getAttribute("importStep")==null)request.setAttribute("importStep",1);
         view(request, response, "imports/import");
     }
 }

@@ -16,6 +16,9 @@ public final class ProductServlet extends PortalServlet {
         r.setAttribute("categories", categories());
         r.setAttribute("products", products().list(actor(r).id(), value(r, "q"),
                 value(r, "category").isEmpty() ? null : number(r, "category"), value(r, "status"), page));
+        long total=products().count(actor(r).id(),value(r,"q"),value(r,"category").isEmpty()?null:number(r,"category"),value(r,"status"));
+        r.setAttribute("totalProducts",total);
+        r.setAttribute("hasNext",page*100L<total);
         if (!value(r, "id").isEmpty()) r.setAttribute("edit", products().find(actor(r).id(), number(r, "id")));
         Object success = r.getSession().getAttribute("productSuccess");
         r.getSession().removeAttribute("productSuccess");
@@ -71,6 +74,8 @@ public final class ProductServlet extends PortalServlet {
             r.setAttribute("categories", categories());
             r.setAttribute("products", products().list(actor(r).id(), "", null, "", 1));
             r.setAttribute("pageNo", 1);
+            long total=products().count(actor(r).id(),"",null,"");
+            r.setAttribute("totalProducts",total);r.setAttribute("hasNext",total>100);
             view(r, s, "catalog/products");
             return;
         }

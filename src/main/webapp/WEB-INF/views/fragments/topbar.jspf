@@ -1,0 +1,39 @@
+<%@ page pageEncoding="UTF-8" %>
+<%
+String uiPath = (String) request.getAttribute(jakarta.servlet.RequestDispatcher.FORWARD_SERVLET_PATH);
+if (uiPath == null) uiPath = request.getServletPath();
+String uiTitle;
+switch (uiPath) {
+case "/dashboard": uiTitle = "Tổng quan"; break;
+case "/admin/users": uiTitle = "Người dùng"; break;
+case "/admin/users/new": uiTitle = "Thêm người dùng"; break;
+case "/admin/users/edit": uiTitle = "Chỉnh sửa người dùng"; break;
+case "/admin/users/status": uiTitle = "Trạng thái tài khoản"; break;
+case "/admin/assignments": uiTitle = "Phân công"; break;
+case "/admin/scopes": uiTitle = "Kho và địa bàn"; break;
+case "/admin/roles": uiTitle = "Phân quyền"; break;
+case "/admin/audit": uiTitle = "Nhật ký thao tác"; break;
+case "/catalog/products": uiTitle = "Sản phẩm"; break;
+case "/catalog/categories": uiTitle = "Nhóm hàng"; break;
+case "/catalog/units": uiTitle = "Đơn vị quy đổi"; break;
+case "/catalog/suppliers": uiTitle = "Nhà cung cấp"; break;
+case "/pricing/lists": uiTitle = "Bảng giá"; break;
+case "/account/profile": uiTitle = "Hồ sơ cá nhân"; break;
+case "/account/change-password": uiTitle = "Đổi mật khẩu"; break;
+case "/admin/users/import": uiTitle = "Nhập người dùng Excel"; break;
+case "/catalog/products/import": uiTitle = "Nhập sản phẩm Excel"; break;
+default: uiTitle = "Thông báo"; break;
+}
+request.setAttribute("uiTitle", uiTitle);
+Object uiStep = request.getAttribute("importStep");
+if (uiStep != null && uiStep.toString().equals("2")) request.setAttribute("uiTitle","Kiểm tra tệp Excel");
+if (uiStep != null && uiStep.toString().equals("3")) request.setAttribute("uiTitle","Kết quả nhập Excel");
+request.setAttribute("uiSection", uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
+%>
+<header class="app-topbar nvdo-topbar">
+<button type="button" class="icon-button mobile-menu-button" data-menu-open aria-controls="nvdo-menu" aria-expanded="false" aria-label="Mở menu"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/menu.svg" alt=""></button>
+<nav class="breadcrumb" aria-label="Đường dẫn"><span><c:out value="${uiSection}"/></span><img class="icon breadcrumb-icon" src="${pageContext.request.contextPath}/assets/icons/chevron.svg" alt=""><strong><c:out value="${uiTitle}"/></strong></nav>
+<strong class="mobile-page-name"><c:out value="${uiTitle}"/></strong>
+<form class="topbar-logout" method="post" action="${pageContext.request.contextPath}/logout"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><button class="button button-plain"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/logout.svg" alt="">Đăng xuất</button></form>
+<span class="wordmark-symbol mobile-wordmark" aria-hidden="true">BH</span>
+</header>

@@ -19,9 +19,53 @@ import static org.mockito.Mockito.*;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ProfileAcceptanceIT {
     @Container static final MySQLContainer MYSQL=new MySQLContainer("mysql:8.4.11")
-            .withDatabaseName("profile_acceptance").withUsername("test").withPassword("test");
+            .withDatabaseName("profile_acceptance").withUsername("test").withPassword("test")
+            .withCommand("--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     HikariDataSource source;
     ProfileService service;
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path imageRoot;
+    byte[] png() throws Exception {
+        var bytes=new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(20,30,java.awt.image.BufferedImage.TYPE_INT_RGB),"png",bytes);
+        return bytes.toByteArray();
+    }
+    @Test void combinedSaveCommitsContactAvatarAndAuditsAndRemovesOldFiles() throws Exception {
+        long id=user("SALES");
+        var images=new vn.codegym.salesinventory.service.ImageStorage(imageRoot);
+        String old=new vn.codegym.salesinventory.service.AvatarService(source,images).replace(id,png());
+        new ProfileService(source,images).updateWithAvatar(id,"Hồ sơ mới",String.format("09%08d",id),png());
+        var saved=state(id);String key=Sql.text(saved.get("avatar_key"));
+        assertThat(saved).containsEntry("full_name","Hồ sơ mới");
+        assertThat(key).isNotEqualTo(old);
+        assertThat(images.path(old,false)).doesNotExist();assertThat(images.path(old,true)).doesNotExist();
+        assertThat(javax.imageio.ImageIO.read(images.path(key,false).toFile()).getWidth()).isEqualTo(512);
+        assertThat(javax.imageio.ImageIO.read(images.path(key,true).toFile()).getWidth()).isEqualTo(128);
+        assertThat(audits(id)).hasSize(1);
+    }
+    @Test void combinedAuditFailureRollsBackContactAvatarAndCleansNewFiles() throws Exception {
+        long id=user("SALES");
+        var images=new vn.codegym.salesinventory.service.ImageStorage(imageRoot);
+        String old=new vn.codegym.salesinventory.service.AvatarService(source,images).replace(id,png());
+        var before=state(id);
+        DataSource failing=mock(DataSource.class);
+        when(failing.getConnection()).thenAnswer(invocation->{
+            Connection connection=source.getConnection();
+            return Proxy.newProxyInstance(Connection.class.getClassLoader(),new Class<?>[]{Connection.class},(p,m,args)->{
+                if(m.getName().equals("prepareStatement") && args[0].toString().startsWith("INSERT INTO audit_logs"))
+                    throw new SQLException("Test audit failure","45000");
+                return invoke(connection,m,args);
+            });
+        });
+        assertThatThrownBy(()->new ProfileService(failing,images).updateWithAvatar(id,"Không lưu",String.format("08%08d",id),png())).isInstanceOf(IllegalStateException.class);
+        assertThat(state(id)).isEqualTo(before);
+        try(var files=java.nio.file.Files.list(imageRoot)) { assertThat(files.toList()).containsExactlyInAnyOrder(images.path(old,false),images.path(old,true)); }
+    }
+    @Test void combinedRejectsInvalidImageBeforeContactIsWritten() throws Exception {
+        long id=user("SALES");var before=state(id);
+        assertThatThrownBy(()->new ProfileService(source,new vn.codegym.salesinventory.service.ImageStorage(imageRoot)).updateWithAvatar(id,"Không lưu",String.format("07%08d",id),new byte[]{1,2,3})).isInstanceOf(IllegalArgumentException.class);
+        assertThat(state(id)).isEqualTo(before);assertThat(audits(id)).isEmpty();
+        try(var files=java.nio.file.Files.list(imageRoot)) { assertThat(files.toList()).isEmpty(); }
+    }
     @BeforeAll void prepare() {
         HikariConfig config=new HikariConfig();config.setJdbcUrl(MYSQL.getJdbcUrl()+"?serverTimezone=UTC");
         config.setUsername(MYSQL.getUsername());config.setPassword(MYSQL.getPassword());
