@@ -14,7 +14,8 @@ abstract class StoryDatabaseSupport {
     // One disposable MySQL per test JVM; Ryuk cleans it up when the JVM exits.
     static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.11")
             .withDatabaseName("story_acceptance").withUsername("test").withPassword("test")
-            .withCommand("--log-bin-trust-function-creators=1");
+            // This disposable database tests transaction logic, not power-loss durability.
+            .withCommand("--log-bin-trust-function-creators=1", "--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     static { MYSQL.start(); }
     HikariDataSource source;
     @BeforeAll void database() {
