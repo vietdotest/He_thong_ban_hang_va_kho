@@ -51,4 +51,8 @@
     form.querySelectorAll('[data-original-label]').forEach(button => { button.textContent = button.dataset.originalLabel; button.removeAttribute('aria-disabled'); button.classList.remove('is-submitting'); });
   }));
   document.querySelectorAll('.table-wrap,.table-scroll').forEach(el => { el.tabIndex = 0; if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', 'Bảng dữ liệu'); });
+  document.querySelectorAll('.file-input').forEach(input => input.addEventListener('change', () => {
+    const helper = document.getElementById('avatar-helper');
+    if (helper && input.files[0]) helper.textContent = 'Đã chọn: ' + input.files[0].name + '. Ảnh sẽ được lưu cùng thông tin.';
+  }));
 })();
