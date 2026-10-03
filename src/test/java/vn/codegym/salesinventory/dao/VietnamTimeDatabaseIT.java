@@ -18,7 +18,7 @@ import vn.codegym.salesinventory.service.AuditService;
 class VietnamTimeDatabaseIT {
     @Container static final MySQLContainer MYSQL = new MySQLContainer("mysql:8.4.11")
             .withDatabaseName("timezone_acceptance").withUsername("test").withPassword("test")
-            .withCommand("--log-bin-trust-function-creators=1");
+            .withCommand("--log-bin-trust-function-creators=1", "--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     private HikariDataSource migration;
     private HikariDataSource runtime;
     private final Instant now = Instant.parse("2026-10-02T18:28:46.123456Z");

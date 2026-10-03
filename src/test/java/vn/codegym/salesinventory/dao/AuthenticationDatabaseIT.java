@@ -59,7 +59,9 @@ class AuthenticationDatabaseIT {
             .withCommand(
                     "--default-time-zone=+00:00",
                     "--character-set-server=utf8mb4",
-                    "--collation-server=utf8mb4_0900_ai_ci"
+                    "--collation-server=utf8mb4_0900_ai_ci",
+                    "--innodb-flush-log-at-trx-commit=2",
+                    "--sync-binlog=0"
             );
 
     private HikariDataSource dataSource;
