@@ -94,6 +94,6 @@ Tài khoản do quản trị viên tạo phải kích hoạt qua email trước 
 
 ## Phạm vi hiện tại
 
-Nhánh `develop` tích hợp Sprint 1 và Sprint 2: tài khoản, phân quyền, phân công kho/địa bàn, hồ sơ, nhập Excel, nhật ký, sản phẩm, nhóm hàng, quy đổi đơn vị, nhà cung cấp và bảng giá. Xem [hướng dẫn kiểm thử hợp nhất](docs/DEVELOP_TESTING.md) trước khi nghiệm thu.
+Nhánh `develop` tích hợp Sprint 1 và Sprint 2: tài khoản, phân quyền, phân công kho/địa bàn, hồ sơ, nhập Excel, nhật ký, sản phẩm, nhóm hàng, quy đổi đơn vị, nhà cung cấp và bảng giá.
 
 Các luồng tạo đơn bán hàng, phiếu nhập/xuất kho, hóa đơn, công nợ và duyệt đơn dưới giá sàn chưa có giao diện nghiệp vụ hoàn chỉnh trong phạm vi này. Danh mục đã có kiểm tra tham chiếu giao dịch, lưu hệ số quy đổi và phiên bản giá để các luồng đó tích hợp sau.
