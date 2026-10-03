@@ -25,6 +25,9 @@ case "/catalog/products/import": uiTitle = "Nhập sản phẩm Excel"; break;
 default: uiTitle = "Thông báo"; break;
 }
 request.setAttribute("uiTitle", uiTitle);
+Object uiStep = request.getAttribute("importStep");
+if (uiStep != null && uiStep.toString().equals("2")) request.setAttribute("uiTitle","Kiểm tra tệp Excel");
+if (uiStep != null && uiStep.toString().equals("3")) request.setAttribute("uiTitle","Kết quả nhập Excel");
 request.setAttribute("uiSection", uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
 %>
 <header class="app-topbar nvdo-topbar">

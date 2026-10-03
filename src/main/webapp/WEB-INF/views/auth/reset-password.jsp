@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Đặt lại mật khẩu | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
-    <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
+    <script src="${pageContext.request.contextPath}/assets/js/login.js?v=nvdo-ui-20261004" defer></script>
 </head>
 <body class="auth-page">
 <header class="auth-topbar"><a class="wordmark" href="${pageContext.request.contextPath}/login"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a></header>

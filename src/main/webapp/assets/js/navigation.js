@@ -15,7 +15,11 @@
   };
   open?.addEventListener('click', () => setMenu(true));
   close?.addEventListener('click', () => setMenu(false));
-  const adapt = () => { document.documentElement.classList.remove('menu-open'); if (menu) menu.inert = !desktop.matches; open?.setAttribute('aria-expanded', 'false'); };
+  const adapt = () => {
+    document.documentElement.classList.remove('menu-open');
+    if (menu) { menu.inert = !desktop.matches; menu.removeAttribute('role'); menu.removeAttribute('aria-modal'); }
+    open?.setAttribute('aria-expanded', 'false');
+  };
   desktop.addEventListener('change', adapt); adapt();
   document.addEventListener('keydown', event => {
     if (!document.documentElement.classList.contains('menu-open')) return;
@@ -43,12 +47,12 @@
       form.dataset.submitting = 'true';
       form.setAttribute('aria-busy', 'true');
       const button = event.submitter;
-      if (button) { button.dataset.originalLabel = button.textContent; button.classList.add('is-submitting'); button.textContent = 'Đang xử lý…'; button.setAttribute('aria-disabled', 'true'); }
+      if (button) { button.dataset.originalHtml = button.innerHTML; button.classList.add('is-submitting'); button.textContent = 'Đang xử lý…'; button.setAttribute('aria-disabled', 'true'); }
     });
   });
   addEventListener('pageshow', () => document.querySelectorAll('form[data-submitting]').forEach(form => {
     delete form.dataset.submitting; form.removeAttribute('aria-busy');
-    form.querySelectorAll('[data-original-label]').forEach(button => { button.textContent = button.dataset.originalLabel; button.removeAttribute('aria-disabled'); button.classList.remove('is-submitting'); });
+    form.querySelectorAll('[data-original-html]').forEach(button => { button.innerHTML = button.dataset.originalHtml; delete button.dataset.originalHtml; button.removeAttribute('aria-disabled'); button.classList.remove('is-submitting'); });
   }));
   document.querySelectorAll('.table-wrap,.table-scroll').forEach(el => { el.tabIndex = 0; if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', 'Bảng dữ liệu'); });
   document.querySelectorAll('.file-input').forEach(input => input.addEventListener('change', () => {
@@ -80,4 +84,21 @@
       field.setAttribute('aria-describedby',error.id);
     }
   });
+  const importFile = document.querySelector('[data-import-file]');
+  if (importFile) {
+    const adaptFile = () => {
+      document.querySelector('[data-preview-button]').disabled = !importFile.files.length;
+      if (importFile.files.length) document.querySelector('[data-file-name]').textContent = 'Đã chọn: ' + importFile.files[0].name;
+    };
+    importFile.addEventListener('change', adaptFile); adaptFile();
+  }
+  const importStatus = document.querySelector('[data-import-status]');
+  if (importStatus) {
+    const filterRows = () => {
+      const rows = [...document.querySelectorAll('[data-import-row]')];
+      rows.forEach(row => row.hidden = importStatus.value !== 'all' && row.dataset.importRow !== importStatus.value);
+      document.querySelector('[data-import-empty]').hidden = rows.some(row => !row.hidden);
+    };
+    importStatus.addEventListener('change', filterRows); filterRows();
+  }
 })();
