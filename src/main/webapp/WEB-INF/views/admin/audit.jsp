@@ -34,7 +34,7 @@
                     <select name="type">
                         <option value="">Tất cả</option>
                         <c:forEach var="t" items="${types}">
-                            <option value="<c:out value='${t.object_type}'/>" ${param.type == t.object_type ? 'selected' : ''}><c:out value="${t.object_type}"/></option>
+                            <option value="<c:out value='${t.object_type}'/>" ${param.type == t.object_type ? 'selected' : ''}><c:out value="${t.object_label}"/></option>
                         </c:forEach>
                     </select>
                 </label>
@@ -66,8 +66,8 @@
                         <tr>
                             <td class="audit-time"><c:out value="${log.display_time}"/></td>
                             <td><c:out value="${log.full_name}"/></td>
-                            <td><c:out value="${log.event_type}"/></td>
-                            <td><c:out value="${log.object_type}"/> #<c:out value="${log.object_id}"/></td>
+                            <td><c:out value="${log.event_label}"/></td>
+                            <td><c:out value="${log.object_label}"/><c:if test="${not empty log.object_id}"> #<c:out value="${log.object_id}"/></c:if></td>
                             <td><pre><c:out value="${log.before_values}"/></pre><c:if test="${canCost}"><pre><c:out value="${log.before_cost}"/></pre></c:if></td>
                             <td><pre><c:out value="${log.after_values}"/></pre><c:if test="${canCost}"><pre><c:out value="${log.after_cost}"/></pre></c:if></td>
                         </tr>
@@ -77,6 +77,7 @@
             </div>
             </c:if>
         </section>
+<nav class="pagination" aria-label="Phân trang nhật ký"><c:if test="${pageNumber > 1}"><c:url var="prev" value="/admin/audit"><c:param name="page" value="${pageNumber-1}"/><c:param name="userId" value="${param.userId}"/><c:param name="type" value="${param.type}"/><c:param name="from" value="${param.from}"/><c:param name="to" value="${param.to}"/></c:url><a class="button button-secondary" href="<c:out value='${prev}'/>">Trước</a></c:if><c:if test="${hasNext}"><c:url var="next" value="/admin/audit"><c:param name="page" value="${pageNumber+1}"/><c:param name="userId" value="${param.userId}"/><c:param name="type" value="${param.type}"/><c:param name="from" value="${param.from}"/><c:param name="to" value="${param.to}"/></c:url><a class="button button-secondary" href="<c:out value='${next}'/>">Tiếp</a></c:if></nav>
     </main>
 </div>
 </body>

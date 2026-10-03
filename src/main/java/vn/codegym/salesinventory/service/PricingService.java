@@ -30,8 +30,20 @@ public final class PricingService {
     }
     private static void validVersion(String name,LocalDate from,LocalDate to){var errors=versionErrors(name,from,to);if(!errors.isEmpty())throw new FieldValidationException(errors);}
     public List<Map<String,Object>> groups(){return Sql.transaction(source,c->Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY id"));}
-    public List<Map<String,Object>> versions(long actor){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC"));}
-    public List<Map<String,Object>> items(long actor,long version){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku",version));}
+    public List<Map<String,Object>> versions(long actor){
+        new AccessService(source).load(actor).require("PRICE_READ");
+        var rows=Sql.transaction(source,c->Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC"));
+        LocalDate today=LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE);
+        var format=java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        for(var row:rows){
+            LocalDate from=LocalDate.parse(row.get("valid_from").toString()),to=LocalDate.parse(row.get("valid_to").toString());
+            row.put("display_from",from.format(format));row.put("display_to",to.format(format));
+            row.put("effective_state",today.isBefore(from)?"UPCOMING":today.isAfter(to)?"EXPIRED":"ACTIVE");
+            row.put("effective_label",today.isBefore(from)?"Sắp có hiệu lực":today.isAfter(to)?"Hết hiệu lực":"Đang hiệu lực");
+        }
+        return rows;
+    }
+    public List<Map<String,Object>> items(long actor,long version){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku",version));}
     private static void lockGroup(Connection c,long group)throws SQLException{if(Sql.query(c,"SELECT id FROM customer_groups WHERE id=? FOR UPDATE",group).isEmpty())throw FieldValidationException.field("group","Nhóm khách không còn tồn tại.");}
     private static void unused(Connection c,long version)throws SQLException{if(!Sql.query(c,"SELECT id FROM price_order_references WHERE version_id=? LIMIT 1 FOR UPDATE",version).isEmpty())throw FieldValidationException.field("form","Phiên bản đã được dùng. Hãy kế thừa thành phiên bản mới.");}
     private static void overlap(Connection c,long group,long product,LocalDate from,LocalDate to,long excluded)throws SQLException{

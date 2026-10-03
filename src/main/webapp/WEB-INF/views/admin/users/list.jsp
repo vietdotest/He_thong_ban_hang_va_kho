@@ -16,7 +16,8 @@
 
 
     <main class="page-body users-page">
-<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+<div class="page-heading"><div><h1>Người dùng</h1><p>Tìm tài khoản và xem vai trò được phân công.</p></div>
+<div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/import"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Nhập Excel</a><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new">＋ Thêm người dùng</a></div></div>
 
         <c:if test="${not empty successMessage}"><div class="alert alert-success"><c:out value="${successMessage}"/></div></c:if>
 
@@ -44,22 +45,22 @@
             <div class="table-summary">Tìm thấy <strong><c:out value="${userPage.totalItems()}"/></strong> tài khoản</div>
             <div class="table-scroll">
                 <table class="data-table">
-                    <thead><tr><th>Người dùng</th><th>Liên hệ</th><th>Vai trò</th><th>Trạng thái</th><th></th></tr></thead>
+                    <thead><tr><th>Tên đăng nhập</th><th>Vai trò</th><th>Kho / địa bàn</th><th>Trạng thái</th><th></th></tr></thead>
                     <tbody>
                     <c:forEach var="user" items="${userPage.items()}">
                         <tr>
-                            <td><strong><c:out value="${user.fullName()}"/></strong><small>@<c:out value="${user.username()}"/></small></td>
-                            <td><span><c:out value="${user.email()}"/></span><small><c:out value="${user.phone()}"/></small></td>
+                            <td><c:out value="${user.username()}"/><small><c:out value="${user.fullName()}"/></small></td>
                             <td><c:out value="${user.roleName()}"/></td>
+                            <td><c:choose><c:when test="${not empty user.scopeSummary()}"><c:out value="${user.scopeSummary()}"/></c:when><c:when test="${user.roleCode() == 'ADMIN' or user.roleCode() == 'DIRECTOR'}">Toàn hệ thống</c:when><c:otherwise>Chưa phân công</c:otherwise></c:choose></td>
                             <td>
                                 <c:choose>
                                     <c:when test="${user.status().name() == 'ACTIVE'}"><span class="status-badge status-active">Đang hoạt động</span></c:when>
                                     <c:when test="${user.status().name() == 'DISABLED'}"><span class="status-badge status-disabled">Đã vô hiệu hóa</span></c:when>
-                                    <c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
+                                    <c:when test="${user.status().name() == 'PENDING_ACTIVATION'}"><span class="badge badge-warning">Chờ kích hoạt</span></c:when><c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
                                 </c:choose>
                                 <c:if test="${user.mustChangePassword()}"><small class="status-note">Chờ đổi mật khẩu</small></c:if>
                             </td>
-                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/status?id=${user.id()}">Khóa / Mở khóa</a> <c:if test="${user.status().name() == 'PENDING_ACTIVATION'}"><form method="post" action="${pageContext.request.contextPath}/admin/users/activation"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><input type="hidden" name="id" value="${user.id()}"><button class="button button-secondary">Gửi lại kích hoạt</button></form></c:if><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Chỉnh sửa</a> <a href="${pageContext.request.contextPath}/admin/assignments?id=${user.id()}">Phân công</a></td>
+                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Xem</a></td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty userPage.items()}"><tr><td class="table-empty" colspan="5">Không có tài khoản phù hợp với bộ lọc.</td></tr></c:if>
@@ -71,7 +72,7 @@
                 <nav class="pagination" aria-label="Phân trang">
                     <c:forEach begin="1" end="${userPage.totalPages()}" var="pageNumber">
                         <c:url var="pageUrl" value="/admin/users"><c:param name="q" value="${criteria.keyword()}"/><c:param name="role" value="${criteria.roleCode()}"/><c:param name="status" value="${criteria.status()}"/><c:param name="page" value="${pageNumber}"/></c:url>
-                        <a class="${pageNumber == userPage.page() ? 'active' : ''}" href="${pageUrl}" aria-label="Trang ${pageNumber}"><c:out value="${pageNumber}"/></a>
+                        <a class="${pageNumber == userPage.page() ? 'active' : ''}" aria-current="${pageNumber == userPage.page() ? 'page' : 'false'}" href="${pageUrl}" aria-label="Trang ${pageNumber}"><c:out value="${pageNumber}"/></a>
                     </c:forEach>
                 </nav>
             </c:if>
@@ -80,4 +81,3 @@
 </div>
 </body>
 </html>
-

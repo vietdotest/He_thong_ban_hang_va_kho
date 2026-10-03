@@ -65,6 +65,12 @@ public final class ProductService {
                 + " AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?) ORDER BY p.sku LIMIT 100 OFFSET ?",
                 "%" + keyword + "%", "%" + keyword + "%", category, category, status, status, (page - 1) * 100));
     }
+    public long count(long actor,String keyword,Long category,String status) {
+        new AccessService(source).load(actor).require("CATALOG_READ");
+        return Sql.transaction(source,c -> Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM products p WHERE (p.sku LIKE ? OR p.name LIKE ?)"
+                +" AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?)",
+                "%"+keyword+"%","%"+keyword+"%",category,category,status,status).get("total")));
+    }
     public Map<String, Object> find(long actor, long id) {
         var a = new AccessService(source).load(actor);
         a.require("CATALOG_READ");

@@ -18,6 +18,11 @@ import vn.codegym.salesinventory.model.RoleOption;
 import vn.codegym.salesinventory.model.UserStatus;
 
 public final class JdbcUserManagementRepository implements UserManagementRepository {
+    private static final String SCOPES = """
+            ,CONCAT_WS(' · ',
+              (SELECT GROUP_CONCAT(w.name ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
+              (SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
+            """;
     private static final String FILTER = """
             WHERE (? = ''
                    OR LOWER(u.full_name) LIKE ?
@@ -82,10 +87,9 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                        u.must_change_password, u.version, u.created_at,
                        (SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id
                         WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_code,
-                       (SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-                        WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_name
-                FROM users u
-                """ + FILTER + """
+                       (SELECT GROUP_CONCAT(r.name ORDER BY r.code SEPARATOR ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                        WHERE ur.user_id = u.id) AS role_name
+                """ + SCOPES + " FROM users u " + FILTER + """
                 ORDER BY u.full_name, u.id
                 LIMIT ? OFFSET ?
                 """;
@@ -121,6 +125,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 SELECT u.id, u.username, u.email, u.full_name, u.phone, u.status,
                        u.must_change_password, u.version, u.created_at,
                        r.code AS role_code, r.name AS role_name
+                """ + SCOPES + """
                 FROM users u
                 LEFT JOIN user_roles ur ON ur.user_id = u.id
                 LEFT JOIN roles r ON r.id = ur.role_id
@@ -241,7 +246,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 resultSet.getString("role_name"),
                 resultSet.getBoolean("must_change_password"),
                 resultSet.getLong("version"),
-                resultSet.getTimestamp("created_at").toInstant()
+                resultSet.getTimestamp("created_at").toInstant(),
+                resultSet.getString("scope_summary")
         );
     }
 }
