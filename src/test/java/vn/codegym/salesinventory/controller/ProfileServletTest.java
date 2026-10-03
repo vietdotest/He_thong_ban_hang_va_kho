@@ -54,6 +54,25 @@ class ProfileServletTest {
         verify(request,never()).getParameter("userId");
         verify(dispatcher).forward(request,response);
     }
+    @Test void multipartUpdatesContactAndImageInOneServiceCall() throws Exception {
+        validPost();when(request.getContentType()).thenReturn("multipart/form-data; boundary=abc");
+        Part image=mock(Part.class);when(request.getPart("image")).thenReturn(image);
+        when(image.getSize()).thenReturn(3L);when(image.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(new byte[]{1,2,3}));
+        when(request.getParameter("fullName")).thenReturn("Tên mới");when(request.getParameter("phone")).thenReturn("0901234567");
+        servlet.doPost(request,response);
+        verify(service).updateWithAvatar(eq(12L),eq("Tên mới"),eq("0901234567"),org.mockito.AdditionalMatchers.aryEq(new byte[]{1,2,3}));
+        verify(service,never()).update(anyLong(),any(),any());verify(response).setStatus(303);
+    }
+    @Test void multipartInvalidImageRetainsTypedContact() throws Exception {
+        validPost();formView();when(request.getContentType()).thenReturn("multipart/form-data");
+        Part image=mock(Part.class);when(request.getPart("image")).thenReturn(image);when(image.getSize()).thenReturn(3L);
+        when(image.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(new byte[]{1,2,3}));
+        when(request.getParameter("fullName")).thenReturn("Tên mới");when(request.getParameter("phone")).thenReturn("0901234567");
+        doThrow(new IllegalArgumentException("Ảnh không hợp lệ.")).when(service).updateWithAvatar(anyLong(),any(),any(),any());
+        servlet.doPost(request,response);
+        verify(response).setStatus(400);verify(request).setAttribute("form",Map.of("fullName","Tên mới","phone","0901234567"));
+        verify(request).setAttribute("errors",Map.of("image","Ảnh không hợp lệ."));
+    }
     @Test void updatesOnlySessionOwnerAndRedirects303() throws Exception {
         validPost();when(request.getParameter("fullName")).thenReturn(" Tên mới ");
         when(request.getParameter("phone")).thenReturn("+84 901234567");when(request.getContextPath()).thenReturn("/shop");
