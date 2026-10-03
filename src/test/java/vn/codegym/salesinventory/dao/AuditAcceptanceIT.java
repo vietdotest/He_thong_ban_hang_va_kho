@@ -15,13 +15,18 @@ class AuditAcceptanceIT extends StoryDatabaseSupport {
             for(int i=0;i<7;i++) Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,after_values,after_cost,occurred_at) VALUES(?,'PRODUCT_SAVED','PRODUCT',?,?,?,?)",actor,900+i,"{\"name\":\"PRIVATE_SNAPSHOT\"}","{\"cost_price\":12345}",Timestamp.from(Instant.parse("2030-10-01T00:00:00Z")));
             return null;
         });
-        var access=new AccessService(source).load(actor);
-        var rows=Sql.transaction(source,c->AuditService.recent(c,access));
-        assertThat(rows).hasSize(5);
-        assertThat(rows.stream().map(r->Sql.id(r.get("object_id"))).toList()).containsExactly(906L,905L,904L,903L,902L);
-        for(var row:rows) assertThat(row).containsEntry("event_label","Lưu sản phẩm").doesNotContainKeys("before_values","after_values","before_cost","after_cost");
-        Access denied=new AccessService(source).load(user("SALES"));
-        assertThatThrownBy(()->AuditService.recent(null,denied)).isInstanceOf(SecurityException.class);
+        try {
+            var access=new AccessService(source).load(actor);
+            var rows=Sql.transaction(source,c->AuditService.recent(c,access));
+            assertThat(rows).hasSize(5);
+            assertThat(rows.stream().map(r->Sql.id(r.get("object_id"))).toList()).containsExactly(906L,905L,904L,903L,902L);
+            for(var row:rows) assertThat(row).containsEntry("event_label","Lưu sản phẩm").doesNotContainKeys("before_values","after_values","before_cost","after_cost");
+            Access denied=new AccessService(source).load(user("SALES"));
+            assertThatThrownBy(()->AuditService.recent(null,denied)).isInstanceOf(SecurityException.class);
+        } finally {
+            // These object IDs are deliberately synthetic; keep them out of other acceptance tests.
+            update("DELETE FROM audit_logs WHERE actor_user_id=?",actor);
+        }
     }
     @Test void actorBeforeAfterAndTimeAreRecordedWithCostIsolated() {
         long actor=user("ADMIN","SALES_MANAGER");
