@@ -6,10 +6,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Danh mục sản phẩm</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=s205-20261002">
+    <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
 <%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content products-page">
     <h1>Danh mục sản phẩm</h1>
     <c:if test="${not empty successMessage}"><div class="alert alert-success" role="status"><c:out value="${successMessage}"/></div></c:if>

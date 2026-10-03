@@ -5,10 +5,11 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Hồ sơ cá nhân</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=s202-profile">
+    <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
 <%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content profile-page">
     <h1>Hồ sơ cá nhân</h1>
     <c:if test="${param.notice == 'saved'}"><div class="alert" role="status">Đã lưu hồ sơ.</div></c:if>

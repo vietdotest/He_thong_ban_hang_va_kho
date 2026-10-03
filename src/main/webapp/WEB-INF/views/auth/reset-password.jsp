@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Đặt lại mật khẩu | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
+    <%@ include file="../fragments/assets.jspf" %>
     <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
 </head>
 <body class="auth-page">
