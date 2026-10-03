@@ -20,6 +20,10 @@ public final class DashboardServlet extends HttpServlet {
         vn.codegym.salesinventory.security.Access access=(vn.codegym.salesinventory.security.Access)request.getAttribute("access");
         request.setAttribute("heading",vn.codegym.salesinventory.service.DashboardService.heading(access));
         request.setAttribute("workAreas",vn.codegym.salesinventory.service.DashboardService.areas(access));
+        if(access.allows("AUDIT_READ")) {
+            javax.sql.DataSource source=(javax.sql.DataSource)getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
+            request.setAttribute("recentOperations",vn.codegym.salesinventory.dao.Sql.transaction(source,c -> vn.codegym.salesinventory.service.AuditService.recent(c,access)));
+        }
         request.getRequestDispatcher("/WEB-INF/views/dashboard.jsp").forward(request, response);
     }
 }

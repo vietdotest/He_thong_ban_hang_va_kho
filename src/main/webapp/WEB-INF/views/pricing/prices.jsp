@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bảng giá</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261003"></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bảng giá</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content catalog-page"><h1>Bảng giá theo nhóm khách hàng</h1>
 <c:if test="${param.notice == 'saved'}"><p class="alert alert-success" role="status">Đã lưu bảng giá.</p></c:if>
 <c:if test="${not empty errors.form}"><p class="alert alert-error" role="alert"><c:out value="${errors.form}"/></p></c:if>

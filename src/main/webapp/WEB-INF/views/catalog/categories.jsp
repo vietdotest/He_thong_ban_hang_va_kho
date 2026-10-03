@@ -1,7 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhóm hàng</title><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=s206"></head>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhóm hàng</title><%@ include file="../fragments/assets.jspf" %></head>
 <body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content catalog-page"><h1>Nhóm hàng nhiều cấp</h1>
 <c:if test="${param.notice == 'saved'}"><p class="alert" role="status">Đã lưu thay đổi nhóm hàng.</p></c:if>
 <c:if test="${access.allows('PRODUCT_MANAGE')}">

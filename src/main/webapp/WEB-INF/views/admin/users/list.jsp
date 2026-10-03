@@ -6,24 +6,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quản lý tài khoản | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
+    <%@ include file="../../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
 <%@ include file="../../fragments/sidebar.jspf" %>
+<%@ include file="../../fragments/topbar.jspf" %>
 
 <div class="app-content">
-    <header class="app-topbar">
-        <div><p class="breadcrumb">Quản trị / Người dùng</p><h1>Quản lý tài khoản</h1></div>
-        <div class="topbar-actions">
-            <a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new">Tạo tài khoản</a>
-            <form method="post" action="${pageContext.request.contextPath}/logout">
-                <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
-                <button class="button button-secondary" type="submit">Đăng xuất</button>
-            </form>
-        </div>
-    </header>
+
 
     <main class="page-body users-page">
+<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+
         <c:if test="${not empty successMessage}"><div class="alert alert-success"><c:out value="${successMessage}"/></div></c:if>
 
         <section class="content-panel users-panel">

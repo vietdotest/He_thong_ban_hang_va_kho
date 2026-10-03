@@ -6,17 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
+    <%@ include file="../../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
 <%@ include file="../../fragments/sidebar.jspf" %>
+<%@ include file="../../fragments/topbar.jspf" %>
 
 <div class="app-content">
-    <header class="app-topbar">
-        <div><p class="breadcrumb">Quản trị / Người dùng</p><h1>${editing ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản mới'}</h1></div>
-        <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Quay lại danh sách</a>
-    </header>
+
     <main class="page-body narrow-body">
+<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+
         <section class="content-panel account-panel">
             <div class="panel-heading"><div><h2>Thông tin tài khoản</h2><p>${editing ? 'Cập nhật thông tin, vai trò và trạng thái sử dụng.' : 'Mật khẩu tạm sẽ được gửi đến email sau khi tạo thành công.'}</p></div></div>
             <c:if test="${not empty formError}"><div class="alert alert-error"><c:out value="${formError}"/></div></c:if>

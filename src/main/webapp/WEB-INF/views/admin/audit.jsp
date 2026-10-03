@@ -7,18 +7,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Nhật ký thao tác</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=audit-20261002">
+    <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page audit-page">
 <%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <div class="app-content">
-    <header class="app-topbar">
-        <div>
-            <p class="breadcrumb">Quản trị / Nhật ký thao tác</p>
-            <h1>Nhật ký thao tác</h1>
-        </div>
-    </header>
+
     <main class="page-body">
+<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+
         <section class="content-panel audit-filter-panel" aria-labelledby="audit-filter-heading">
             <h2 id="audit-filter-heading">Bộ lọc nhật ký</h2>
             <p class="audit-helper">Tra cứu người thực hiện và đối chiếu dữ liệu trước, sau thay đổi.</p>

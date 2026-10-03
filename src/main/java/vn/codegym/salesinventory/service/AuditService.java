@@ -23,6 +23,27 @@ public final class AuditService {
     public static void record(Connection c,long actor,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
         Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",actor,event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
     }
+    /** Overview intentionally excludes snapshots and all sensitive values. */
+    public static List<Map<String,Object>> recent(Connection c,vn.codegym.salesinventory.security.Access access) throws SQLException {
+        access.require("AUDIT_READ");
+        var rows=Sql.query(c,"SELECT a.event_type,a.object_type,a.object_id,a.occurred_at,u.full_name FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id ORDER BY a.occurred_at DESC,a.id DESC LIMIT 5");
+        for(var row:rows) {
+            row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            row.put("event_label",switch(Sql.text(row.get("event_type"))) {
+                case "PROFILE_UPDATED" -> "Cập nhật hồ sơ"; case "AVATAR_UPDATED" -> "Cập nhật ảnh đại diện";
+                case "USER_CREATED" -> "Tạo tài khoản"; case "USER_UPDATED" -> "Cập nhật tài khoản";
+                case "PRODUCT_CREATED" -> "Thêm sản phẩm"; case "PRODUCT_UPDATED" -> "Cập nhật sản phẩm";
+                case "PRICE_VERSION_CREATED" -> "Tạo phiên bản bảng giá"; case "PRICE_ITEM_UPDATED" -> "Cập nhật giá bán";
+                default -> Sql.text(row.get("event_type"));
+            });
+            row.put("object_label",switch(Sql.text(row.get("object_type"))) {
+                case "USER" -> "Tài khoản"; case "PRODUCT" -> "Sản phẩm"; case "PRICE_VERSION" -> "Bảng giá";
+                case "CATEGORY" -> "Nhóm hàng"; case "SUPPLIER" -> "Nhà cung cấp"; case "UNIT" -> "Đơn vị quy đổi";
+                default -> Sql.text(row.get("object_type"));
+            });
+        }
+        return rows;
+    }
     public static List<Map<String,Object>> read(Connection c,vn.codegym.salesinventory.security.Access access,String filter,Object[] args,int offset) throws SQLException {
         access.require("AUDIT_READ");
         if(offset<0)throw new IllegalArgumentException("Trang không hợp lệ.");

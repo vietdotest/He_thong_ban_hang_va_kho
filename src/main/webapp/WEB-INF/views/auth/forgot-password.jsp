@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quên mật khẩu | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
+    <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="auth-page">
 <header class="auth-topbar"><a class="wordmark" href="${pageContext.request.contextPath}/login"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a></header>

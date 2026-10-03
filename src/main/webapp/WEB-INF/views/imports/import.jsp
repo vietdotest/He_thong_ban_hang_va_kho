@@ -4,10 +4,11 @@
 <head>
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title><c:out value="${title}"/></title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=s201-20261002">
+    <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
 <%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content ${userImportPage ? 'user-import-page' : 'catalog-page'}">
     <h1><c:out value="${title}"/></h1>
     <section class="content-panel import-upload">
