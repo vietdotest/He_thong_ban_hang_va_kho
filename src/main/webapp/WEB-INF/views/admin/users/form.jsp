@@ -15,7 +15,7 @@
 <div class="app-content">
 
     <main class="page-body narrow-body">
-<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+<div class="page-heading"><div><h1>${editing ? 'Thông tin người dùng' : 'Thêm người dùng'}</h1><p>Quản lý thông tin liên hệ và phân công tài khoản.</p></div><c:if test="${editing}"><div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/assignments?id=${userId}">Phân công</a><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/status?id=${userId}">Khóa / mở khóa</a></div></c:if></div>
 
         <section class="content-panel account-panel">
             <div class="panel-heading"><div><h2>Thông tin tài khoản</h2><p>${editing ? 'Cập nhật thông tin, vai trò và trạng thái sử dụng.' : 'Mật khẩu tạm sẽ được gửi đến email sau khi tạo thành công.'}</p></div></div>
@@ -37,7 +37,7 @@
                             </c:choose>
                         </c:forEach>
                     </select><c:if test="${not empty errors.roleCode}"><small class="field-error"><c:out value="${errors.roleCode}"/></small></c:if></label>
-                    <p>Khóa/mở tài khoản được thực hiện riêng từ danh sách người dùng, kèm lý do khóa.</p>
+                    <p class="muted">Khóa/mở tài khoản được thực hiện riêng từ danh sách người dùng, kèm lý do khóa.</p>
                 </div>
 
                 <div class="form-actions">
@@ -46,8 +46,8 @@
                 </div>
             </form>
         </section>
+        <c:if test="${editing and form.status().name() == 'PENDING_ACTIVATION'}"><form method="post" class="content-panel account-form" action="${pageContext.request.contextPath}/admin/users/activation"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><input type="hidden" name="id" value="${userId}"><p class="muted">Tài khoản đang chờ người dùng kích hoạt qua email.</p><button class="button button-secondary">Gửi lại email kích hoạt</button></form></c:if>
     </main>
 </div>
 </body>
 </html>
-

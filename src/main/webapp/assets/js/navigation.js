@@ -55,4 +55,29 @@
     const helper = document.getElementById('avatar-helper');
     if (helper && input.files[0]) helper.textContent = 'Đã chọn: ' + input.files[0].name + '. Ảnh sẽ được lưu cùng thông tin.';
   }));
+  document.querySelectorAll('[data-editor]').forEach(button => button.addEventListener('click', event => {
+    const editor = document.getElementById(button.dataset.editor);
+    if (!editor || editor.open) return;
+    event.preventDefault(); editor.open = true;
+    editor.scrollIntoView({block: 'start', behavior: 'smooth'});
+    editor.querySelector('input:not([type=hidden]),select,textarea')?.focus({preventScroll:true});
+  }));
+  const compact = matchMedia('(max-width: 767px)');
+  const adaptProductFilter = () => {
+    const select = document.querySelector('.mobile-category-filter select');
+    const hidden = document.querySelector('.desktop-category-value');
+    if (select) select.disabled = !compact.matches;
+    if (hidden) hidden.disabled = compact.matches;
+  };
+  compact.addEventListener('change', adaptProductFilter); adaptProductFilter();
+  document.querySelectorAll('.field-error').forEach((error,index) => {
+    if (!error.textContent.trim()) return;
+    error.setAttribute('role','alert');
+    const field = error.closest('label,.form-field')?.querySelector('input,select,textarea');
+    if (field) {
+      error.id ||= 'field-error-' + index;
+      field.setAttribute('aria-invalid','true');
+      field.setAttribute('aria-describedby',error.id);
+    }
+  });
 })();

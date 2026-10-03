@@ -15,7 +15,12 @@ public final class AssignmentServlet extends PortalServlet {
     }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception {
         new AssignmentService(source()).assign(actor(r).id(),number(r,"id"),new HashSet<>(Arrays.asList(values(r,"role"))),ids(r,"warehouse"),ids(r,"territory"));
-        redirect(r,s,"/admin/assignments?id="+number(r,"id"));
+        redirect(r,s,"/admin/assignments?id="+number(r,"id")+"&notice=saved");
+    }
+    protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws jakarta.servlet.ServletException,java.io.IOException {
+        r.setAttribute("form",Map.of("roles",List.of(values(r,"role")),"warehouses",List.of(values(r,"warehouse")),"territories",List.of(values(r,"territory"))));
+        r.setAttribute("formError",message);s.setStatus(400);
+        try { get(r,s); }catch(IllegalArgumentException invalid){super.badRequest(r,s,message);}catch(jakarta.servlet.ServletException|java.io.IOException failure){throw failure;}catch(Exception failure){throw new jakarta.servlet.ServletException(failure);}
     }
     private static String[] values(HttpServletRequest r,String key) { return Optional.ofNullable(r.getParameterValues(key)).orElse(new String[0]); }
     private static Set<Long> ids(HttpServletRequest r,String key) { Set<Long> ids=new HashSet<>(); for(String s:values(r,key)) { try { ids.add(Long.parseLong(s)); } catch(NumberFormatException e) { throw new IllegalArgumentException("Phạm vi không hợp lệ."); } } return ids; }
