@@ -3,8 +3,12 @@ package vn.codegym.salesinventory.security;
 import java.util.*;
 
 public record Access(Set<String> roles, Set<String> permissions, List<Map<String,Object>> roleNames,
-                     List<Map<String,Object>> warehouses, List<Map<String,Object>> territories) {
-    public Access { roles=Set.copyOf(roles); permissions=Set.copyOf(permissions); roleNames=List.copyOf(roleNames); warehouses=List.copyOf(warehouses); territories=List.copyOf(territories); }
+                     List<Map<String,Object>> warehouses, List<Map<String,Object>> territories, String avatarKey) {
+    public Access { roles=Set.copyOf(roles); permissions=Set.copyOf(permissions); roleNames=List.copyOf(roleNames); warehouses=List.copyOf(warehouses); territories=List.copyOf(territories); avatarKey=avatarKey==null?"":avatarKey; }
+    public Access(Set<String> roles,Set<String> permissions,List<Map<String,Object>> roleNames,
+                  List<Map<String,Object>> warehouses,List<Map<String,Object>> territories) {
+        this(roles,permissions,roleNames,warehouses,territories,"");
+    }
     public boolean allows(String permission) {
         if(permission.equals("COST_READ") || permission.equals("COST_WRITE"))
             return roles.contains("SALES_MANAGER") && permissions.contains(permission);
