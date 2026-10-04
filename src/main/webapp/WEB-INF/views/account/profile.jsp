@@ -29,7 +29,7 @@
                 </label>
                 <label class="field" for="profile-image">Ảnh đại diện</label>
                 <div class="avatar-picker">
-                    <c:choose><c:when test="${not empty profile.avatar_key}"><img alt="Ảnh đại diện hiện tại" src="${pageContext.request.contextPath}/account/avatar"></c:when>
+                    <c:choose><c:when test="${not empty profile.avatar_key}"><img alt="Ảnh đại diện hiện tại" src="${pageContext.request.contextPath}/account/avatar?v=<c:out value='${profile.avatar_key}'/>"></c:when>
                         <c:otherwise><span class="avatar-placeholder" aria-label="Chưa có ảnh đại diện">BH</span></c:otherwise></c:choose>
                     <label class="button button-secondary file-button" for="profile-image"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Chọn ảnh JPG / PNG
                         <input id="profile-image" class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-invalid="${not empty errors.image}" aria-describedby="avatar-helper avatar-error">

@@ -22,6 +22,14 @@ class AvatarAcceptanceIT extends StoryDatabaseSupport {
     }
     String key() { return Sql.text(one("SELECT avatar_key FROM users WHERE id=?",actor).get("avatar_key")); }
     long files() throws IOException { try(var stream=Files.list(root)){return stream.count();} }
+    @Test void navigationReadsCurrentThumbnailAfterEitherAvatarSavePath() throws Exception {
+        var access=new AccessService(source);
+        assertThat(access.load(actor).avatarKey()).isEmpty();
+        String first=avatars.replace(actor,png());
+        assertThat(access.load(actor).avatarKey()).isEqualTo(first);
+        new ProfileService(source,images).updateWithAvatar(actor,"Tên cập nhật","0901234567",png());
+        assertThat(access.load(actor).avatarKey()).isEqualTo(key()).isNotEqualTo(first);
+    }
     @Test void savesOnlyOwnersImageAndCorrectAudit() throws Exception {
         long other=user("SALES");String key=avatars.replace(actor,png());
         assertThat(key()).isEqualTo(key);assertThat(one("SELECT avatar_key FROM users WHERE id=?",other).get("avatar_key")).isNull();
