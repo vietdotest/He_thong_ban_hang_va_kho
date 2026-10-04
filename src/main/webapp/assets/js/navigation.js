@@ -61,7 +61,11 @@
   }));
   document.querySelectorAll('[data-editor]').forEach(button => button.addEventListener('click', event => {
     const editor = document.getElementById(button.dataset.editor);
-    if (!editor || editor.open) return;
+    if (!editor) return;
+    if (button.dataset.scopeKind) {
+      if (Number(editor.querySelector('[name=id]')?.value) > 0) return;
+      editor.querySelector('[name=kind]').value = button.dataset.scopeKind;
+    } else if (editor.open) return;
     event.preventDefault(); editor.open = true;
     editor.scrollIntoView({block: 'start', behavior: 'smooth'});
     editor.querySelector('input:not([type=hidden]),select,textarea')?.focus({preventScroll:true});

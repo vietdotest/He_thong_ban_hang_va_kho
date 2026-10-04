@@ -20,8 +20,8 @@ import vn.codegym.salesinventory.model.UserStatus;
 public final class JdbcUserManagementRepository implements UserManagementRepository {
     private static final String SCOPES = """
             ,CONCAT_WS(' · ',
-              (SELECT GROUP_CONCAT(w.name ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
-              (SELECT GROUP_CONCAT(t.name ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
+              (SELECT GROUP_CONCAT(CONCAT('Kho: ',w.name) ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
+              (SELECT GROUP_CONCAT(CONCAT('Địa bàn: ',t.name) ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
             """;
     private static final String FILTER = """
             WHERE (? = ''

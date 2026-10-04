@@ -25,14 +25,14 @@ public final class UnitService {
     public List<Map<String,Object>> list(long actor,long product) {
         var access=new AccessService(source).load(actor);access.require("CATALOG_READ");
         return Sql.transaction(source,c->Sql.query(c,"SELECT u.id,u.product_id,u.name,u.factor,u.version,u.is_base,u.warehouse_id,w.name warehouse_name FROM product_units u LEFT JOIN warehouses w ON w.id=u.warehouse_id WHERE product_id=? ORDER BY is_base DESC,u.name,u.id",product)
-                .stream().filter(row->!access.allows("WAREHOUSE_MANAGE")||row.get("warehouse_id")==null||access.managesWarehouse(Sql.id(row.get("warehouse_id")))).toList());
+                .stream().filter(row->!access.warehouseScoped()||row.get("warehouse_id")==null||access.managesWarehouse(Sql.id(row.get("warehouse_id")))).toList());
     }
     public Map<String,Object> find(long actor,long id) {
         var access=new AccessService(source).load(actor);access.require("CATALOG_READ");
         return Sql.transaction(source,c->{var row=Sql.one(c,"SELECT id,product_id,name,factor,version,is_base,warehouse_id FROM product_units WHERE id=?",id);requireWarehouse(access,row);return row;});
     }
     private static void requireWarehouse(Access access,Map<String,Object> row) {
-        if(access.allows("WAREHOUSE_MANAGE")&&row.get("warehouse_id")!=null&&!access.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();
+        if(access.warehouseScoped()&&row.get("warehouse_id")!=null&&!access.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();
     }
     public long save(long actor,long id,long product,String name,BigDecimal factor,long warehouse,long version) {
         var access=new AccessService(source).load(actor);access.require("WAREHOUSE_MANAGE");

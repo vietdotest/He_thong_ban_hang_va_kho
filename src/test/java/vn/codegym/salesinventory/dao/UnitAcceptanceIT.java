@@ -11,6 +11,18 @@ import vn.codegym.salesinventory.validation.FieldValidationException;
 import static org.assertj.core.api.Assertions.*;
 
 class UnitAcceptanceIT extends StoryDatabaseSupport {
+    @Test void readOnlyWarehouseRoleCannotSeeOrConvertOtherWarehouses() {
+        long own=save(first,"24"),other=user("WAREHOUSE"),otherWarehouse=warehouse(other);
+        long foreign=units.save(other,0,product,"Hộp",BigDecimal.TEN,otherWarehouse,0);
+        var grant=one("SELECT rp.role_id,rp.permission_id FROM role_permissions rp JOIN roles r ON r.id=rp.role_id JOIN permissions p ON p.id=rp.permission_id WHERE r.code='WAREHOUSE' AND p.code='WAREHOUSE_MANAGE'");
+        update("DELETE FROM role_permissions WHERE role_id=? AND permission_id=?",grant.get("role_id"),grant.get("permission_id"));
+        try {
+            assertThat(new AccessService(source).load(staff).allows("WAREHOUSE_MANAGE")).isFalse();
+            assertThat(units.list(staff,product)).anyMatch(r->Sql.id(r.get("id"))==own).noneMatch(r->Sql.id(r.get("id"))==foreign);
+            assertThatThrownBy(()->units.find(staff,foreign)).isInstanceOf(SecurityException.class);
+            assertThatThrownBy(()->units.convert(staff,foreign,BigDecimal.ONE)).isInstanceOf(SecurityException.class);
+        } finally {update("INSERT INTO role_permissions(role_id,permission_id) VALUES(?,?)",grant.get("role_id"),grant.get("permission_id"));}
+    }
     long manager,staff,first,second,product;UnitService units;
     @BeforeEach void fixture(){manager=user("SALES_MANAGER");staff=user("WAREHOUSE");first=warehouse(staff);second=warehouse(staff);product=product(manager);units=new UnitService(source);}
     long save(long warehouse,String factor){return units.save(staff,0,product,"Thùng",new BigDecimal(factor),warehouse,0);}
