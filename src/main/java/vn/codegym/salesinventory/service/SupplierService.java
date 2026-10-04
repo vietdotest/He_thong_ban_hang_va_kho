@@ -12,12 +12,12 @@ public final class SupplierService {
     public record Input(String code,String name,String taxCode,String contact,String phone,String terms,long warehouse,String status,long version) {}
     public List<Map<String,Object>> list(long actor,String query){
         var a=new AccessService(source).load(actor);a.require("CATALOG_READ");
-        return Sql.transaction(source,c->Sql.query(c,"SELECT s.id,s.code,s.name,s.tax_code,s.contact_name,s.contact_phone,s.payment_terms,s.warehouse_id,s.status,s.version,w.name warehouse_name FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id WHERE (s.code LIKE ? OR s.name LIKE ?)"+(a.allows("WAREHOUSE_MANAGE")?" AND EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id)":"")+" ORDER BY s.name LIMIT 1000",a.allows("WAREHOUSE_MANAGE")?new Object[]{"%"+query+"%","%"+query+"%",actor}:new Object[]{"%"+query+"%","%"+query+"%"}));
+        return Sql.transaction(source,c->Sql.query(c,"SELECT s.id,s.code,s.name,s.tax_code,s.contact_name,s.contact_phone,s.payment_terms,s.warehouse_id,s.status,s.version,w.name warehouse_name FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id WHERE (s.code LIKE ? OR s.name LIKE ?)"+(a.warehouseScoped()?" AND EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id)":"")+" ORDER BY s.name LIMIT 1000",a.warehouseScoped()?new Object[]{"%"+query+"%","%"+query+"%",actor}:new Object[]{"%"+query+"%","%"+query+"%"}));
     }
     public Map<String,Object> find(long actor,long id){
         var a=new AccessService(source).load(actor);a.require("CATALOG_READ");
         return Sql.transaction(source,c->{var row=Sql.one(c,"SELECT "+FIELDS+" FROM suppliers WHERE id=?",id);
-            if(a.allows("WAREHOUSE_MANAGE")&&!a.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();return row;});
+            if(a.warehouseScoped()&&!a.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();return row;});
     }
     public static Map<String,String> errors(Input in){
         var errors=new LinkedHashMap<String,String>();

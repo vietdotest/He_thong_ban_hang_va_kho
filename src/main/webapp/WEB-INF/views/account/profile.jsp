@@ -29,7 +29,7 @@
                 </label>
                 <label class="field" for="profile-image">Ảnh đại diện</label>
                 <div class="avatar-picker">
-                    <c:choose><c:when test="${not empty profile.avatar_key}"><img alt="Ảnh đại diện hiện tại" src="${pageContext.request.contextPath}/account/avatar"></c:when>
+                    <c:choose><c:when test="${not empty profile.avatar_key}"><img alt="Ảnh đại diện hiện tại" src="${pageContext.request.contextPath}/account/avatar?v=<c:out value='${profile.avatar_key}'/>"></c:when>
                         <c:otherwise><span class="avatar-placeholder" aria-label="Chưa có ảnh đại diện">BH</span></c:otherwise></c:choose>
                     <label class="button button-secondary file-button" for="profile-image"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Chọn ảnh JPG / PNG
                         <input id="profile-image" class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-invalid="${not empty errors.image}" aria-describedby="avatar-helper avatar-error">
@@ -46,7 +46,8 @@
                 <div><dt>Tên đăng nhập</dt><dd><c:out value="${profile.username}"/></dd></div>
                 <div><dt>Email</dt><dd><c:out value="${profile.email}"/></dd></div>
                 <div><dt>Vai trò</dt><dd><c:choose><c:when test="${empty access.roleNames()}">Chưa phân công</c:when><c:otherwise><c:forEach var="role" items="${access.roleNames()}"><span><c:out value="${role.name}"/></span></c:forEach></c:otherwise></c:choose></dd></div>
-                <div><dt>Kho / địa bàn</dt><dd><c:choose><c:when test="${empty access.warehouses() and empty access.territories()}">Chưa phân công</c:when><c:otherwise><c:forEach var="warehouse" items="${access.warehouses()}"><span><c:out value="${warehouse.name}"/></span></c:forEach><c:forEach var="territory" items="${access.territories()}"><span><c:out value="${territory.name}"/></span></c:forEach></c:otherwise></c:choose></dd></div>
+                <div><dt>Kho phụ trách</dt><dd><c:choose><c:when test="${empty access.warehouses()}">Chưa phân công kho</c:when><c:otherwise><c:forEach var="warehouse" items="${access.warehouses()}"><span><c:out value="${warehouse.name}"/> (<c:out value="${warehouse.code}"/>)</span><span class="scope-address"><c:choose><c:when test="${not empty warehouse.address}"><c:out value="${warehouse.address}"/></c:when><c:otherwise>Chưa bổ sung địa chỉ</c:otherwise></c:choose></span></c:forEach></c:otherwise></c:choose></dd></div>
+                <div><dt>Địa bàn phụ trách</dt><dd><c:choose><c:when test="${empty access.territories()}">Chưa phân công địa bàn</c:when><c:otherwise><c:forEach var="territory" items="${access.territories()}"><span><c:out value="${territory.name}"/> (<c:out value="${territory.code}"/>)</span><span class="scope-address"><c:choose><c:when test="${not empty territory.address}"><c:out value="${territory.address}"/></c:when><c:otherwise>Chưa bổ sung địa chỉ</c:otherwise></c:choose></span></c:forEach></c:otherwise></c:choose></dd></div>
             </dl>
             <div class="alert"><strong>Được quản lý bởi quản trị viên</strong>Liên hệ người quản trị khi cần đổi vai trò, kho hoặc địa bàn.</div>
         </section>

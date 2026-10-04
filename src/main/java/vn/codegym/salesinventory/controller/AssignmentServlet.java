@@ -9,8 +9,8 @@ public final class AssignmentServlet extends PortalServlet {
         Sql.transaction(source(),c -> {
             r.setAttribute("target",Sql.one(c,"SELECT id,username,full_name FROM users WHERE id=?",id));
             r.setAttribute("roles",Sql.query(c,"SELECT r.*,EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=? AND ur.role_id=r.id) AS selected FROM roles r ORDER BY r.id",id));
-            r.setAttribute("warehouses",Sql.query(c,"SELECT w.*,EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=w.id) AS selected FROM warehouses w",id));
-            r.setAttribute("territories",Sql.query(c,"SELECT t.*,EXISTS(SELECT 1 FROM user_territories ut WHERE ut.user_id=? AND ut.territory_id=t.id) AS selected FROM territories t",id));return null;
+            r.setAttribute("warehouses",Sql.query(c,"SELECT w.*,EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=w.id) AS selected FROM warehouses w ORDER BY w.name,w.id",id));
+            r.setAttribute("territories",Sql.query(c,"SELECT t.*,EXISTS(SELECT 1 FROM user_territories ut WHERE ut.user_id=? AND ut.territory_id=t.id) AS selected FROM territories t ORDER BY t.name,t.id",id));return null;
         });view(r,s,"admin/assignments");
     }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception {
