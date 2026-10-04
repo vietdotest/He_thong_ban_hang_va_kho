@@ -51,7 +51,7 @@
                         <tr>
                             <td><c:out value="${user.username()}"/><small><c:out value="${user.fullName()}"/></small></td>
                             <td><c:out value="${user.roleName()}"/></td>
-                            <td><c:choose><c:when test="${not empty user.scopeSummary()}"><c:out value="${user.scopeSummary()}"/></c:when><c:when test="${user.roleCode() == 'ADMIN' or user.roleCode() == 'DIRECTOR'}">Toàn hệ thống</c:when><c:otherwise>Chưa phân công</c:otherwise></c:choose></td>
+                            <td><c:choose><c:when test="${not empty user.scopeSummary()}"><c:out value="${user.scopeSummary()}"/></c:when><c:otherwise>Chưa gán kho / địa bàn</c:otherwise></c:choose></td>
                             <td>
                                 <c:choose>
                                     <c:when test="${user.status().name() == 'ACTIVE'}"><span class="status-badge status-active">Đang hoạt động</span></c:when>
@@ -60,7 +60,7 @@
                                 </c:choose>
                                 <c:if test="${user.mustChangePassword()}"><small class="status-note">Chờ đổi mật khẩu</small></c:if>
                             </td>
-                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Xem</a></td>
+                            <td class="table-action"><a href="${pageContext.request.contextPath}/admin/users/edit?id=${user.id()}">Xem</a><a href="${pageContext.request.contextPath}/admin/assignments?id=${user.id()}">Phân công</a></td>
                         </tr>
                     </c:forEach>
                     <c:if test="${empty userPage.items()}"><tr><td class="table-empty" colspan="5">Không có tài khoản phù hợp với bộ lọc.</td></tr></c:if>

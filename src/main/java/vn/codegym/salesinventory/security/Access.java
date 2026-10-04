@@ -16,4 +16,5 @@ public record Access(Set<String> roles, Set<String> permissions, List<Map<String
     }
     public void require(String permission) { if(!allows(permission)) throw new SecurityException("Bạn không có quyền thực hiện thao tác này."); }
     public boolean managesWarehouse(long id) { return warehouses.stream().anyMatch(w -> ((Number)w.get("id")).longValue()==id); }
+    public boolean warehouseScoped() { return roles.contains("WAREHOUSE")||roles.contains("WAREHOUSE_MANAGER")||allows("WAREHOUSE_MANAGE"); }
 }

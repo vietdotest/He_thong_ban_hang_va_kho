@@ -14,7 +14,7 @@ public final class AuditService {
             case "PROFILE_UPDATED" -> "Cập nhật hồ sơ";case "AVATAR_UPDATED" -> "Cập nhật ảnh đại diện";
             case "USER_CREATED" -> "Tạo tài khoản";case "USER_UPDATED" -> "Cập nhật tài khoản";
             case "USER_LOCKED","ACCOUNT_LOCKED" -> "Khóa tài khoản";case "USER_UNLOCKED","ACCOUNT_UNLOCKED" -> "Mở khóa tài khoản";
-            case "USER_ASSIGNMENTS_UPDATED" -> "Cập nhật phân công";case "ROLE_PERMISSIONS_UPDATED" -> "Cập nhật phân quyền";
+            case "USER_ASSIGNMENTS_UPDATED" -> "Cập nhật phân công";case "ROLE_PERMISSIONS_UPDATED" -> "Cập nhật phân quyền";case "SCOPE_UPDATED" -> "Cập nhật kho / địa bàn";
             case "PRODUCT_SAVED","PRODUCT_UPDATED" -> "Lưu sản phẩm";case "PRODUCT_CREATED" -> "Thêm sản phẩm";case "PRODUCT_DELETED" -> "Xóa sản phẩm";
             case "CATEGORY_SAVED" -> "Lưu nhóm hàng";case "CATEGORY_DELETED" -> "Xóa nhóm hàng";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";

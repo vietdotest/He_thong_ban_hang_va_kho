@@ -6,6 +6,17 @@ import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.validation.FieldValidationException;
 import static org.assertj.core.api.Assertions.*;
 class SupplierAcceptanceIT extends StoryDatabaseSupport {
+    @Test void readOnlyWarehouseManagerCannotReadSuppliersOutsideAssignment() {
+        long own=save(),other=user("WAREHOUSE_MANAGER"),otherWarehouse=warehouse(other);
+        long foreign=suppliers.save(other,0,input("FOREIGN-"+UUID.randomUUID(),otherWarehouse,0,"ACTIVE"));
+        var grant=one("SELECT rp.role_id,rp.permission_id FROM role_permissions rp JOIN roles r ON r.id=rp.role_id JOIN permissions p ON p.id=rp.permission_id WHERE r.code='WAREHOUSE_MANAGER' AND p.code='WAREHOUSE_MANAGE'");
+        update("DELETE FROM role_permissions WHERE role_id=? AND permission_id=?",grant.get("role_id"),grant.get("permission_id"));
+        try {
+            assertThat(new AccessService(source).load(manager).allows("WAREHOUSE_MANAGE")).isFalse();
+            assertThat(suppliers.list(manager,"")).anyMatch(r->Sql.id(r.get("id"))==own).noneMatch(r->Sql.id(r.get("id"))==foreign);
+            assertThatThrownBy(()->suppliers.find(manager,foreign)).isInstanceOf(SecurityException.class);
+        } finally {update("INSERT INTO role_permissions(role_id,permission_id) VALUES(?,?)",grant.get("role_id"),grant.get("permission_id"));}
+    }
     long manager,wh;SupplierService suppliers;
     @BeforeEach void fixture(){manager=user("WAREHOUSE_MANAGER");wh=warehouse(manager);suppliers=new SupplierService(source);}
     SupplierService.Input input(String code,long warehouse,long version,String status){return new SupplierService.Input(code," Nhà cung cấp O'An ","0123456789-001"," Liên hệ ","+84912345678"," Trả ngay ",warehouse,status,version);}
