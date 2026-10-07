@@ -6,8 +6,6 @@
 
 - JDK 17 tại `C:\Program Files\Java\jdk-17`
 - Docker Desktop đang chạy
-- Apache NetBeans 25 (tùy chọn, dùng cho Run/Debug)
-
 Không cần cài Maven toàn hệ thống. `mvnw.cmd` tự tải Maven 3.9.16 và kiểm tra SHA-512 ở lần chạy đầu tiên.
 
 ## Khởi động dịch vụ local và kiểm tra build
@@ -36,24 +34,6 @@ Dừng MySQL và Mailpit mà vẫn giữ dữ liệu:
 ```powershell
 .\scripts\db-stop.ps1
 ```
-
-## Chuẩn bị Tomcat cho NetBeans
-
-```powershell
-.\scripts\setup-tomcat.ps1
-```
-
-Script tải và kiểm tra checksum Tomcat 10.1.60, sau đó giải nén vào `.tools\apache-tomcat-10.1.60`. Thông tin tài khoản Tomcat Manager dành cho NetBeans nằm trong `.tools\netbeans-tomcat-credentials.txt`; toàn bộ thư mục `.tools` không được commit.
-
-Trong NetBeans 25:
-
-1. Mở trực tiếp thư mục repo dưới dạng Maven project.
-2. Chọn Java Platform `C:\Program Files\Java\jdk-17`.
-3. Vào **Tools → Servers → Add Server**, chọn Tomcat và trỏ tới `.tools\apache-tomcat-10.1.60`.
-4. Nhập tài khoản trong `.tools\netbeans-tomcat-credentials.txt`.
-5. Gán Tomcat vừa đăng ký cho project rồi chọn Run hoặc Debug.
-
-WAR được tạo tại `target\ROOT.war` và ứng dụng chạy ở `http://localhost:8080/`.
 
 ## Tài khoản khởi tạo local
 
@@ -91,9 +71,3 @@ Sau năm lần nhập sai liên tiếp, tài khoản bị khóa tạm 15 phút. 
 Phiên đăng nhập được lưu phía server, hết hạn sau 30 phút không hoạt động hoặc tối đa 8 giờ. Logout thu hồi phiên hiện tại; đổi mật khẩu thu hồi các phiên khác; đặt lại mật khẩu thu hồi toàn bộ phiên.
 
 Tài khoản do quản trị viên tạo phải kích hoạt qua email trước khi đăng nhập, sau đó bắt buộc đổi mật khẩu tạm. Username, email và số điện thoại được chuẩn hóa và có ràng buộc duy nhất tại database. Danh sách tài khoản tìm theo tên, username hoặc số điện thoại; lọc theo vai trò/trạng thái và hiển thị 20 tài khoản mỗi trang. Các vai trò local gồm `ADMIN`, `SALES`, `WAREHOUSE`, `SALES_MANAGER`, `WAREHOUSE_MANAGER`, `ACCOUNTANT` và `DIRECTOR`. Giá vốn chỉ dành cho `SALES_MANAGER`, kể cả khi xem nhật ký.
-
-## Phạm vi hiện tại
-
-Nhánh `develop` tích hợp Sprint 1 và Sprint 2: tài khoản, phân quyền, phân công kho/địa bàn, hồ sơ, nhập Excel, nhật ký, sản phẩm, nhóm hàng, quy đổi đơn vị, nhà cung cấp và bảng giá.
-
-Các luồng tạo đơn bán hàng, phiếu nhập/xuất kho, hóa đơn, công nợ và duyệt đơn dưới giá sàn chưa có giao diện nghiệp vụ hoàn chỉnh trong phạm vi này. Danh mục đã có kiểm tra tham chiếu giao dịch, lưu hệ số quy đổi và phiên bản giá để các luồng đó tích hợp sau.
