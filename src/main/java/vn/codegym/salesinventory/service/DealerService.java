@@ -94,6 +94,7 @@ public final class DealerService {
         if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Không có quyền xóa hồ sơ.");
         if(Sql.id(before.get("version"))!=version)throw new IllegalArgumentException("Hồ sơ đã thay đổi, hãy tải lại.");
         if(!Sql.query(c,"SELECT dealer_id FROM dealer_transaction_references WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có giao dịch. Chỉ được ngừng giao dịch.");
+        if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}

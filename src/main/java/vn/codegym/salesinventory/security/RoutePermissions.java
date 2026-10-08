@@ -7,6 +7,7 @@ public final class RoutePermissions {
     }
     public static String required(String path,String method) {
         if(path.equals("/dealers")) return method.equals("GET") ? "DEALER_READ" : "DEALER_MANAGE";
+        if(path.equals("/dealers/addresses")) return method.equals("GET") ? "DEALER_READ" : "DEALER_ADDRESS_MANAGE";
         if(path.startsWith("/api/lookups/")) {
             if(!method.equals("GET")) return null;
             return switch(path) {

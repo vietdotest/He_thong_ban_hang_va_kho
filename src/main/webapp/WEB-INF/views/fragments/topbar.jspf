@@ -6,6 +6,7 @@ String uiTitle;
 switch (uiPath) {
 case "/dashboard": uiTitle = "Tổng quan"; break;
 case "/dealers": uiTitle = "Đại lý"; break;
+case "/dealers/addresses": uiTitle = "Điểm giao hàng"; break;
 case "/admin/users": uiTitle = "Người dùng"; break;
 case "/admin/users/new": uiTitle = "Thêm người dùng"; break;
 case "/admin/users/edit": uiTitle = "Chỉnh sửa người dùng"; break;
