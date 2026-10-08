@@ -6,6 +6,14 @@ public final class RoutePermissions {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
     public static String required(String path,String method) {
+        if(path.startsWith("/api/lookups/")) {
+            if(!method.equals("GET")) return null;
+            return switch(path) {
+                case "/api/lookups/products", "/api/lookups/categories" -> "CATALOG_READ";
+                case "/api/lookups/users", "/api/lookups/warehouses", "/api/lookups/territories" -> "USER_MANAGE";
+                default -> null;
+            };
+        }
         if(path.equals("/dashboard") || path.equals("/logout") || path.startsWith("/account/")) return "PROFILE";
         if(path.equals("/admin/roles")) return "ROLE_MANAGE";
         if(path.startsWith("/admin/users")) return "USER_MANAGE";

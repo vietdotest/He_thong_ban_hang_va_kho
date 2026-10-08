@@ -72,11 +72,6 @@
             <c:if test="${empty products}"><div class="content-panel empty-state"><h2>Không có sản phẩm phù hợp</h2><p>Thử thay đổi từ khóa, nhóm hàng hoặc trạng thái.</p><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products">Bỏ bộ lọc</a></div></c:if>
         </div>
     </div>
-    <div class="results-footer"><p class="table-summary">Tìm thấy <strong><c:out value="${totalProducts}"/></strong> sản phẩm · Trang <c:out value="${pageNo}"/> · Tối đa 100 dòng/trang</p>
-        <nav class="pagination" aria-label="Phân trang sản phẩm">
-            <c:choose><c:when test="${pageNo > 1}"><c:url var="prev" value="/catalog/products"><c:param name="page" value="${pageNo-1}"/><c:param name="q" value="${param.q}"/><c:param name="category" value="${param.category}"/><c:param name="status" value="${param.status}"/></c:url><a class="button button-secondary" href="<c:out value='${prev}'/>">Trước</a></c:when><c:otherwise><button class="button" disabled>Trước</button></c:otherwise></c:choose>
-            <c:choose><c:when test="${hasNext}"><c:url var="next" value="/catalog/products"><c:param name="page" value="${pageNo+1}"/><c:param name="q" value="${param.q}"/><c:param name="category" value="${param.category}"/><c:param name="status" value="${param.status}"/></c:url><a class="button button-secondary" href="<c:out value='${next}'/>">Tiếp</a></c:when><c:otherwise><button class="button" disabled>Tiếp</button></c:otherwise></c:choose>
-        </nav>
-    </div>
+    <%@ include file="../fragments/pagination.jspf" %>
     <c:if test="${canCost}"><div class="alert"><strong>Giá vốn theo đơn vị cơ sở</strong>Giá vốn được tính trên một đơn vị cơ sở của từng sản phẩm. Quy cách đóng gói được hiển thị để đối chiếu.</div></c:if>
 </main></body></html>

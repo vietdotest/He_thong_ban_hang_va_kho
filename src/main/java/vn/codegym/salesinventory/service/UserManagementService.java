@@ -61,12 +61,12 @@ public final class UserManagementService {
     public UserPage search(UserSearchCriteria requested) {
         try (Connection connection = dataSource.getConnection()) {
             long total = users.count(connection, requested);
-            int totalPages = Math.max(1, (int) Math.ceil((double) total / UserSearchCriteria.PAGE_SIZE));
+            int totalPages = (int)Math.min(Integer.MAX_VALUE, Math.max(1, total / requested.pageSize() + (total % requested.pageSize() == 0 ? 0 : 1)));
             UserSearchCriteria effective = requested.page() > totalPages
-                    ? new UserSearchCriteria(requested.keyword(), requested.roleCode(), requested.status(), totalPages)
+                    ? new UserSearchCriteria(requested.keyword(), requested.roleCode(), requested.status(), totalPages, requested.pageSize())
                     : requested;
             return new UserPage(users.search(connection, effective), total, effective.page(),
-                    UserSearchCriteria.PAGE_SIZE);
+                    effective.pageSize());
         } catch (SQLException exception) {
             throw new AuthenticationException("User search failed", exception);
         }
