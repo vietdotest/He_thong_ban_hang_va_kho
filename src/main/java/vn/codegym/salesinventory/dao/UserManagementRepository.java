@@ -11,6 +11,7 @@ import vn.codegym.salesinventory.model.ManagedUser;
 import vn.codegym.salesinventory.model.RoleOption;
 
 public interface UserManagementRepository {
+    boolean isPortalAccount(Connection connection,long userId) throws SQLException;
     default boolean userHasPermission(java.sql.Connection c,long id,String code) throws java.sql.SQLException {
         return !Sql.query(c,"SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=? AND p.code=? LIMIT 1",id,code).isEmpty();
     }

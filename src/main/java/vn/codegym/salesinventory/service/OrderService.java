@@ -53,13 +53,15 @@ public final class OrderService {
         return errors;
     }
     private static void validate(Input in){var errors=errors(in);if(!errors.isEmpty())throw new FieldValidationException(errors);}
-    private static Access reader(Connection c,long actor)throws SQLException{return DealerService.access(c,actor,"ORDER_READ");}
-    private static void writer(Access a){a.require("ORDER_WRITE");if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","SALES")::contains))throw new SecurityException();}
+    private static Access reader(Connection c,long actor)throws SQLException{if(PortalAccountService.portal(c,actor))return PortalAccountService.access(c,actor,"PORTAL_ORDER_READ");var a=DealerService.access(c,actor,"ORDER_READ");if(a.roles().contains("DEALER"))throw new SecurityException();return a;}
+    private static boolean portal(Access a){return a.roles().equals(Set.of("DEALER"));}
+    private static void writer(Access a){if(portal(a)){a.require("PORTAL_ORDER_WRITE");return;}a.require("ORDER_WRITE");if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","SALES")::contains))throw new SecurityException();}
+    private static Map<String,Object> scoped(Connection c,long actor,Access a,long dealer,boolean lock)throws SQLException{return portal(a)?PortalAccountService.scoped(c,actor,a,dealer,lock):DealerService.scoped(c,actor,a,dealer,lock);}
     private static void owner(Map<String,Object> row,long actor){if(Sql.id(row.get("owner_id"))!=actor)throw new SecurityException("Nháp thuộc người khác; Quản lý kinh doanh có thể tiếp quản với lý do.");}
     private static void editable(Map<String,Object> row,long version){if(!"DRAFT".equals(row.get("status")))throw FieldValidationException.field("form","Đơn đã gửi chỉ được xem.");if(Sql.id(row.get("version"))!=version)throw FieldValidationException.field("form","Nháp đã thay đổi. Hãy tải lại trước khi lưu hoặc gửi.");}
     private static Context context(Connection c,long actor,long id,boolean lock)throws SQLException{
         var a=reader(c,actor);var known=Sql.query(c,"SELECT dealer_id FROM orders WHERE id=?",id);if(known.isEmpty())throw new SecurityException("Đơn không thuộc phạm vi được phép.");
-        var dealer=DealerService.scoped(c,actor,a,Sql.id(known.get(0).get("dealer_id")),lock);
+        var dealer=scoped(c,actor,a,Sql.id(known.get(0).get("dealer_id")),lock);
         var order=Sql.one(c,"SELECT * FROM orders WHERE id=?"+(lock?" FOR UPDATE":""),id);return new Context(a,dealer,order);
     }
     private static Map<String,Object> address(Connection c,Map<String,Object> dealer,long id)throws SQLException{
@@ -78,7 +80,7 @@ public final class OrderService {
     private static String inputHash(Input in){var normalized=new ArrayList<Object>();normalized.add(in.dealer);normalized.add(in.address);normalized.add(in.delivery.toString());
         for(var l:in.lines)normalized.add(List.of(l.product,l.unit,CatalogValidation.decimal(l.quantity,6,true).toPlainString()));return digest(normalized);}
     public long save(long actor,long id,Input in){validate(in);String key=id==0?uuid(in.creationKey,"creationKey"):"",hash=inputHash(in);
-        return Sql.transaction(source,c->{var a=reader(c,actor);writer(a);var dealer=DealerService.scoped(c,actor,a,in.dealer,true);
+        return Sql.transaction(source,c->{var a=reader(c,actor);writer(a);var dealer=scoped(c,actor,a,in.dealer,true);
             if(id==0){var old=Sql.query(c,"SELECT id,creation_hash FROM orders WHERE created_by=? AND creation_key=?",actor,key);
                 if(!old.isEmpty()){if(!hash.equals(old.get(0).get("creation_hash")))throw FieldValidationException.field("form","Mã lưu đã dùng cho dữ liệu khác. Hãy mở lại đơn đã lưu.");return Sql.id(old.get(0).get("id"));}
                 DealerStatusService.requireNewOrderAllowed(dealer);
@@ -96,21 +98,22 @@ public final class OrderService {
             AuditService.record(c,actor,"ORDER_DRAFT_SAVED","ORDER",saved,before,Sql.one(c,"SELECT * FROM orders WHERE id=?",saved));return saved;});
     }
     public Map<String,Object> find(long actor,long id){return Sql.transaction(source,c->{var ctx=context(c,actor,id,false);var row=new LinkedHashMap<>(ctx.order);row.put("dealer_name",ctx.dealer.get("name"));row.put("dealer_code",ctx.dealer.get("code"));row.put("transaction_locked",DealerStatusService.locked(ctx.dealer));
-        row.put("can_edit","DRAFT".equals(row.get("status"))&&Sql.id(row.get("owner_id"))==actor&&ctx.access.allows("ORDER_WRITE"));
+        row.put("can_edit","DRAFT".equals(row.get("status"))&&Sql.id(row.get("owner_id"))==actor&&ctx.access.allows(portal(ctx.access)?"PORTAL_ORDER_WRITE":"ORDER_WRITE"));
         row.put("can_takeover","DRAFT".equals(row.get("status"))&&Sql.id(row.get("owner_id"))!=actor&&ctx.access.roles().contains("SALES_MANAGER")&&ctx.access.allows("ORDER_WRITE"));
         row.put("delivery_address",Sql.one(c,"SELECT address,recipient,phone,directions,status FROM dealer_addresses WHERE id=? AND dealer_id=?",row.get("address_id"),row.get("dealer_id")));
-        row.put("lines",Sql.query(c,"SELECT l.*,p.sku,p.name,u.name unit_name FROM order_lines l JOIN products p ON p.id=l.product_id JOIN product_units u ON u.id=l.unit_id WHERE l.order_id=? ORDER BY l.position",id));return row;});}
+        row.put("lines",Sql.query(c,"SELECT l.*,p.sku,p.name,u.name unit_name FROM order_lines l JOIN products p ON p.id=l.product_id JOIN product_units u ON u.id=l.unit_id WHERE l.order_id=? ORDER BY l.position",id));
+        if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
     public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","SUBMITTED").contains(status==null?"":status)?status:"";
-        return Sql.transaction(source,c->{var a=reader(c,actor);String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE (? OR d.primary_staff_id=?) AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
-            Object[] args={all(a),actor,state,state,dealer,dealer,term,term,term};long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+filter,args).get("total"));var p=request.clamp(total);var params=new ArrayList<Object>(Arrays.asList(args));params.add(p.pageSize());params.add(p.offset());
+        return Sql.transaction(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
+            var args=new ArrayList<Object>();if(portal)args.add(PortalAccountService.linked(c,actor));else{args.add(all(a));args.add(actor);}args.addAll(Arrays.asList(state,state,dealer,dealer,term,term,term));long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+filter,args.toArray()).get("total"));var p=request.clamp(total);var params=new ArrayList<Object>(args);params.add(p.pageSize());params.add(p.offset());
             var rows=Sql.query(c,"SELECT o.id,o.status,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",params.toArray());return new PageResult<>(rows,total,p.page(),p.pageSize());});}
-    public List<Map<String,Object>> addresses(long actor,long dealer){return Sql.transaction(source,c->{var a=reader(c,actor);DealerService.scoped(c,actor,a,dealer,false);return Sql.query(c,"SELECT id,address,recipient,phone,is_default FROM dealer_addresses WHERE dealer_id=? AND status='ACTIVE' ORDER BY is_default DESC,id",dealer);});}
-    public List<Map<String,Object>> units(long actor,long dealer,long product){return Sql.transaction(source,c->{var a=reader(c,actor);var d=DealerService.scoped(c,actor,a,dealer,false);var rows=Sql.query(c,"SELECT id,name,factor,is_base FROM product_units WHERE product_id=? AND (warehouse_id IS NULL OR warehouse_id=?) ORDER BY is_base DESC,name,id",product,d.get("warehouse_id"));for(var row:rows)row.put("factor",((BigDecimal)row.get("factor")).toPlainString());return rows;});}
+    public List<Map<String,Object>> addresses(long actor,long dealer){return Sql.transaction(source,c->{var a=reader(c,actor);scoped(c,actor,a,dealer,false);return Sql.query(c,"SELECT id,address,recipient,phone,is_default FROM dealer_addresses WHERE dealer_id=? AND status='ACTIVE' ORDER BY is_default DESC,id",dealer);});}
+    public List<Map<String,Object>> units(long actor,long dealer,long product){return Sql.transaction(source,c->{var a=reader(c,actor);var d=scoped(c,actor,a,dealer,false);if(portal(a))PortalCatalogService.requireOffer(c,actor,product);var rows=Sql.query(c,"SELECT id,name,factor,is_base FROM product_units WHERE product_id=? AND (warehouse_id IS NULL OR warehouse_id=?) ORDER BY is_base DESC,name,id",product,d.get("warehouse_id"));for(var row:rows)row.put("factor",((BigDecimal)row.get("factor")).toPlainString());return rows;});}
     public void takeover(long actor,long id,long version,String reason){String why=CatalogValidation.text(reason,1000,"Lý do tiếp quản");Sql.transaction(source,c->{var ctx=context(c,actor,id,true);writer(ctx.access);if(!ctx.access.roles().contains("SALES_MANAGER"))throw new SecurityException();editable(ctx.order,version);
         if(Sql.id(ctx.order.get("owner_id"))==actor)throw FieldValidationException.field("form","Bạn đang phụ trách nháp này.");
         Sql.update(c,"UPDATE orders SET owner_id=?,version=version+1 WHERE id=?",actor,id);Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);
         var after=new LinkedHashMap<>(Sql.one(c,"SELECT * FROM orders WHERE id=?",id));after.put("reason",why);AuditService.record(c,actor,"ORDER_DRAFT_TAKEN_OVER","ORDER",id,ctx.order,after);return null;});}
-    public Quote preview(long actor,Input in){validate(in);return Sql.transaction(source,c->{var a=reader(c,actor);writer(a);var dealer=DealerService.scoped(c,actor,a,in.dealer,true);return calculate(c,dealer,in.address,in.delivery,in.lines);});}
+    public Quote preview(long actor,Input in){validate(in);return Sql.transaction(source,c->{var a=reader(c,actor);writer(a);var dealer=scoped(c,actor,a,in.dealer,true);return calculate(c,dealer,in.address,in.delivery,in.lines);});}
     public Quote quote(long actor,long id){return Sql.transaction(source,c->{var ctx=context(c,actor,id,true);writer(ctx.access);owner(ctx.order,actor);editable(ctx.order,Sql.id(ctx.order.get("version")));
         var q=calculate(c,ctx.dealer,Sql.id(ctx.order.get("address_id")),LocalDate.parse(ctx.order.get("desired_delivery").toString()),inputs(c,id));return q.valid()?ticket(c,actor,id,Sql.id(ctx.order.get("version")),q,false):q;});}
     public Quote estimate(long actor,long id){return Sql.transaction(source,c->{var ctx=context(c,actor,id,true);if(!"DRAFT".equals(ctx.order.get("status")))throw new IllegalArgumentException("Đơn đã gửi dùng số tiền snapshot.");return calculate(c,ctx.dealer,Sql.id(ctx.order.get("address_id")),LocalDate.parse(ctx.order.get("desired_delivery").toString()),inputs(c,id));});}

@@ -2,7 +2,7 @@
   'use strict';
   const form = document.getElementById('order-editor');
   if (!form) return;
-  const context = form.dataset.context || '', lines = form.querySelector('[data-order-lines]');
+  const context = form.dataset.context || '', optionsPath=form.dataset.optionsPath||'/api/orders/options', lines = form.querySelector('[data-order-lines]');
   const send = document.querySelector('#order-submit button'), status = document.querySelector('[data-quote-status]');
   const unitRequests = new WeakMap();
   let quoteTimer, quoteController, quoteSequence = 0, addressController, addressSequence = 0;
@@ -19,7 +19,7 @@
     unitRequests.get(row)?.abort();const controller=new AbortController();unitRequests.set(row,controller);const selected=preserve?select.value:'';
     select.replaceChildren(new Option('Đang tải đơn vị…',''));select.disabled=true;
     if(!dealer()||!product.value){select.replaceChildren(new Option('Chọn SKU và kho phục vụ',''));select.disabled=false;return;}
-    try{const response=await fetch(context+'/api/orders/options?dealer='+encodeURIComponent(dealer())+'&product='+encodeURIComponent(product.value),{signal:controller.signal});if(!response.ok)throw new Error('units');const data=await response.json();if(controller.signal.aborted||unitRequests.get(row)!==controller||!row.isConnected)return;
+    try{const response=await fetch(context+optionsPath+'?dealer='+encodeURIComponent(dealer())+'&product='+encodeURIComponent(product.value),{signal:controller.signal});if(!response.ok)throw new Error('units');const data=await response.json();if(controller.signal.aborted||unitRequests.get(row)!==controller||!row.isConnected)return;
       const items=data.items||[];select.replaceChildren(new Option(items.length?'Chọn đơn vị':'Không có đơn vị thuộc kho phục vụ',''));items.forEach(u=>select.add(new Option(u.name+' (×'+String(u.factor)+')',String(u.id))));
       if(selected&&items.some(u=>String(u.id)===selected))select.value=selected;else if(selected){select.add(new Option('Đơn vị cũ không còn hợp lệ',selected));select.value=selected;row.querySelector('[data-line-error]').textContent='Kiểm tra lại đơn vị hoặc kho phục vụ.';}
       else if(items.length===1)select.value=String(items[0].id);
@@ -29,7 +29,7 @@
   async function addresses(){addressController?.abort();addressController=new AbortController();const controller=addressController,seq=++addressSequence,select=form.elements.address;
     select.replaceChildren(new Option('Đang tải điểm giao…',''));select.disabled=true;
     if(!dealer()){select.replaceChildren(new Option('Chọn đại lý trước',''));select.disabled=false;return;}
-    try{const response=await fetch(context+'/api/orders/options?dealer='+encodeURIComponent(dealer()),{signal:controller.signal});if(!response.ok)throw new Error('address');const data=await response.json();if(seq!==addressSequence)return;
+    try{const response=await fetch(context+optionsPath+'?dealer='+encodeURIComponent(dealer()),{signal:controller.signal});if(!response.ok)throw new Error('address');const data=await response.json();if(seq!==addressSequence)return;
       select.replaceChildren(new Option('Chọn điểm giao thuộc đại lý',''));(data.items||[]).forEach(a=>select.add(new Option(a.address+' — '+a.recipient,String(a.id))));const chosen=(data.items||[]).find(a=>a.is_default===true||a.is_default===1);if(chosen)select.value=String(chosen.id);
     }catch(error){if(error.name!=='AbortError'&&seq===addressSequence)select.replaceChildren(new Option('Chưa tải được điểm giao. Chọn lại đại lý để thử.',''));}
     finally{if(seq===addressSequence)select.disabled=false;}
@@ -43,7 +43,7 @@
   }
   async function preview(sequence){quoteController=new AbortController();const controller=quoteController;status.textContent='Đang tính báo giá…';status.setAttribute('aria-busy','true');
     const data=new FormData(form);data.set('action','preview');
-    try{const response=await fetch(context+'/orders',{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
+    try{const response=await fetch(form.action,{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
     catch(error){if(error.name!=='AbortError'&&sequence===quoteSequence){status.textContent='Chưa thể tính báo giá. Kiểm tra kết nối và bấm Tính lại báo giá.';status.classList.add('field-error');}}
     finally{if(sequence===quoteSequence)status.removeAttribute('aria-busy');}
   }

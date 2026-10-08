@@ -20,6 +20,11 @@ public final class AuthorizationFilter implements Filter {
         Object principal=r.getSession(false)==null ? null : r.getSession(false).getAttribute(SessionKeys.CURRENT_USER);
         if(!(principal instanceof CurrentUser user)) { s.sendError(403); return; }
         Access access=service.load(user.id());
+        if(access.roles().contains("DEALER")){
+            if(!access.roles().equals(java.util.Set.of("DEALER"))){s.sendError(403);return;}
+            if(path.equals("/dashboard")){s.setStatus(303);s.setHeader("Location",r.getContextPath()+"/portal");return;}
+            if(!(path.equals("/portal")||path.equals("/portal/orders")||path.startsWith("/api/portal/")||path.startsWith("/account/")||path.equals("/logout"))){s.sendError(403);return;}
+        }
         if(!access.allows(required)) { s.sendError(403); return; }
         r.setAttribute("access",access); r.setAttribute("currentUser",user);
         r.setAttribute("canCost",access.allows("COST_READ"));

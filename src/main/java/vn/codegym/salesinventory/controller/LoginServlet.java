@@ -130,7 +130,7 @@ public final class LoginServlet extends HttpServlet {
             String serverSessionId = sessionService.create(
                     result.currentUser(), newSessionId, RequestMetadata.authenticationContext(request));
             session.setAttribute(SessionKeys.SERVER_SESSION_ID, serverSessionId);
-            RequestMetadata.seeOther(response, request.getContextPath() + "/dashboard");
+            RequestMetadata.seeOther(response, request.getContextPath() + (result.currentUser().hasRole("DEALER")?"/portal":"/dashboard"));
         } catch (AuthenticationException exception) {
             getServletContext().log("Login could not be processed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

@@ -10,7 +10,7 @@ public final class AccountStatusService {
         if(actor==target) throw new IllegalArgumentException("Không thể tự khóa hoặc thay đổi trạng thái quản trị của chính mình.");
         if(lock && (reason==null || reason.isBlank() || reason.length()>1000)) throw new IllegalArgumentException("Phải ghi lý do khóa, tối đa 1.000 ký tự.");
         Sql.transaction(source,c -> {
-            var old=Sql.one(c,"SELECT status,status_before_lock,lock_reason FROM users WHERE id=? FOR UPDATE",target);String status=Sql.text(old.get("status"));Instant now=Instant.now();
+            var old=Sql.one(c,"SELECT status,status_before_lock,lock_reason,account_kind FROM users WHERE id=? FOR UPDATE",target);if("DEALER".equals(old.get("account_kind")))throw new SecurityException("Quản lý trạng thái tài khoản đại lý qua cổng.");String status=Sql.text(old.get("status"));Instant now=Instant.now();
             if(lock) {
                 Sql.update(c,"UPDATE users SET status_before_lock=CASE WHEN status='ADMIN_LOCKED' THEN status_before_lock ELSE status END,status='ADMIN_LOCKED',lock_reason=?,locked_by=?,admin_locked_at=?,version=version+1 WHERE id=?",reason.trim(),actor,java.sql.Timestamp.from(now),target);
                 new JdbcSessionRepository().revokeAllForUser(c,target,now,"ADMIN_LOCKED");
