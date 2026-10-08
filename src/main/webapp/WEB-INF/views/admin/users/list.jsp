@@ -68,14 +68,7 @@
                 </table>
             </div>
 
-            <c:if test="${userPage.totalPages() > 1}">
-                <nav class="pagination" aria-label="Phân trang">
-                    <c:forEach begin="1" end="${userPage.totalPages()}" var="pageNumber">
-                        <c:url var="pageUrl" value="/admin/users"><c:param name="q" value="${criteria.keyword()}"/><c:param name="role" value="${criteria.roleCode()}"/><c:param name="status" value="${criteria.status()}"/><c:param name="page" value="${pageNumber}"/></c:url>
-                        <a class="${pageNumber == userPage.page() ? 'active' : ''}" aria-current="${pageNumber == userPage.page() ? 'page' : 'false'}" href="${pageUrl}" aria-label="Trang ${pageNumber}"><c:out value="${pageNumber}"/></a>
-                    </c:forEach>
-                </nav>
-            </c:if>
+            <%@ include file="../../fragments/pagination.jspf" %>
         </section>
     </main>
 </div>

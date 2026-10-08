@@ -277,6 +277,8 @@
         <servlet-name>PricingServlet</servlet-name>
         <url-pattern>/pricing/lists</url-pattern>
     </servlet-mapping>
+    <servlet><servlet-name>LookupServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.LookupServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>LookupServlet</servlet-name><url-pattern>/api/lookups/*</url-pattern></servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>

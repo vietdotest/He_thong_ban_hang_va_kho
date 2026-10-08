@@ -96,8 +96,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         List<ManagedUser> users = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int next = bindFilters(statement, criteria);
-            statement.setInt(next++, UserSearchCriteria.PAGE_SIZE);
-            statement.setInt(next, criteria.offset());
+            statement.setInt(next++, criteria.pageSize());
+            statement.setLong(next, criteria.offset());
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     users.add(map(resultSet));

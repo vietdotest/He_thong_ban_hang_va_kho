@@ -71,6 +71,22 @@ public final class ProductService {
                 +" AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?)",
                 "%"+keyword+"%","%"+keyword+"%",category,category,status,status).get("total")));
     }
+    public vn.codegym.salesinventory.dto.PageResult<Map<String,Object>> search(long actor, String keyword, Long category, String status, vn.codegym.salesinventory.dto.PageRequest requested) {
+        var access = new AccessService(source).load(actor);
+        access.require("CATALOG_READ");
+        String filter = " WHERE (p.sku LIKE ? OR p.name LIKE ?) AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?)";
+        String clean = keyword == null ? "" : keyword.trim();
+        if (clean.length() > 150) clean = clean.substring(0, 150);
+        final Object[] filters = {"%" + clean + "%", "%" + clean + "%", category, category, status, status};
+        return Sql.transaction(source, c -> {
+            long total = Sql.id(Sql.one(c, "SELECT COUNT(*) total FROM products p" + filter, filters).get("total"));
+            var effective = requested.clamp(total);
+            var args = new ArrayList<Object>(Arrays.asList(filters));
+            args.add(effective.pageSize()); args.add(effective.offset());
+            var rows = Sql.query(c, "SELECT " + columns(access) + " FROM products p JOIN categories c ON c.id=p.category_id" + filter + " ORDER BY p.sku,p.id LIMIT ? OFFSET ?", args.toArray());
+            return new vn.codegym.salesinventory.dto.PageResult<>(rows, total, effective.page(), effective.pageSize());
+        });
+    }
     public Map<String, Object> find(long actor, long id) {
         var a = new AccessService(source).load(actor);
         a.require("CATALOG_READ");

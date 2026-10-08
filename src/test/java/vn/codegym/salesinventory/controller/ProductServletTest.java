@@ -54,6 +54,7 @@ class ProductServletTest {
         doReturn(products).when(servlet).products();
         doReturn(List.of(Map.of("id", 2L, "label", "Nhóm"))).when(servlet).categories();
         when(products.list(7, "", null, "", 1)).thenReturn(List.of());
+        when(products.search(eq(7L),anyString(),nullable(Long.class),anyString(),any())).thenReturn(new vn.codegym.salesinventory.dto.PageResult<>(List.of(),0,1,20));
     }
     @Test void invalidFormReturns400AndPreservesRawValues() throws Exception {
         parameters.put("sku", "BAD SKU"); parameters.put("name", "  <script>alert(1)</script>  ");
