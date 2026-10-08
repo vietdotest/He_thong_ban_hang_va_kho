@@ -30,6 +30,7 @@ public final class RoutePermissions {
         if(path.equals("/catalog/categories")) return method.equals("GET") ? "CATALOG_READ" : "PRODUCT_MANAGE";
         if(path.equals("/catalog/units") || path.equals("/catalog/suppliers")) return method.equals("GET") ? "CATALOG_READ" : "WAREHOUSE_MANAGE";
         if(path.equals("/pricing/discounts"))return method.equals("GET")?"DISCOUNT_READ":"DISCOUNT_MANAGE";
+        if(path.equals("/pricing/history"))return "PRICE_READ";
         if(path.startsWith("/pricing/")) return method.equals("GET") ? "PRICE_READ" : "PRICE_MANAGE";
         return null;
     }

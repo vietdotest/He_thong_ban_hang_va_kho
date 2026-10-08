@@ -191,6 +191,8 @@ public final class ProductService {
                 throw new IllegalArgumentException("Sản phẩm đang có bảng giá. Hãy ngừng kinh doanh.");
             if (tableExists(c, "discount_policies") && !Sql.query(c, "SELECT id FROM discount_policies WHERE product_id=? LIMIT 1", id).isEmpty())
                 throw new IllegalArgumentException("Sản phẩm đã có chính sách chiết khấu. Hãy ngừng kinh doanh để giữ lịch sử.");
+            if (tableExists(c, "price_history") && !Sql.query(c, "SELECT id FROM price_history WHERE product_id=? LIMIT 1", id).isEmpty())
+                throw new IllegalArgumentException("Sản phẩm đã có lịch sử giá. Hãy ngừng kinh doanh để giữ lịch sử.");
             if (tableExists(c, "conversion_snapshots") && !Sql.query(c, "SELECT id FROM conversion_snapshots WHERE product_id=? LIMIT 1", id).isEmpty())
                 throw new IllegalArgumentException("Sản phẩm đã có lịch sử quy đổi. Hãy ngừng kinh doanh.");
             if (tableExists(c, "product_units")) Sql.update(c, "DELETE FROM product_units WHERE product_id=?", id);
