@@ -28,7 +28,8 @@ public final class ActivationService {
     public void resend(long actor,long userId) {
         new AccessService(source).load(actor).require("USER_MANAGE");
         Sql.transaction(source,c -> {
-            var user=Sql.one(c,"SELECT username,email,full_name,status FROM users WHERE id=? FOR UPDATE",userId);
+            var user=Sql.one(c,"SELECT username,email,full_name,status,account_kind FROM users WHERE id=? FOR UPDATE",userId);
+            if("DEALER".equals(user.get("account_kind")))throw new SecurityException("Gửi lại kích hoạt đại lý qua chức năng tài khoản cổng.");
             if(!Sql.text(user.get("status")).equals("PENDING_ACTIVATION")) throw new IllegalArgumentException("Chỉ gửi lại kích hoạt cho tài khoản đang chờ.");
             String password=new TemporaryPasswordGenerator().generate();
             Sql.update(c,"UPDATE users SET password_hash=?,must_change_password=TRUE,version=version+1 WHERE id=?",new BCryptPasswordHasher().hash(password),userId);

@@ -18,6 +18,7 @@ import vn.codegym.salesinventory.model.RoleOption;
 import vn.codegym.salesinventory.model.UserStatus;
 
 public final class JdbcUserManagementRepository implements UserManagementRepository {
+    @Override public boolean isPortalAccount(Connection connection,long userId)throws SQLException{return "DEALER".equals(Sql.one(connection,"SELECT account_kind FROM users WHERE id=?",userId).get("account_kind"));}
     private static final String SCOPES = """
             ,CONCAT_WS(' · ',
               (SELECT GROUP_CONCAT(CONCAT('Kho: ',w.name) ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
@@ -67,7 +68,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
     public List<RoleOption> findRoles(Connection connection) throws SQLException {
         List<RoleOption> roles = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT id, code, name FROM roles ORDER BY name, code");
+                "SELECT id, code, name FROM roles WHERE code<>'DEALER' ORDER BY name, code");
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
                 roles.add(new RoleOption(

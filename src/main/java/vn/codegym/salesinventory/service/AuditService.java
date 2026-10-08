@@ -24,6 +24,7 @@ public final class AuditService {
             case "DEALER_LOCKED" -> "Khóa giao dịch đại lý";case "DEALER_UNLOCKED" -> "Mở giao dịch đại lý";
             case "DISCOUNT_POLICY_SAVED" -> "Lưu chính sách chiết khấu";
             case "ORDER_DRAFT_SAVED" -> "Lưu đơn nháp";case "ORDER_SUBMITTED" -> "Gửi đơn tiếp nhận";case "ORDER_DRAFT_TAKEN_OVER" -> "Tiếp quản đơn nháp";
+            case "PORTAL_ACCOUNT_CREATED" -> "Cấp tài khoản đại lý";case "PORTAL_ACCOUNT_RELINKED" -> "Đổi liên kết đại lý";case "PORTAL_ACCOUNT_LOCKED" -> "Khóa tài khoản đại lý";case "PORTAL_ACCOUNT_UNLOCKED" -> "Mở tài khoản đại lý";case "PORTAL_ACTIVATION_RESENT" -> "Gửi lại kích hoạt đại lý";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";
             case "SUPPLIER_SAVED" -> "Lưu nhà cung cấp";case "SUPPLIER_DELETED" -> "Xóa nhà cung cấp";case "SCOPE_CREATED" -> "Thêm kho / địa bàn";
             case "PRICE_VERSION_CREATED" -> "Tạo phiên bản bảng giá";case "PRICE_VERSION_UPDATED" -> "Sửa hiệu lực bảng giá";
@@ -38,6 +39,7 @@ public final class AuditService {
             case "DEALER_ADDRESS" -> "Điểm giao hàng";
             case "DISCOUNT_POLICY" -> "Chính sách chiết khấu";
             case "ORDER" -> "Đơn hàng";
+            case "PORTAL_ACCOUNT" -> "Tài khoản cổng đại lý";
             case "CATEGORY" -> "Nhóm hàng";case "SUPPLIER" -> "Nhà cung cấp";case "UNIT","PRODUCT_UNIT" -> "Đơn vị quy đổi";
             case "WAREHOUSE" -> "Kho";case "TERRITORY" -> "Địa bàn";case "ROLE" -> "Vai trò";case "SESSION","" -> "Phiên làm việc";
             default -> code;

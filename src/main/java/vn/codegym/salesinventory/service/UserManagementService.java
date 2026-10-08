@@ -96,6 +96,7 @@ public final class UserManagementService {
         return createAssigned(command,actorUserId,context,null,null,null);
     }
     public UserManagementResult createAssigned(UserAccountCommand command,long actorUserId,AuthenticationContext context,java.util.Set<String> roles,java.util.Set<Long> warehouses,java.util.Set<Long> territories) {
+        if("DEALER".equals(command.roleCode()))return UserManagementResult.failure(UserManagementResult.Status.INVALID_ROLE);
         if(roles!=null) AssignmentService.validate(actorUserId,-1,roles,warehouses);
         Instant now = clock.instant();
         try (Connection connection = dataSource.getConnection()) {
@@ -162,6 +163,7 @@ public final class UserManagementService {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.NOT_FOUND);
                 }
+                if(users.isPortalAccount(connection,userId)||"DEALER".equals(command.roleCode())){connection.rollback();return UserManagementResult.failure(UserManagementResult.Status.FORBIDDEN);}
                 if (!users.roleExists(connection, command.roleCode())) {
                     connection.rollback();
                     return UserManagementResult.failure(UserManagementResult.Status.INVALID_ROLE);

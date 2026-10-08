@@ -5,6 +5,7 @@
   function attachLookup(element, type) {
     if(element.dataset.lookupAttached)return;
     element.dataset.lookupAttached='true';
+    const endpoint=element.dataset.lookupEndpoint || '/api/lookups/'+type;
     const select = element.tagName === 'SELECT' ? element : null;
     const optional = select && !select.required;
     const wrapper = document.createElement('div'); wrapper.className = 'lookup-control';
@@ -37,7 +38,7 @@
       timer = setTimeout(async () => {
         controller = new AbortController(); status('Đang tìm…');
         try {
-          const response = await fetch(context + '/api/lookups/' + type + '?q=' + encodeURIComponent(q), {signal:controller.signal, headers:{Accept:'application/json'}});
+          const response = await fetch(context + endpoint + '?q=' + encodeURIComponent(q), {signal:controller.signal, headers:{Accept:'application/json'}});
           if(!response.ok) throw new Error('lookup');
           const data = await response.json(); if(request !== sequence) return;
           options = data.items || []; menu.replaceChildren(); active = -1;
@@ -68,7 +69,7 @@
     if(location.pathname.endsWith('/dealers')) attachLookup(input,'dealers');
   });
   document.querySelectorAll('select[name=product]').forEach(select=>attachLookup(select,'products'));
-  const mountLookups = root => root.querySelectorAll('select[data-lookup]').forEach(select=>attachLookup(select,select.dataset.lookup));
+  const mountLookups = root => root.querySelectorAll('select[data-lookup],input[data-lookup]').forEach(element=>attachLookup(element,element.dataset.lookup));
   mountLookups(document);
   window.NvdoForms = Object.freeze({mountLookups});
   document.querySelectorAll('form[method=post]').forEach(form=>{

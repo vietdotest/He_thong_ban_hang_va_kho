@@ -113,6 +113,7 @@ public final class DealerService {
         if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
         if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.");
         if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT user_id FROM dealer_accounts WHERE dealer_id=? LIMIT 1",id).isEmpty()||!Sql.query(c,"SELECT id FROM dealer_account_link_history WHERE old_dealer_id=? OR new_dealer_id=? LIMIT 1",id,id).isEmpty())throw new IllegalArgumentException("Đại lý đã có tài khoản cổng hoặc lịch sử liên kết. Hãy ngừng giao dịch để giữ lịch sử.");
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}
