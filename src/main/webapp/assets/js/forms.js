@@ -59,9 +59,10 @@
     });
     document.addEventListener('pointerdown',e=>{if(!wrapper.contains(e.target))close();});
   }
-  document.querySelectorAll('input[name=q]').forEach(input=>{
+  document.querySelectorAll('input[name=q]:not([type=hidden])').forEach(input=>{
     if(location.pathname.endsWith('/catalog/products') || location.pathname.endsWith('/catalog/units')) attachLookup(input,'products');
     if(location.pathname.endsWith('/admin/users')) attachLookup(input,'users');
+    if(location.pathname.endsWith('/dealers')) attachLookup(input,'dealers');
   });
   document.querySelectorAll('select[name=product]').forEach(select=>attachLookup(select,'products'));
   document.querySelectorAll('form[method=post]').forEach(form=>{

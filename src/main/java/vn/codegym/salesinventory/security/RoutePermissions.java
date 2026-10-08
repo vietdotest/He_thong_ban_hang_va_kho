@@ -11,6 +11,7 @@ public final class RoutePermissions {
         if(path.startsWith("/api/lookups/")) {
             if(!method.equals("GET")) return null;
             return switch(path) {
+                case "/api/lookups/dealers" -> "DEALER_READ";
                 case "/api/lookups/products", "/api/lookups/categories" -> "CATALOG_READ";
                 case "/api/lookups/users", "/api/lookups/warehouses", "/api/lookups/territories" -> "USER_MANAGE";
                 default -> null;
