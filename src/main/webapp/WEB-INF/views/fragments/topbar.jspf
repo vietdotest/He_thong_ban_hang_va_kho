@@ -9,6 +9,7 @@ case "/dealers": uiTitle = "Đại lý"; break;
 case "/dealers/addresses": uiTitle = "Điểm giao hàng"; break;
 case "/dealers/handover": uiTitle = "Bàn giao đại lý"; break;
 case "/dealers/credit": uiTitle = "Cấu hình tín dụng"; break;
+case "/dealers/status": uiTitle = "Trạng thái giao dịch"; break;
 case "/admin/users": uiTitle = "Người dùng"; break;
 case "/admin/users/new": uiTitle = "Thêm người dùng"; break;
 case "/admin/users/edit": uiTitle = "Chỉnh sửa người dùng"; break;

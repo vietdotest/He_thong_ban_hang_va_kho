@@ -287,6 +287,8 @@
     <servlet-mapping><servlet-name>DealerHandoverServlet</servlet-name><url-pattern>/dealers/handover</url-pattern></servlet-mapping>
     <servlet><servlet-name>DealerCreditServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerCreditServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>DealerCreditServlet</servlet-name><url-pattern>/dealers/credit</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerStatusServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerStatusServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerStatusServlet</servlet-name><url-pattern>/dealers/status</url-pattern></servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
