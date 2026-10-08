@@ -5,6 +5,7 @@ if (uiPath == null) uiPath = request.getServletPath();
 String uiTitle;
 switch (uiPath) {
 case "/dashboard": uiTitle = "Tổng quan"; break;
+case "/dealers": uiTitle = "Đại lý"; break;
 case "/admin/users": uiTitle = "Người dùng"; break;
 case "/admin/users/new": uiTitle = "Thêm người dùng"; break;
 case "/admin/users/edit": uiTitle = "Chỉnh sửa người dùng"; break;
@@ -28,7 +29,7 @@ request.setAttribute("uiTitle", uiTitle);
 Object uiStep = request.getAttribute("importStep");
 if (uiStep != null && uiStep.toString().equals("2")) request.setAttribute("uiTitle","Kiểm tra tệp Excel");
 if (uiStep != null && uiStep.toString().equals("3")) request.setAttribute("uiTitle","Kết quả nhập Excel");
-request.setAttribute("uiSection", uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
+request.setAttribute("uiSection", uiPath.startsWith("/dealers") ? "Khách hàng và đơn hàng" : uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
 %>
 <header class="app-topbar nvdo-topbar">
 <button type="button" class="icon-button mobile-menu-button" data-menu-open aria-controls="nvdo-menu" aria-expanded="false" aria-label="Mở menu"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/menu.svg" alt=""></button>
