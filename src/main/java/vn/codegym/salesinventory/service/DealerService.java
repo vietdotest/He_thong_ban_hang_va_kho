@@ -55,8 +55,8 @@ public final class DealerService {
         String q=clean(filter.query);if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
         return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");
             String condition=" WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.tax_code LIKE ? OR d.phone LIKE ?)"
-                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR d.status=?)";
-            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status)};
+                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR (?='LOCKED' AND d.transaction_locked=1) OR (?<>'LOCKED' AND d.status=? AND (?<>'ACTIVE' OR d.transaction_locked=0)))";
+            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status)};
             long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+condition,args).get("total"));var paging=requested.clamp(count);
             var params=new ArrayList<Object>(Arrays.asList(args));params.add(paging.pageSize());params.add(paging.offset());
             var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+condition+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
@@ -112,6 +112,7 @@ public final class DealerService {
         if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
         if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
         if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.");
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}
