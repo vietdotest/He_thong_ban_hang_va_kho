@@ -4,6 +4,7 @@
   let counter = 0;
   function attachLookup(element, type) {
     const select = element.tagName === 'SELECT' ? element : null;
+    const optional = select && !select.required;
     const wrapper = document.createElement('div'); wrapper.className = 'lookup-control';
     element.before(wrapper); wrapper.append(element);
     const input = select ? document.createElement('input') : element;
@@ -30,7 +31,7 @@
     input.addEventListener('input', () => {
       clearTimeout(timer); controller?.abort(); const request = ++sequence; close();
       if (select) { select.value = ''; input.setCustomValidity('Hãy chọn một kết quả trong danh sách.'); }
-      const q = input.value.trim(); if(q.length < 2) return;
+      const q = input.value.trim(); if(optional && q.length===0)input.setCustomValidity(''); if(q.length < 2) return;
       timer = setTimeout(async () => {
         controller = new AbortController(); status('Đang tìm…');
         try {
@@ -65,6 +66,7 @@
     if(location.pathname.endsWith('/dealers')) attachLookup(input,'dealers');
   });
   document.querySelectorAll('select[name=product]').forEach(select=>attachLookup(select,'products'));
+  document.querySelectorAll('select[data-lookup]').forEach(select=>attachLookup(select,select.dataset.lookup));
   document.querySelectorAll('form[method=post]').forEach(form=>{
     let dirty = false;
     form.addEventListener('input',()=>{dirty=true;});

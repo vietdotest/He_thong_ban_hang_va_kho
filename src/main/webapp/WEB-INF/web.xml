@@ -283,6 +283,8 @@
     <servlet-mapping><servlet-name>DealerServlet</servlet-name><url-pattern>/dealers</url-pattern></servlet-mapping>
     <servlet><servlet-name>DealerAddressServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerAddressServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>DealerAddressServlet</servlet-name><url-pattern>/dealers/addresses</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerHandoverServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerHandoverServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerHandoverServlet</servlet-name><url-pattern>/dealers/handover</url-pattern></servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
