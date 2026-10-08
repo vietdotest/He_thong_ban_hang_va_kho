@@ -23,6 +23,7 @@ case "/catalog/categories": uiTitle = "Nhóm hàng"; break;
 case "/catalog/units": uiTitle = "Đơn vị quy đổi"; break;
 case "/catalog/suppliers": uiTitle = "Nhà cung cấp"; break;
 case "/pricing/lists": uiTitle = "Bảng giá"; break;
+case "/pricing/discounts": uiTitle = "Chiết khấu sản lượng"; break;
 case "/account/profile": uiTitle = "Hồ sơ cá nhân"; break;
 case "/account/change-password": uiTitle = "Đổi mật khẩu"; break;
 case "/admin/users/import": uiTitle = "Nhập người dùng Excel"; break;

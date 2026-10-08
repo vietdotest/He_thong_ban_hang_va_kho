@@ -93,6 +93,7 @@ public final class CategoryService {
             var before=Sql.one(c,"SELECT id,code,name,parent_id FROM categories WHERE id=? FOR UPDATE",id);
             if(!Sql.query(c,"SELECT id FROM categories WHERE parent_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Nhóm còn nhóm con, không thể xóa.");
             if(!Sql.query(c,"SELECT id FROM products WHERE category_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Nhóm còn sản phẩm, không thể xóa.");
+            if(!Sql.query(c,"SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='discount_policies'").isEmpty()&&!Sql.query(c,"SELECT id FROM discount_policies WHERE category_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Nhóm đã có chính sách chiết khấu, không thể xóa để bảo toàn lịch sử.");
             Sql.update(c,"DELETE FROM categories WHERE id=?",id);AuditService.record(c,actor,"CATEGORY_DELETED","CATEGORY",id,before,null);return null;
         });
     }
