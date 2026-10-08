@@ -20,6 +20,7 @@ public final class AuditService {
             case "DEALER_SAVED" -> "Lưu hồ sơ đại lý";case "DEALER_DELETED" -> "Xóa hồ sơ đại lý";
             case "DEALER_ADDRESS_SAVED" -> "Lưu điểm giao hàng";case "DEALER_ADDRESS_DEFAULT_CHANGED" -> "Đổi điểm giao mặc định";
             case "DEALER_HANDED_OVER" -> "Bàn giao đại lý";
+            case "DEALER_CREDIT_CHANGED" -> "Thay đổi cấu hình tín dụng";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";
             case "SUPPLIER_SAVED" -> "Lưu nhà cung cấp";case "SUPPLIER_DELETED" -> "Xóa nhà cung cấp";case "SCOPE_CREATED" -> "Thêm kho / địa bàn";
             case "PRICE_VERSION_CREATED" -> "Tạo phiên bản bảng giá";case "PRICE_VERSION_UPDATED" -> "Sửa hiệu lực bảng giá";
