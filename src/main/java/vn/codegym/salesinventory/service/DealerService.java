@@ -47,17 +47,31 @@ public final class DealerService {
     }
     private static final String JOIN=" FROM dealers d JOIN customer_groups g ON g.id=d.group_id JOIN territories t ON t.id=d.territory_id JOIN users u ON u.id=d.primary_staff_id LEFT JOIN warehouses w ON w.id=d.warehouse_id";
     private static final String COLUMNS="d.*,g.name group_name,t.name territory_name,u.full_name staff_name,w.name warehouse_name";
+    public record Filter(String query,Long territory,Long group,Long staff,String status){}
     public PageResult<Map<String,Object>> search(long actor,String query,PageRequest requested) {
-        String q=clean(query);if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
+        return search(actor,new Filter(query,null,null,null,""),requested);
+    }
+    public PageResult<Map<String,Object>> search(long actor,Filter filter,PageRequest requested) {
+        String q=clean(filter.query);if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
         return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");
-            String filter=" WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.tax_code LIKE ? OR d.phone LIKE ?)";
-            Object[] args={all(a),actor,pattern,pattern,pattern,pattern};
-            long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+filter,args).get("total"));var paging=requested.clamp(count);
+            String condition=" WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.tax_code LIKE ? OR d.phone LIKE ?)"
+                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR d.status=?)";
+            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status)};
+            long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+condition,args).get("total"));var paging=requested.clamp(count);
             var params=new ArrayList<Object>(Arrays.asList(args));params.add(paging.pageSize());params.add(paging.offset());
-            var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+filter+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
+            var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+condition+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
             return new PageResult<>(rows,count,paging.page(),paging.pageSize());
         });
     }
+    public List<Map<String,Object>> suggest(long actor,String query){String q=clean(query);if(q.length()>150)q=q.substring(0,150);final String term=q;
+        return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");if(term.length()<2)return List.of();
+            return Sql.query(c,"SELECT d.id,d.code,d.name FROM dealers d WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.phone LIKE ?) ORDER BY (d.code=?) DESC,(d.code LIKE ?) DESC,d.name,d.id LIMIT 10",all(a),actor,"%"+term+"%","%"+term+"%","%"+term+"%",term,term+"%");});
+    }
+    public Map<String,List<Map<String,Object>>> filterOptions(long actor){return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");
+        Object[] args={all(a),actor};String condition=" WHERE (? OR d.primary_staff_id=?)";
+        return Map.of("filterGroups",Sql.query(c,"SELECT DISTINCT g.id,g.name FROM customer_groups g JOIN dealers d ON d.group_id=g.id"+condition+" ORDER BY g.name,g.id",args),
+            "filterTerritories",Sql.query(c,"SELECT DISTINCT t.id,t.name FROM territories t JOIN dealers d ON d.territory_id=t.id"+condition+" ORDER BY t.name,t.id",args),
+            "filterStaff",Sql.query(c,"SELECT DISTINCT u.id,u.full_name name FROM users u JOIN dealers d ON d.primary_staff_id=u.id"+condition+" ORDER BY u.full_name,u.id",args));});}
     public Map<String,Object> find(long actor,long id){return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");scoped(c,actor,a,id,false);return Sql.one(c,"SELECT "+COLUMNS+JOIN+" WHERE d.id=?",id);});}
     public Map<String,List<Map<String,Object>>> options(long actor){return Sql.transaction(source,c->{access(c,actor,"DEALER_MANAGE");
         return Map.of("groups",Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY name,id"),

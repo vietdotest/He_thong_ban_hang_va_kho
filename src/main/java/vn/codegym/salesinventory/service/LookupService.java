@@ -9,6 +9,7 @@ public final class LookupService {
     private final DataSource source;
     public LookupService(DataSource source) { this.source = source; }
     public List<Map<String,Object>> search(long actor, String type, String query) {
+        if("dealers".equals(type))return new DealerService(source).suggest(actor,query);
         var access = new AccessService(source).load(actor);
         String q = query == null ? "" : query.trim();
         if (q.length() > 150) q = q.substring(0,150);
