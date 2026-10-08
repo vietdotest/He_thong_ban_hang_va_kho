@@ -75,6 +75,15 @@ public final class UnitService {
         BigDecimal factor=(BigDecimal)row.get("factor");Long warehouse=row.get("warehouse_id")==null?null:Sql.id(row.get("warehouse_id"));
         return new Conversion(Sql.id(row.get("product_id")),unit,Sql.text(row.get("name")),normalized,factor,Sql.id(row.get("version")),normalized.multiply(factor),warehouse);
     }
+    /** No public catalog permission is granted to a dealer portal by this helper. */
+    static Conversion orderConversion(Connection c,long product,long unit,BigDecimal quantity,Long servingWarehouse)throws SQLException {
+        BigDecimal normalized=CatalogValidation.decimal(quantity,6,true);
+        var row=Sql.one(c,"SELECT id,product_id,name,factor,version,warehouse_id FROM product_units WHERE id=? AND product_id=? FOR SHARE",unit,product);
+        Long warehouse=row.get("warehouse_id")==null?null:Sql.id(row.get("warehouse_id"));
+        if(warehouse!=null && !warehouse.equals(servingWarehouse))throw new IllegalArgumentException("Đơn vị không thuộc kho phục vụ của đơn.");
+        BigDecimal factor=(BigDecimal)row.get("factor");
+        return new Conversion(product,unit,Sql.text(row.get("name")),normalized,factor,Sql.id(row.get("version")),normalized.multiply(factor),warehouse);
+    }
     /** Called on the same connection as the transaction that records stock. */
     public static long snapshot(Connection c,String reference,Conversion value)throws SQLException {
         return Sql.insert(c,"INSERT INTO conversion_snapshots(reference_id,unit_id,product_id,unit_name,factor,unit_version,quantity,base_quantity,warehouse_id) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -88,6 +97,7 @@ public final class UnitService {
             if(row.get("warehouse_id")==null)throw FieldValidationException.field("form","Không thể xóa đơn vị cơ sở.");
             if(!access.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();
             if(product!=null&&Sql.id(row.get("product_id"))!=product)throw FieldValidationException.field("form","Đơn vị không thuộc sản phẩm đã chọn.");
+            if(!Sql.query(c,"SELECT id FROM order_lines WHERE unit_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Đơn vị đã được đơn hàng tham chiếu, không thể xóa.");
             if(!Sql.query(c,"SELECT id FROM conversion_snapshots WHERE unit_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Đơn vị đã được tham chiếu, không thể xóa.");
             Sql.update(c,"DELETE FROM product_units WHERE id=?",id);AuditService.record(c,actor,"UNIT_DELETED","UNIT",id,row,null);return null;
         });

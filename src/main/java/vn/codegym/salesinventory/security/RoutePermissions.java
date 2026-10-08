@@ -6,6 +6,8 @@ public final class RoutePermissions {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
     public static String required(String path,String method) {
+        if(path.equals("/orders"))return method.equals("GET")?"ORDER_READ":"ORDER_WRITE";
+        if(path.equals("/api/orders/options"))return method.equals("GET")?"ORDER_READ":null;
         if(path.equals("/dealers")) return method.equals("GET") ? "DEALER_READ" : "DEALER_MANAGE";
         if(path.equals("/dealers/addresses")) return method.equals("GET") ? "DEALER_READ" : "DEALER_ADDRESS_MANAGE";
         if(path.equals("/dealers/handover")) return "DEALER_HANDOVER";
