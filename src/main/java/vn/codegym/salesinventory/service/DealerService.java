@@ -81,6 +81,7 @@ public final class DealerService {
     public long save(long actor,long id,Input in) {
         var errors=errors(in);if(!errors.isEmpty())throw new FieldValidationException(errors);
         return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");
+            Sql.one(c,"SELECT name FROM catalog_locks WHERE name='DEALER_ASSIGNMENTS' FOR UPDATE");
             if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Chỉ Quản lý kinh doanh hoặc Kế toán được sửa hồ sơ.");
             Map<String,Object> before=id==0?null:scoped(c,actor,a,id,true);
             if(before!=null && Sql.id(before.get("version"))!=in.version)throw FieldValidationException.field("form","Hồ sơ đã được người khác sửa. Hãy tải lại.");
@@ -104,11 +105,12 @@ public final class DealerService {
         String ref="DEALER:"+dealer;Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?",ref);
         Sql.update(c,"INSERT INTO dealer_staff_references(user_id,dealer_reference) VALUES(?,?)",staff,ref);
     }
-    public void delete(long actor,long id,long version){Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");var before=scoped(c,actor,a,id,true);
+    public void delete(long actor,long id,long version){Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");Sql.one(c,"SELECT name FROM catalog_locks WHERE name='DEALER_ASSIGNMENTS' FOR UPDATE");var before=scoped(c,actor,a,id,true);
         if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Không có quyền xóa hồ sơ.");
         if(Sql.id(before.get("version"))!=version)throw new IllegalArgumentException("Hồ sơ đã thay đổi, hãy tải lại.");
         if(!Sql.query(c,"SELECT dealer_id FROM dealer_transaction_references WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có giao dịch. Chỉ được ngừng giao dịch.");
         if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
+        if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}
