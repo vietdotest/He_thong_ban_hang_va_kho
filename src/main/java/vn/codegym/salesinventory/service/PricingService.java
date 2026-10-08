@@ -53,6 +53,7 @@ public final class PricingService {
         new AccessService(source).load(actor).require("PRICE_MANAGE");validVersion(name,from,to);
         if(parent!=null&&parent<=0)throw FieldValidationException.field("parent","Phiên bản kế thừa không hợp lệ.");
         return Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
             lockGroup(c,group);
             if(parent!=null){
                 var base=Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",parent);
@@ -61,6 +62,7 @@ public final class PricingService {
             }
             long id=Sql.insert(c,"INSERT INTO price_versions(group_id,name,valid_from,valid_to,parent_id) VALUES(?,?,?,?,?)",group,name.trim(),from,to,parent);
             if(parent!=null)Sql.update(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) SELECT ?,product_id,selling_price,floor_price FROM price_items WHERE version_id=?",id,parent);
+            if(parent!=null){var oldVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",parent);var newVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",id);for(var item:Sql.query(c,"SELECT * FROM price_items WHERE version_id=?",id)){var previous=Sql.one(c,"SELECT * FROM price_items WHERE version_id=? AND product_id=?",parent,item.get("product_id"));PriceHistoryService.record(c,actor,"ITEM_INHERITED",Sql.id(item.get("product_id")),id,Sql.id(item.get("id")),previous,item,oldVersion,newVersion);}}
             AuditService.record(c,actor,"PRICE_VERSION_CREATED","PRICE_VERSION",id,null,Sql.one(c,"SELECT id,group_id,name,valid_from,valid_to,parent_id,revision FROM price_versions WHERE id=?",id));return id;
         });
     }
@@ -73,9 +75,11 @@ public final class PricingService {
     public void edit(long actor,long id,long revision,String name,LocalDate from,LocalDate to){
         new AccessService(source).load(actor).require("PRICE_MANAGE");validVersion(name,from,to);
         Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
             var before=lockedVersion(c,id,revision);long group=Sql.id(before.get("group_id"));
             for(var item:Sql.query(c,"SELECT product_id FROM price_items WHERE version_id=? FOR UPDATE",id))overlap(c,group,Sql.id(item.get("product_id")),from,to,id);
             Sql.update(c,"UPDATE price_versions SET name=?,valid_from=?,valid_to=?,revision=revision+1 WHERE id=?",name.trim(),from,to,id);
+            var afterVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",id);for(var item:Sql.query(c,"SELECT * FROM price_items WHERE version_id=?",id))PriceHistoryService.record(c,actor,"VERSION_CHANGED",Sql.id(item.get("product_id")),id,Sql.id(item.get("id")),item,item,before,afterVersion);
             AuditService.record(c,actor,"PRICE_VERSION_UPDATED","PRICE_VERSION",id,before,Sql.one(c,"SELECT id,name,group_id,valid_from,valid_to,revision FROM price_versions WHERE id=?",id));return null;
         });
     }
@@ -85,14 +89,16 @@ public final class PricingService {
         new AccessService(source).load(actor).require("PRICE_MANAGE");var errors=priceErrors(selling,floor);if(!errors.isEmpty())throw new FieldValidationException(errors);
         BigDecimal cleanSelling=CatalogValidation.decimal(selling,4,false),cleanFloor=CatalogValidation.decimal(floor,4,false);
         Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
             var v=lockedVersion(c,version,revision);long group=Sql.id(v.get("group_id"));
-            if(Sql.query(c,"SELECT id FROM products WHERE id=?",product).isEmpty())throw FieldValidationException.field("product","Sản phẩm không còn tồn tại.");
+            if(Sql.query(c,"SELECT id FROM products WHERE id=? FOR SHARE",product).isEmpty())throw FieldValidationException.field("product","Sản phẩm không còn tồn tại.");
             overlap(c,group,product,LocalDate.parse(v.get("valid_from").toString()),LocalDate.parse(v.get("valid_to").toString()),version);
             var found=Sql.query(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE version_id=? AND product_id=? FOR UPDATE",version,product);
             Map<String,Object> before=found.isEmpty()?null:found.get(0);long item;
             if(before==null)item=Sql.insert(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) VALUES(?,?,?,?)",version,product,cleanSelling,cleanFloor);
             else{item=Sql.id(before.get("id"));Sql.update(c,"UPDATE price_items SET selling_price=?,floor_price=? WHERE id=?",cleanSelling,cleanFloor,item);}
             Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);
+            PriceHistoryService.record(c,actor,before==null?"ITEM_CREATED":"ITEM_UPDATED",product,version,item,before,Sql.one(c,"SELECT * FROM price_items WHERE id=?",item),before==null?null:v,v);
             AuditService.record(c,actor,"PRICE_ITEM_SAVED","PRICE_ITEM",item,before,Sql.one(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE id=?",item));return null;
         });
     }
@@ -101,9 +107,10 @@ public final class PricingService {
     private void deleteItemChecked(long actor,long version,long item,Long revision){
         new AccessService(source).load(actor).require("PRICE_MANAGE");
         Sql.transaction(source,c->{
-            lockedVersion(c,version,revision);
+            DealerService.access(c,actor,"PRICE_MANAGE");var v=lockedVersion(c,version,revision);
             var before=Sql.one(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE id=? AND version_id=?",item,version);
             Sql.update(c,"DELETE FROM price_items WHERE id=?",item);Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);
+            PriceHistoryService.record(c,actor,"ITEM_DELETED",Sql.id(before.get("product_id")),version,item,before,null,v,v);
             AuditService.record(c,actor,"PRICE_ITEM_DELETED","PRICE_ITEM",item,before,null);return null;
         });
     }
