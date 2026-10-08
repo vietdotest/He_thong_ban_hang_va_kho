@@ -6,19 +6,24 @@ import jakarta.mail.Session;
 import jakarta.mail.Transport;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
+import org.eclipse.angus.mail.smtp.SMTPSendFailedException;
+import org.eclipse.angus.mail.smtp.SMTPAddressFailedException;
 import java.util.Properties;
 import vn.codegym.salesinventory.config.AppConfig;
 
 public final class SmtpMailService implements MailService {
     private final AppConfig.MailSettings settings;
+    @FunctionalInterface interface TransportFactory {Transport create(Session session)throws MessagingException;}
+    private final TransportFactory transports;
 
     public SmtpMailService(String host, int port, String from) {
         this(new AppConfig.MailSettings(host, port, from, "", "", false, false, false));
     }
 
     public SmtpMailService(AppConfig.MailSettings settings) {
-        this.settings = java.util.Objects.requireNonNull(settings);
+        this(settings,session->session.getTransport("smtp"));
     }
+    SmtpMailService(AppConfig.MailSettings settings,TransportFactory transports){this.settings=java.util.Objects.requireNonNull(settings);this.transports=java.util.Objects.requireNonNull(transports);}
 
     @Override
     public void sendPasswordReset(String recipient, String fullName, String resetUrl, int expiryMinutes) {
@@ -70,16 +75,31 @@ public final class SmtpMailService implements MailService {
 
     private void send(String recipient, String subject, String body) {
         Session mailSession = Session.getInstance(transportProperties());
+        Transport transport=null;boolean sending=false;
         try {
             MimeMessage message = new MimeMessage(mailSession);
             message.setFrom(new InternetAddress(settings.from(), true));
             message.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient, true));
             message.setSubject(subject, "UTF-8");
             message.setText(body, "UTF-8");
-            if (settings.authEnabled()) Transport.send(message, settings.username(), settings.password());
-            else Transport.send(message);
+            message.saveChanges();transport=transports.create(mailSession);
+            transport.connect(settings.host(),settings.port(),settings.authEnabled()?settings.username():null,settings.authEnabled()?settings.password():null);
+            sending=true;transport.sendMessage(message,message.getAllRecipients());
         } catch (MessagingException exception) {
-            throw new IllegalStateException("Không thể gửi email qua SMTP.", exception);
+            boolean rejected=definitiveRejection(exception);
+            throw new MailDeliveryFailure(!sending||rejected,exception);
+        } finally {
+            // A QUIT/close timeout after sendMessage succeeded must not resend an accepted email.
+            if(transport!=null)try{transport.close();}catch(MessagingException ignored){}
         }
+    }
+    private static boolean definitiveRejection(MessagingException exception){
+        if(exception instanceof jakarta.mail.SendFailedException sent && sent.getValidSentAddresses()!=null && sent.getValidSentAddresses().length>0)return false;
+        var visited=java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable,Boolean>());
+        for(Throwable current=exception;current!=null&&visited.add(current);current=current instanceof MessagingException next?next.getNextException():current.getCause()){
+            if(current instanceof SMTPSendFailedException smtp && smtp.getReturnCode()>=400 && smtp.getReturnCode()<=599)return true;
+            if(current instanceof SMTPAddressFailedException address && address.getReturnCode()>=400 && address.getReturnCode()<=599)return true;
+        }
+        return false;
     }
 }

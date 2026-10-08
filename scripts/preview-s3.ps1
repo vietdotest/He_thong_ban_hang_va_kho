@@ -27,6 +27,9 @@ for($attempt=0;$attempt -lt 60;$attempt++){
  Start-Sleep -Seconds 1
 }
 if(!$ready){throw 'Database QA chưa sẵn sàng.'}
+# Disposable QA only: MySQL binary logging otherwise needs SUPER to create migration triggers.
+docker exec -e MYSQL_PWD=root123 $databaseContainer mysql -uroot -e 'SET GLOBAL log_bin_trust_function_creators=1' | Out-Null
+if($LASTEXITCODE -ne 0){throw 'Không cấu hình được quyền trigger trên MySQL QA riêng.'}
 $tomcatBase=Join-Path $projectRoot '.tools/s3-qa-tomcat'
 foreach($folder in @('conf','logs','temp','webapps','work')){New-Item -ItemType Directory -Path (Join-Path $tomcatBase $folder) -Force | Out-Null}
 Copy-Item -Path (Join-Path $TomcatHome 'conf/*') -Destination (Join-Path $tomcatBase 'conf') -Force
