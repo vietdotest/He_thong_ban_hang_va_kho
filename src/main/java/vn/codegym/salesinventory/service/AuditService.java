@@ -18,6 +18,7 @@ public final class AuditService {
             case "PRODUCT_SAVED","PRODUCT_UPDATED" -> "Lưu sản phẩm";case "PRODUCT_CREATED" -> "Thêm sản phẩm";case "PRODUCT_DELETED" -> "Xóa sản phẩm";
             case "CATEGORY_SAVED" -> "Lưu nhóm hàng";case "CATEGORY_DELETED" -> "Xóa nhóm hàng";
             case "DEALER_SAVED" -> "Lưu hồ sơ đại lý";case "DEALER_DELETED" -> "Xóa hồ sơ đại lý";
+            case "DEALER_ADDRESS_SAVED" -> "Lưu điểm giao hàng";case "DEALER_ADDRESS_DEFAULT_CHANGED" -> "Đổi điểm giao mặc định";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";
             case "SUPPLIER_SAVED" -> "Lưu nhà cung cấp";case "SUPPLIER_DELETED" -> "Xóa nhà cung cấp";case "SCOPE_CREATED" -> "Thêm kho / địa bàn";
             case "PRICE_VERSION_CREATED" -> "Tạo phiên bản bảng giá";case "PRICE_VERSION_UPDATED" -> "Sửa hiệu lực bảng giá";
@@ -29,6 +30,7 @@ public final class AuditService {
         return switch(code) {
             case "USER" -> "Tài khoản";case "PRODUCT" -> "Sản phẩm";case "PRICE_VERSION" -> "Bảng giá";case "PRICE_ITEM" -> "Giá sản phẩm";
             case "DEALER" -> "Đại lý";
+            case "DEALER_ADDRESS" -> "Điểm giao hàng";
             case "CATEGORY" -> "Nhóm hàng";case "SUPPLIER" -> "Nhà cung cấp";case "UNIT","PRODUCT_UNIT" -> "Đơn vị quy đổi";
             case "WAREHOUSE" -> "Kho";case "TERRITORY" -> "Địa bàn";case "ROLE" -> "Vai trò";case "SESSION","" -> "Phiên làm việc";
             default -> code;
