@@ -316,4 +316,6 @@
         <error-code>500</error-code>
         <location>/WEB-INF/views/error/500.jsp</location>
     </error-page>
+    <servlet><servlet-name>OrderServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.OrderServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>OrderServlet</servlet-name><url-pattern>/orders</url-pattern><url-pattern>/api/orders/options</url-pattern></servlet-mapping>
 </web-app>

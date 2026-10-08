@@ -117,7 +117,11 @@ public final class PricingService {
     public Quote quote(long actor,long group,long product,LocalDate date){var a=new AccessService(source).load(actor);a.require("PRICE_READ");return Sql.transaction(source,c->quote(c,a,group,product,date));}
     /** Đơn hàng gọi quote và snapshot trên cùng connection để khóa phiên bản đã dùng. */
     public static Quote quote(Connection c,Access a,long group,long product,LocalDate date)throws SQLException{
-        a.require("PRICE_READ");if(date==null)throw FieldValidationException.field("date","Ngày tra giá không hợp lệ.");
+        a.require("PRICE_READ");return orderQuote(c,group,product,date);
+    }
+    /** Trusted order context only: caller has already checked actor and dealer scope. */
+    static Quote orderQuote(Connection c,long group,long product,LocalDate date)throws SQLException{
+        if(date==null)throw FieldValidationException.field("date","Ngày tra giá không hợp lệ.");
         Sql.one(c,"SELECT id FROM customer_groups WHERE id=? FOR SHARE",group);
         var row=Sql.one(c,"SELECT i.id,i.version_id,i.selling_price,i.floor_price FROM price_items i JOIN price_versions v ON v.id=i.version_id WHERE v.group_id=? AND i.product_id=? AND v.valid_from<=? AND v.valid_to>=?",group,product,date,date);
         return new Quote(Sql.id(row.get("id")),Sql.id(row.get("version_id")),product,(BigDecimal)row.get("selling_price"),(BigDecimal)row.get("floor_price"),date);

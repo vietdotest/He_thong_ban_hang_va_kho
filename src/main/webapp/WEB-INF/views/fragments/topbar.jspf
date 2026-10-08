@@ -25,6 +25,7 @@ case "/catalog/suppliers": uiTitle = "Nhà cung cấp"; break;
 case "/pricing/lists": uiTitle = "Bảng giá"; break;
 case "/pricing/discounts": uiTitle = "Chiết khấu sản lượng"; break;
 case "/pricing/history": uiTitle = "Lịch sử giá"; break;
+case "/orders": uiTitle = "Đơn hàng"; break;
 case "/account/profile": uiTitle = "Hồ sơ cá nhân"; break;
 case "/account/change-password": uiTitle = "Đổi mật khẩu"; break;
 case "/admin/users/import": uiTitle = "Nhập người dùng Excel"; break;
@@ -35,7 +36,7 @@ request.setAttribute("uiTitle", uiTitle);
 Object uiStep = request.getAttribute("importStep");
 if (uiStep != null && uiStep.toString().equals("2")) request.setAttribute("uiTitle","Kiểm tra tệp Excel");
 if (uiStep != null && uiStep.toString().equals("3")) request.setAttribute("uiTitle","Kết quả nhập Excel");
-request.setAttribute("uiSection", uiPath.startsWith("/dealers") ? "Khách hàng và đơn hàng" : uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
+request.setAttribute("uiSection", uiPath.startsWith("/dealers") || uiPath.equals("/orders") ? "Khách hàng và đơn hàng" : uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
 %>
 <header class="app-topbar nvdo-topbar">
 <button type="button" class="icon-button mobile-menu-button" data-menu-open aria-controls="nvdo-menu" aria-expanded="false" aria-label="Mở menu"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/menu.svg" alt=""></button>

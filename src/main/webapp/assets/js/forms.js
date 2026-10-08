@@ -68,7 +68,9 @@
     if(location.pathname.endsWith('/dealers')) attachLookup(input,'dealers');
   });
   document.querySelectorAll('select[name=product]').forEach(select=>attachLookup(select,'products'));
-  document.querySelectorAll('select[data-lookup]').forEach(select=>attachLookup(select,select.dataset.lookup));
+  const mountLookups = root => root.querySelectorAll('select[data-lookup]').forEach(select=>attachLookup(select,select.dataset.lookup));
+  mountLookups(document);
+  window.NvdoForms = Object.freeze({mountLookups});
   document.querySelectorAll('form[method=post]').forEach(form=>{
     let dirty = false;
     form.addEventListener('input',()=>{dirty=true;});
