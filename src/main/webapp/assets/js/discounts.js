@@ -1,0 +1,8 @@
+(() => {
+  const form=document.querySelector('[data-discount-form]');if(!form)return;
+  const rows=form.querySelector('[data-tier-rows]');
+  const adapt=()=>{const category=form.querySelector('[name=targetType]').value==='CATEGORY';form.querySelector('[data-discount-sku]').hidden=category;form.querySelector('[data-discount-category]').hidden=!category;form.querySelector('[name=product]').disabled=category;form.querySelectorAll('[data-discount-sku] input').forEach(input=>input.disabled=category);form.querySelector('[name=category]').disabled=!category;form.querySelector('[name=category]').required=category;rows.querySelectorAll('[name=discountValue]').forEach(input=>{const percent=form.querySelector('[name=mode]').value==='PERCENT';input.step=percent?'0.000001':'0.0001';if(percent)input.max='100';else input.removeAttribute('max');});};
+  form.querySelector('[name=targetType]').addEventListener('change',adapt);form.querySelector('[name=mode]').addEventListener('change',adapt);
+  form.querySelector('[data-add-tier]').addEventListener('click',()=>{if(rows.children.length>=100)return;const clone=rows.children[0].cloneNode(true);clone.querySelectorAll('input').forEach(input=>{input.value='';input.removeAttribute('aria-invalid');input.removeAttribute('aria-describedby');});clone.querySelectorAll('.field-error').forEach(error=>error.remove());rows.append(clone);adapt();form.dispatchEvent(new Event('change',{bubbles:true}));clone.querySelector('input').focus();});
+  rows.addEventListener('click',e=>{if(e.target.closest('[data-remove-tier]')&&rows.children.length>1){e.target.closest('.discount-tier').remove();form.dispatchEvent(new Event('change',{bubbles:true}));}});adapt();
+})();

@@ -3,6 +3,8 @@
   const context = document.currentScript?.dataset.appContext || '';
   let counter = 0;
   function attachLookup(element, type) {
+    if(element.dataset.lookupAttached)return;
+    element.dataset.lookupAttached='true';
     const select = element.tagName === 'SELECT' ? element : null;
     const optional = select && !select.required;
     const wrapper = document.createElement('div'); wrapper.className = 'lookup-control';

@@ -289,6 +289,8 @@
     <servlet-mapping><servlet-name>DealerCreditServlet</servlet-name><url-pattern>/dealers/credit</url-pattern></servlet-mapping>
     <servlet><servlet-name>DealerStatusServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerStatusServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>DealerStatusServlet</servlet-name><url-pattern>/dealers/status</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DiscountServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DiscountServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DiscountServlet</servlet-name><url-pattern>/pricing/discounts</url-pattern></servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
