@@ -11,9 +11,9 @@ public final class ProductImportService {
     private final DataSource source;
     public ProductImportService(DataSource source){this.source=source;}
     public static List<String> headers(Access a){var h=new ArrayList<>(HEADERS);if(a.allows("COST_WRITE"))h.add("Giá vốn");return h;}
-    private static String cell(List<String> row,int col){return col<row.size()?row.get(col).trim():"";}
+    static String cell(List<String> row,int col){return col<row.size()?row.get(col).trim():"";}
     private static String key(String value){return value.trim().toLowerCase(Locale.ROOT);}
-    private static ProductService.Input input(List<String> row,long category,long version){
+    static ProductService.Input input(List<String> row,long category,long version){
         return new ProductService.Input(cell(row,0),cell(row,1),category,cell(row,3),cell(row,4),cell(row,6).isEmpty()?null:CatalogValidation.decimal(cell(row,6),4,false),null,cell(row,5),version);
     }
     public ImportPreview preview(long actor,byte[] bytes){

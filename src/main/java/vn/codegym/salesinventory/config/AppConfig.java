@@ -39,6 +39,15 @@ public final class AppConfig {
         return value("flyway.locations", "FLYWAY_LOCATIONS");
     }
 
+    public ImportSettings imports() {
+        int workers=integerValue("import.workers","IMPORT_WORKERS");
+        int preview=integerValue("import.previewMinutes","IMPORT_PREVIEW_MINUTES");
+        int reports=integerValue("import.reportDays","IMPORT_REPORT_DAYS");
+        if(workers<1||workers>64||preview<1||reports<1)throw new IllegalStateException("Cấu hình nhập Excel phải dương và tối đa 64 worker.");
+        return new ImportSettings(workers,preview,reports);
+    }
+    public record ImportSettings(int workers,int previewMinutes,int reportDays) { }
+
     public SessionSettings session() {
         return new SessionSettings(
                 integerValue("session.idleTimeoutMinutes", "SESSION_IDLE_TIMEOUT_MINUTES"),

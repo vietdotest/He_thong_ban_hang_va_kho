@@ -4,10 +4,12 @@ import jakarta.servlet.http.*;
 import java.io.IOException;
 import java.util.*;
 import vn.codegym.salesinventory.service.*;
-public final class ProductImportServlet extends PortalServlet {
+public final class ProductImportServlet extends DurableImportServlet {
     private final ProductImportService configured;
     public ProductImportServlet(){configured=null;}
     ProductImportServlet(ProductImportService configured){this.configured=configured;}
+    @Override protected String importKind(){return "PRODUCT";}
+    @Override protected ImportPreview readPreview(long actor,byte[] bytes){return service().preview(actor,bytes);}
     private ProductImportService service(){return configured==null?new ProductImportService(source()):configured;}
     @Override protected void preparePost(HttpServletRequest r)throws Exception{
         String type=r.getContentType();if(type==null||!type.toLowerCase(Locale.ROOT).startsWith("multipart/form-data"))return;
@@ -19,6 +21,7 @@ public final class ProductImportServlet extends PortalServlet {
         }
     }
     protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception{
+        if(configured==null){super.get(r,s);return;}
         access(r).require("PRODUCT_MANAGE");
         if(value(r,"report").equals("1")){ImportFlow.download(r,s,"productImport",actor(r).id(),access(r));return;}
         if(value(r,"new").equals("1"))ImportFlow.clear(r,"productImport");
@@ -35,6 +38,7 @@ public final class ProductImportServlet extends PortalServlet {
         render(r,s);
     }
     protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{
+        if(configured==null){super.post(r,s);return;}
         access(r).require("PRODUCT_MANAGE");boolean confirm=value(r,"action").equals("confirm");
         try{
             if(confirm){
@@ -55,6 +59,7 @@ public final class ProductImportServlet extends PortalServlet {
         render(r,s);
     }
     @Override protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message)throws ServletException,IOException{
+        if(configured==null){super.badRequest(r,s,message);return;}
         if("POST".equals(r.getMethod()))ImportFlow.clear(r,"productImport");s.setStatus(400);r.setAttribute("errors",Map.of("file",message));render(r,s);
     }
     private void render(HttpServletRequest r,HttpServletResponse s)throws ServletException,IOException{

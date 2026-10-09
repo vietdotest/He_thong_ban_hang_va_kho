@@ -144,6 +144,22 @@ public final class UserManagementService {
         }
     }
 
+    /** Worker owns the row transaction and its durable pre-SMTP attempt marker. */
+    long createImport(Connection connection,UserAccountCommand command,long actor,java.util.Set<String> roles,
+                      java.util.Set<Long> warehouses,java.util.Set<Long> territories,Runnable beforeSend)throws SQLException {
+        DealerService.access(connection,actor,"USER_MANAGE");
+        AssignmentService.validate(actor,-1,roles,warehouses);
+        if(activationService==null)throw new IllegalStateException("Nhập tài khoản cần cấu hình kích hoạt email.");
+        if("DEALER".equals(command.roleCode()))throw new SecurityException("Không nhập tài khoản cổng qua chức năng nội bộ.");
+        var effective=new UserAccountCommand(command.username(),command.email(),command.fullName(),command.phone(),command.roleCode(),UserStatus.PENDING_ACTIVATION,0);
+        String password=passwordGenerator.generate();long user=users.create(connection,effective,passwordHasher.hash(password),clock.instant());
+        AssignmentService.replace(connection,user,roles,warehouses,territories);
+        AuditService.record(connection,actor,"USER_CREATED","USER",user,null,java.util.Map.of("username",effective.username(),"email",effective.email(),"full_name",effective.fullName(),"phone",effective.phone(),"status","PENDING_ACTIVATION"));
+        String token=activationService.issue(connection,user);
+        beforeSend.run();activationService.send(effective.email(),effective.fullName(),effective.username(),password,token);
+        return user;
+    }
+
     public UserManagementResult update(
             long userId,
             UserAccountCommand command,
