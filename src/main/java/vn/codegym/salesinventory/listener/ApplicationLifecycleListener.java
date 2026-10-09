@@ -102,6 +102,13 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             servletContext.setAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE, passwordChangeService);
             servletContext.setAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE, userManagementService);
             servletContext.setAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER, new CsrfTokenManager());
+            var imports=config.imports();
+            var reportAge=Duration.ofDays(imports.reportDays());
+            var jobs=new vn.codegym.salesinventory.service.ImportJobService(dataSource,clock,Duration.ofMinutes(imports.previewMinutes()),reportAge);
+            var worker=new vn.codegym.salesinventory.service.ImportWorker(dataSource,userManagementService,imports.workers(),config.database().maximumPoolSize(),clock,reportAge);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE,jobs);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_WORKER,worker);
+            worker.start();
             LOGGER.info("Application initialized and database migrations completed");
         } catch (RuntimeException exception) {
             dataSource.close();
@@ -111,6 +118,8 @@ public final class ApplicationLifecycleListener implements ServletContextListene
 
     @Override
     public void contextDestroyed(ServletContextEvent event) {
+        Object worker=event.getServletContext().getAttribute(ApplicationContextKeys.IMPORT_WORKER);
+        if(worker instanceof vn.codegym.salesinventory.service.ImportWorker imports)imports.close();
         Object dataSource = event.getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
         if (dataSource instanceof HikariDataSource hikariDataSource) {
             hikariDataSource.close();

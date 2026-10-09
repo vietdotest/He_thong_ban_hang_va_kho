@@ -15,6 +15,14 @@ public final class Sql {
             catch (Exception e) { c.rollback(); if (e instanceof RuntimeException r) throw r; throw new IllegalStateException("Không thể lưu dữ liệu.", e); }
         } catch (SQLException e) { throw new IllegalStateException("Không kết nối được cơ sở dữ liệu.", e); }
     }
+    /** Consistent read snapshot for a count, page and progress aggregate in one response. */
+    public static <T> T snapshot(DataSource source,Work<T> work){
+        try(Connection c=source.getConnection()){
+            c.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);c.setAutoCommit(false);
+            try{T value=work.run(c);c.commit();return value;}
+            catch(Exception e){c.rollback();if(e instanceof RuntimeException r)throw r;throw new IllegalStateException("Không thể đọc dữ liệu.",e);}
+        }catch(SQLException e){throw new IllegalStateException("Không kết nối được cơ sở dữ liệu.",e);}
+    }
     public static List<Map<String,Object>> query(Connection c, String sql, Object... args) throws SQLException {
         try (PreparedStatement s = c.prepareStatement(sql)) {
             bind(s,args);

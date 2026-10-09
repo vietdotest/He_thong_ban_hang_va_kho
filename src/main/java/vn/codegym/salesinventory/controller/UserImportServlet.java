@@ -8,11 +8,13 @@ import java.util.Map;
 import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.config.ApplicationContextKeys;
 
-public final class UserImportServlet extends PortalServlet {
+public final class UserImportServlet extends DurableImportServlet {
     private final UserImportService injectedService;
 
     public UserImportServlet() { this.injectedService = null; }
     UserImportServlet(UserImportService service) { this.injectedService = service; }
+    @Override protected String importKind(){return "USER";}
+    @Override protected ImportPreview readPreview(long actor,byte[] bytes){return service().preview(actor,bytes);}
 
     private UserImportService service() {
         return injectedService != null ? injectedService : new UserImportService(source(),
@@ -34,6 +36,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if(injectedService==null){super.get(request,response);return;}
         access(request).require("USER_MANAGE");
         if(value(request,"report").equals("1")){ImportFlow.download(request,response,"userImport",actor(request).id(),access(request));return;}
         if(value(request,"new").equals("1"))ImportFlow.clear(request,"userImport");
@@ -54,6 +57,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if(injectedService==null){super.post(request,response);return;}
         access(request).require("USER_MANAGE");
         boolean confirm = value(request, "action").equals("confirm");
         try {
@@ -83,6 +87,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void badRequest(HttpServletRequest request, HttpServletResponse response, String message) throws ServletException, IOException {
+        if(injectedService==null){super.badRequest(request,response,message);return;}
         if ("POST".equals(request.getMethod()))ImportFlow.clear(request,"userImport");
         response.setStatus(400);
         request.setAttribute("errors", Map.of("file", message));
