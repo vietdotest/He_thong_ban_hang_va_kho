@@ -70,8 +70,8 @@
                             <td><c:out value="${log.full_name}"/></td>
                             <td><c:out value="${log.event_label}"/></td>
                             <td><c:out value="${log.object_label}"/><c:if test="${not empty log.object_id}"> #<c:out value="${log.object_id}"/></c:if></td>
-                            <td><pre><c:out value="${log.before_values}"/></pre><c:if test="${canCost}"><pre><c:out value="${log.before_cost}"/></pre></c:if></td>
-                            <td><pre><c:out value="${log.after_values}"/></pre><c:if test="${canCost}"><pre><c:out value="${log.after_cost}"/></pre></c:if></td>
+                            <td><pre><c:out value="${log.before_values}"/></pre><c:if test="${canCost and not empty log.before_cost and fn:trim(log.before_cost) != '{}'}"><pre><c:out value="${log.before_cost}"/></pre></c:if></td>
+                            <td><pre><c:out value="${log.after_values}"/></pre><c:if test="${canCost and not empty log.after_cost and fn:trim(log.after_cost) != '{}'}"><pre><c:out value="${log.after_cost}"/></pre></c:if></td>
                         </tr>
                     </c:forEach>
                     </tbody>

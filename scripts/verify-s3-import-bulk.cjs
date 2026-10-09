@@ -9,7 +9,7 @@ const jobs=JSON.parse(fs.readFileSync(path.join(folder,'import-bulk'+suffix+'-jo
 if(!/^qa-[a-z0-9-]{5,30}$/.test(jobs.prefix)||![jobs.products,jobs.accounts].every(x=>/^[a-f0-9-]{36}$/.test(x)))throw Error('Không đúng mã QA');
 function db(sql){return execFileSync('docker',['exec','-i','-e','MYSQL_PWD=root123','codegym-s3-qa-db','mysql','-uroot','-N','-B','sales_inventory'],{input:sql,encoding:'utf8'}).trim();}
 function check(label,ok){console.log((ok?'PASS ':'FAIL ')+label);if(!ok)throw Error('QA assertion');}
-async function login(page,user){await page.goto(base+'/login');await page.locator('[name=identity]').fill(user);await page.locator('[name=password]').fill('admin123');await Promise.all([page.waitForURL('**/dashboard'),page.getByRole('button',{name:'Đăng nhập',exact:true}).click()]);}
+async function login(page,user){await page.goto(base+'/login');if(new URL(page.url()).pathname==='/dashboard')return;await page.locator('[name=identity]').fill(user);await page.locator('[name=password]').fill('admin123');await Promise.all([page.waitForURL('**/dashboard'),page.getByRole('button',{name:'Đăng nhập',exact:true}).click()]);}
 async function wait(context,route,id){const deadline=Date.now()+4*60*60*1000;let last=0,lastPrint=0;while(Date.now()<deadline){try{const r=await context.request.get(base+route+'?progress=1&job='+id,{timeout:10000});if(!r.ok())throw Error('HTTP');const p=await r.json();if(Date.now()-lastPrint>30000){console.log('PROGRESS '+route+' '+p.status+' success='+p.success_count+' failed='+p.failed_count+' review='+p.review_count);lastPrint=Date.now();}if(!['QUEUED','RUNNING'].includes(p.status))return p;last=Number(p.success_count);}catch(error){console.log('PROGRESS QA temporarily unavailable; last committed='+last);}await new Promise(resolve=>setTimeout(resolve,2000));}throw Error('QA deadline');}
 async function main(){const browser=await chromium.launch();try{
  const manager=await browser.newContext({viewport:{width:1440,height:1020}}),page=await manager.newPage();await login(page,'s3-manager');
@@ -23,6 +23,9 @@ async function main(){const browser=await chromium.launch();try{
  if(!inspectMail)check('Mailpit received exactly5000 QA activation messages',mailVerified);
  else if(!mailVerified){console.log('NOT VERIFIED retained Mailpit messages='+Number(mail.messages_count)+'; SMTP journal is not mailbox proof');process.exitCode=1;}
  for(const [context,p,route,id,label]of [[manager,page,'/catalog/products/import',jobs.products,'products'],[admin,adminPage,'/admin/users/import',jobs.accounts,'users']]){
+  // BCrypt/SMTP runs may outlive the other observer's normal idle session.
+  // Renew the QA observer only; never replay upload, confirm or successful rows.
+  await login(p,label==='products'?'s3-manager':'admin');
   await p.goto(base+route+'?job='+id+'&page=250&pageSize=20');check(label+' last page20',await p.locator('[data-job-rows] tr').count()===20);
   const report=await context.request.get(base+route+'?job='+id+'&report=1');check(label+' full XLSX report',report.ok()&&(await report.body()).length>10000);
   await p.setViewportSize({width:1440,height:1020});await p.screenshot({path:path.join(folder,'import-bulk'+suffix+'-'+label+'-desktop.png'),fullPage:true});await p.setViewportSize({width:360,height:900});check(label+' mobile no overflow',await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.screenshot({path:path.join(folder,'import-bulk'+suffix+'-'+label+'-mobile.png'),fullPage:true});
