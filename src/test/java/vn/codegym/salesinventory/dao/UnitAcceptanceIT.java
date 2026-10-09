@@ -8,6 +8,7 @@ import org.junit.jupiter.api.*;
 import vn.codegym.salesinventory.config.*;
 import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.validation.FieldValidationException;
+import vn.codegym.salesinventory.dto.PageRequest;
 import static org.assertj.core.api.Assertions.*;
 
 class UnitAcceptanceIT extends StoryDatabaseSupport {
@@ -26,6 +27,58 @@ class UnitAcceptanceIT extends StoryDatabaseSupport {
     long manager,staff,first,second,product;UnitService units;
     @BeforeEach void fixture(){manager=user("SALES_MANAGER");staff=user("WAREHOUSE");first=warehouse(staff);second=warehouse(staff);product=product(manager);units=new UnitService(source);}
     long save(long warehouse,String factor){return units.save(staff,0,product,"Thùng",new BigDecimal(factor),warehouse,0);}
+    @Test void pagingAndWarehouseCountsUseSameScopeWithAccentInsensitiveSearch() {
+        for(int i=0;i<21;i++)units.save(staff,0,product,"Gói "+String.format("%02d",i),BigDecimal.TEN,first,0);
+        long other=user("WAREHOUSE"),foreignWarehouse=warehouse(other);units.save(other,0,product,"Gói ngoài",BigDecimal.ONE,foreignWarehouse,0);
+        var firstPage=units.search(staff,product,"goi",new PageRequest(1,20));var last=units.search(staff,product,"goi",new PageRequest(999,20));
+        assertThat(firstPage.totalItems()).isEqualTo(21);assertThat(firstPage.items()).hasSize(20);assertThat(last.page()).isEqualTo(2);assertThat(last.items()).hasSize(1);assertThat(last.items()).noneMatch(firstPage.items()::contains);
+        assertThat(units.search(other,product,"goi",new PageRequest(1,20)).totalItems()).isEqualTo(1);
+        update("DELETE FROM user_warehouses WHERE user_id=? AND warehouse_id=?",staff,first);
+        assertThat(units.search(staff,product,"goi",new PageRequest(1,20)).totalItems()).isZero();
+    }
+    @Test void revokedWarehouseAndLockedAccountCannotModifyOrConvert() {
+        long unit=save(first,"24");update("DELETE FROM user_warehouses WHERE user_id=? AND warehouse_id=?",staff,first);
+        assertThatThrownBy(()->units.convert(staff,unit,BigDecimal.ONE)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->units.save(staff,unit,product,"Thùng",BigDecimal.TEN,second,1)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->units.delete(staff,unit)).isInstanceOf(SecurityException.class);
+        update("UPDATE users SET status='ADMIN_LOCKED' WHERE id=?",staff);
+        assertThatThrownBy(()->units.search(staff,product,"",new PageRequest(1,20))).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->units.convert(staff,Sql.id(one("SELECT id FROM product_units WHERE product_id=? AND is_base=1",product).get("id")),BigDecimal.ONE)).isInstanceOf(SecurityException.class);
+    }
+    @Test void unitSuggestionsStayOnSelectedProductAndWarehouseIncludingOutsideFirstPage() {
+        for(int i=0;i<21;i++)units.save(staff,0,product,"Gói tìm "+String.format("%02d",i),BigDecimal.TEN,first,0);
+        long other=user("WAREHOUSE"),foreignWarehouse=warehouse(other),differentProduct=product(manager);
+        units.save(other,0,product,"Gói ngoài",BigDecimal.TEN,foreignWarehouse,0);
+        units.save(staff,0,differentProduct,"Gói khác SKU",BigDecimal.ONE,first,0);
+        assertThat(units.suggestNames(staff,product,"goi tim")).hasSize(10).allSatisfy(r->assertThat(r).containsOnlyKeys("id","code","name","detail"));
+        assertThat(units.suggestNames(staff,product,"goi tim 20")).singleElement().satisfies(r->assertThat(r.get("code")).isEqualTo("Gói tìm 20"));
+        assertThat(units.suggestNames(staff,product,"Gói ngoài")).isEmpty();
+        assertThat(units.suggestNames(staff,product,"khác SKU")).isEmpty();
+        assertThat(units.suggestNames(staff,product,"G")).isEmpty();
+        assertThatThrownBy(()->units.suggestNames(staff,0,"Gói")).isInstanceOf(IllegalArgumentException.class);
+        update("DELETE FROM user_warehouses WHERE user_id=? AND warehouse_id=?",staff,first);
+        assertThat(units.suggestNames(staff,product,"Gói")).isEmpty();
+        update("UPDATE users SET status='ADMIN_LOCKED' WHERE id=?",staff);
+        assertThatThrownBy(()->units.suggestNames(staff,product,"")).isInstanceOf(SecurityException.class);
+    }
+    @Test void warehouseSuggestionsUseRealAssignmentsAndFreshPermissionWithoutUserManagement() {
+        var lookups=new LookupService(source);
+        update("UPDATE warehouses SET code='QAHOME',name='Kho Hải Phòng',address='Đường Bến Bính' WHERE id=?",first);
+        long other=user("WAREHOUSE"),foreign=warehouse(other);
+        update("UPDATE warehouses SET code='QAFOREIGN',name='Kho Hải Phòng ngoài' WHERE id=?",foreign);
+        assertThat(new AccessService(source).load(staff).allows("USER_MANAGE")).isFalse();
+        assertThat(lookups.search(staff,"unitwarehouses","hai phong")).singleElement().satisfies(r->{assertThat(Sql.id(r.get("id"))).isEqualTo(first);assertThat(r).containsEntry("detail","Đường Bến Bính").doesNotContainKeys("status","version");});
+        assertThat(lookups.search(staff,"unitwarehouses","ben binh")).hasSize(1);
+        assertThat(lookups.search(staff,"unitwarehouses","Q")).isEmpty();
+        for(int i=0;i<12;i++){long w=warehouse(staff);update("UPDATE warehouses SET code=?,name='Kho gợi ý' WHERE id=?","QASEARCH"+i,w);}
+        assertThat(lookups.search(staff,"unitwarehouses","QASEARCH11")).first().satisfies(r->assertThat(r.get("code")).isEqualTo("QASEARCH11"));
+        assertThat(lookups.search(staff,"unitwarehouses","QASEARCH")).hasSize(10);
+        update("DELETE FROM user_warehouses WHERE user_id=? AND warehouse_id=?",staff,first);
+        assertThat(lookups.search(staff,"unitwarehouses","QAHOME")).isEmpty();
+        assertThatThrownBy(()->lookups.search(manager,"unitwarehouses","QA")).isInstanceOf(SecurityException.class);
+        update("UPDATE users SET status='ADMIN_LOCKED' WHERE id=?",staff);
+        assertThatThrownBy(()->lookups.search(staff,"unitwarehouses","QA")).isInstanceOf(SecurityException.class);
+    }
     @Test void sameNameAcrossWarehousesHasIndependentFactorsButSameWarehouseDuplicateFails() {
         long a=save(first,"24"),b=save(second,"30");assertThat(units.convert(staff,a,BigDecimal.ONE).baseQuantity()).isEqualByComparingTo("24");assertThat(units.convert(staff,b,BigDecimal.ONE).baseQuantity()).isEqualByComparingTo("30");
         assertThatThrownBy(()->units.save(staff,0,product," thùng ",BigDecimal.ONE,first,0)).isInstanceOf(FieldValidationException.class);

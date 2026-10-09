@@ -57,28 +57,21 @@ public final class ProductService {
                 + (a.allows("COST_READ") ? ",p.cost_price" : "");
     }
     public List<Map<String, Object>> list(long actor, String keyword, Long category, String status, int page) {
-        var a = new AccessService(source).load(actor);
-        a.require("CATALOG_READ");
         if (page < 1 || page > 100000) throw new IllegalArgumentException("Trang không hợp lệ.");
-        return Sql.transaction(source, c -> Sql.query(c, "SELECT " + columns(a)
-                + " FROM products p JOIN categories c ON c.id=p.category_id WHERE (p.sku LIKE ? OR p.name LIKE ?)"
-                + " AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?) ORDER BY p.sku LIMIT 100 OFFSET ?",
-                "%" + keyword + "%", "%" + keyword + "%", category, category, status, status, (page - 1) * 100));
+        return search(actor,keyword,category,status,new vn.codegym.salesinventory.dto.PageRequest(page,100)).items();
     }
     public long count(long actor,String keyword,Long category,String status) {
-        new AccessService(source).load(actor).require("CATALOG_READ");
-        return Sql.transaction(source,c -> Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM products p WHERE (p.sku LIKE ? OR p.name LIKE ?)"
+        return Sql.snapshot(source,c -> {DealerService.access(c,actor,"CATALOG_READ");return Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM products p WHERE (p.sku LIKE ? OR p.name LIKE ?)"
                 +" AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?)",
-                "%"+keyword+"%","%"+keyword+"%",category,category,status,status).get("total")));
+                "%"+keyword+"%","%"+keyword+"%",category,category,status,status).get("total"));});
     }
     public vn.codegym.salesinventory.dto.PageResult<Map<String,Object>> search(long actor, String keyword, Long category, String status, vn.codegym.salesinventory.dto.PageRequest requested) {
-        var access = new AccessService(source).load(actor);
-        access.require("CATALOG_READ");
         String filter = " WHERE (p.sku LIKE ? OR p.name LIKE ?) AND (? IS NULL OR p.category_id=?) AND (?='' OR p.status=?)";
         String clean = keyword == null ? "" : keyword.trim();
         if (clean.length() > 150) clean = clean.substring(0, 150);
         final Object[] filters = {"%" + clean + "%", "%" + clean + "%", category, category, status, status};
-        return Sql.transaction(source, c -> {
+        return Sql.snapshot(source, c -> {
+            var access=DealerService.access(c,actor,"CATALOG_READ");
             long total = Sql.id(Sql.one(c, "SELECT COUNT(*) total FROM products p" + filter, filters).get("total"));
             var effective = requested.clamp(total);
             var args = new ArrayList<Object>(Arrays.asList(filters));
@@ -88,10 +81,8 @@ public final class ProductService {
         });
     }
     public Map<String, Object> find(long actor, long id) {
-        var a = new AccessService(source).load(actor);
-        a.require("CATALOG_READ");
-        return Sql.transaction(source, c -> Sql.one(c, "SELECT " + columns(a)
-                + " FROM products p JOIN categories c ON c.id=p.category_id WHERE p.id=?", id));
+        return Sql.snapshot(source, c -> {var a=DealerService.access(c,actor,"CATALOG_READ");return Sql.one(c, "SELECT " + columns(a)
+                + " FROM products p JOIN categories c ON c.id=p.category_id WHERE p.id=?", id);});
     }
     public long save(long actor, long id, Input in) {
         var a = new AccessService(source).load(actor);
@@ -124,6 +115,7 @@ public final class ProductService {
         return saveRecord(c, a, actor, id, normalized(in)).id;
     }
     private static Saved saveRecord(Connection c, Access a, long actor, long id, Input in) throws SQLException {
+        a=DealerService.access(c,actor,"PRODUCT_MANAGE");
         a.require("PRODUCT_MANAGE");
         if (in.cost != null) a.require("COST_WRITE");
         if (id < 0) throw ProductValidationException.field("form", "Mã sản phẩm không hợp lệ.");
@@ -183,6 +175,7 @@ public final class ProductService {
     public void delete(long actor, long id) {
         new AccessService(source).load(actor).require("PRODUCT_MANAGE");
         String image = Sql.transaction(source, c -> {
+            DealerService.access(c,actor,"PRODUCT_MANAGE");
             Sql.one(c, "SELECT name FROM catalog_locks WHERE name='CATEGORY_TREE' FOR UPDATE");
             var before = Sql.one(c, "SELECT id,sku,name,category_id,base_unit,packaging,cost_price,image_key,status,version FROM products WHERE id=? FOR UPDATE", id);
             if (!Sql.query(c, "SELECT product_id FROM product_transaction_references WHERE product_id=? LIMIT 1", id).isEmpty())

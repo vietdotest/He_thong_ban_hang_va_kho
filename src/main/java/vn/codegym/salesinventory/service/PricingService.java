@@ -7,6 +7,7 @@ import javax.sql.DataSource;
 import vn.codegym.salesinventory.dao.Sql;
 import vn.codegym.salesinventory.validation.*;
 import vn.codegym.salesinventory.security.Access;
+import vn.codegym.salesinventory.dto.*;
 public final class PricingService {
     private final DataSource source;
     public PricingService(DataSource source){this.source=source;}
@@ -31,8 +32,10 @@ public final class PricingService {
     private static void validVersion(String name,LocalDate from,LocalDate to){var errors=versionErrors(name,from,to);if(!errors.isEmpty())throw new FieldValidationException(errors);}
     public List<Map<String,Object>> groups(){return Sql.transaction(source,c->Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY id"));}
     public List<Map<String,Object>> versions(long actor){
-        new AccessService(source).load(actor).require("PRICE_READ");
-        var rows=Sql.transaction(source,c->Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC"));
+        var rows=Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");return Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC");});
+        decorateVersions(rows);return rows;
+    }
+    private static void decorateVersions(List<Map<String,Object>> rows){
         LocalDate today=LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE);
         var format=java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
         for(var row:rows){
@@ -41,9 +44,18 @@ public final class PricingService {
             row.put("effective_state",today.isBefore(from)?"UPCOMING":today.isAfter(to)?"EXPIRED":"ACTIVE");
             row.put("effective_label",today.isBefore(from)?"Sắp có hiệu lực":today.isAfter(to)?"Hết hiệu lực":"Đang hiệu lực");
         }
-        return rows;
     }
-    public List<Map<String,Object>> items(long actor,long version){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku",version));}
+    private static String term(String query){String q=query==null?"":query.trim();return q.length()>150?q.substring(0,150):q;}
+    public PageResult<Map<String,Object>> searchVersions(long actor,String query,PageRequest request){String pattern="%"+term(query)+"%";return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");
+        String from=" FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.name LIKE ? OR g.name LIKE ? OR CAST(v.id AS CHAR) LIKE ?";
+        long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+from,pattern,pattern,pattern).get("total"));var page=request.clamp(total);
+        var rows=Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used"+from+" ORDER BY v.valid_from DESC,v.id DESC LIMIT ? OFFSET ?",pattern,pattern,pattern,page.pageSize(),page.offset());decorateVersions(rows);return new PageResult<>(rows,total,page.page(),page.pageSize());});}
+    public Map<String,Object> findVersion(long actor,long id){return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");var rows=Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.id=?",id);if(rows.isEmpty())throw FieldValidationException.field("form","Không tìm thấy phiên bản.");decorateVersions(rows);return rows.get(0);});}
+    public PageResult<Map<String,Object>> searchItems(long actor,long version,String query,PageRequest request){String pattern="%"+term(query)+"%";return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");
+        String from=" FROM price_items i JOIN products p ON p.id=i.product_id WHERE i.version_id=? AND (p.sku LIKE ? OR p.name LIKE ?)";long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+from,version,pattern,pattern).get("total"));var page=request.clamp(total);
+        var rows=Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price"+from+" ORDER BY p.sku,i.id LIMIT ? OFFSET ?",version,pattern,pattern,page.pageSize(),page.offset());return new PageResult<>(rows,total,page.page(),page.pageSize());});}
+    public List<Map<String,Object>> suggestVersions(long actor,String query){String q=term(query);return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");if(q.length()<2)return List.of();return Sql.query(c,"SELECT v.id,CAST(v.id AS CHAR) code,v.name,g.name detail FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.name LIKE ? OR g.name LIKE ? OR CAST(v.id AS CHAR) LIKE ? ORDER BY (CAST(v.id AS CHAR)=?) DESC,(v.name LIKE ?) DESC,v.valid_from DESC,v.id DESC LIMIT 10","%"+q+"%","%"+q+"%","%"+q+"%",q,q+"%");});}
+    public List<Map<String,Object>> items(long actor,long version){return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");return Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku,i.id",version);});}
     private static void lockGroup(Connection c,long group)throws SQLException{if(Sql.query(c,"SELECT id FROM customer_groups WHERE id=? FOR UPDATE",group).isEmpty())throw FieldValidationException.field("group","Nhóm khách không còn tồn tại.");}
     private static void unused(Connection c,long version)throws SQLException{if(!Sql.query(c,"SELECT id FROM price_order_references WHERE version_id=? LIMIT 1 FOR UPDATE",version).isEmpty())throw FieldValidationException.field("form","Phiên bản đã được dùng. Hãy kế thừa thành phiên bản mới.");}
     private static void overlap(Connection c,long group,long product,LocalDate from,LocalDate to,long excluded)throws SQLException{

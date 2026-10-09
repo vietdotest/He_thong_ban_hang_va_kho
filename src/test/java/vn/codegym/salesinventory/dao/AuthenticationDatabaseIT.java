@@ -57,6 +57,8 @@ class AuthenticationDatabaseIT {
             .withUsername("sales_app")
             .withPassword("sales_app123")
             .withCommand(
+                    // Disposable fixture only; production migrations use the separate DBA runner.
+                    "--log-bin-trust-function-creators=1",
                     "--default-time-zone=+00:00",
                     "--character-set-server=utf8mb4",
                     "--collation-server=utf8mb4_0900_ai_ci",

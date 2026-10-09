@@ -54,6 +54,10 @@ class ScopeAcceptanceIT extends StoryDatabaseSupport {
             assertThatThrownBy(()->scopes().save(actor,"warehouse",id,code(),"Tên","Địa chỉ",1)).isInstanceOf(SecurityException.class);
         }
     }
+    @Test void searchPagesCountAndAddressesAreStableAndKindSpecific(){String marker="PG-"+UUID.randomUUID();var first=new vn.codegym.salesinventory.dto.PageRequest(1,20);for(int i=0;i<21;i++)scopes().save(1,"warehouse",0,marker+"-"+i,"Kho cùng tên","Địa chỉ phân trang",0);scopes().save(1,"territory",0,marker+"-T","Địa bàn","Địa chỉ phân trang",0);
+        var page=scopes().search(1,"warehouse",marker,first);var last=scopes().search(1,"warehouse",marker,new vn.codegym.salesinventory.dto.PageRequest(Integer.MAX_VALUE,20));assertThat(page.totalItems()).isEqualTo(21);assertThat(page.items()).hasSize(20);assertThat(last.page()).isEqualTo(2);assertThat(last.items()).hasSize(1);assertThat(page.items().stream().map(row->row.get("id"))).doesNotContain(last.items().get(0).get("id"));assertThat(scopes().search(1,"territory",marker,first).totalItems()).isEqualTo(1);assertThat(scopes().search(1,"warehouse","dia chi phan trang",first).totalItems()).isGreaterThanOrEqualTo(21);
+        long locked=user("ADMIN");update("UPDATE users SET status='ADMIN_LOCKED' WHERE id=?",locked);assertThatThrownBy(()->scopes().search(locked,"warehouse",marker,first)).isInstanceOf(SecurityException.class);assertThatThrownBy(()->new LookupService(source).search(locked,"warehouses",marker)).isInstanceOf(SecurityException.class);
+    }
     @Test void failedAuditRollsBackAddressAndNewScope() {
         long id=save("warehouse");var before=scopes().find(1,"warehouse",id);failAudit();
         assertThatThrownBy(()->scopes().save(1,"warehouse",id,Sql.text(before.get("code")),"Sửa","Địa chỉ khác",1)).isInstanceOf(IllegalStateException.class);
