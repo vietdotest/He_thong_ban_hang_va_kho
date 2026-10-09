@@ -4,6 +4,8 @@ import java.time.*;
 import java.sql.Timestamp;
 import java.util.*;
 import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.dto.*;
+import vn.codegym.salesinventory.service.AuditReadService;
 public final class AuditServlet extends PortalServlet {
     record Filter(String sql,List<Object> args,int page) { }
     static Filter filter(String user,String type,String from,String to,String page) {
@@ -26,23 +28,15 @@ public final class AuditServlet extends PortalServlet {
     protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception {
         access(r).require("AUDIT_READ");
         Filter filter;
-        try {filter=filter(value(r,"userId"),value(r,"type"),value(r,"from"),value(r,"to"),value(r,"page"));}
+        try {filter=filter(value(r,"userId"),value(r,"type"),value(r,"from"),value(r,"to"),"1");}
         catch(IllegalArgumentException invalid) {
-            s.setStatus(400);r.setAttribute("filterError",invalid.getMessage());r.setAttribute("logs",List.of());r.setAttribute("pageNumber",1);
+            s.setStatus(400);r.setAttribute("filterError",invalid.getMessage());r.setAttribute("logs",List.of());r.setAttribute("pageNumber",1);r.setAttribute("pagination",new PageResult<>(List.of(),0,1,20));
             options(r);view(r,s,"admin/audit");return;
         }
-        Sql.transaction(source(),c -> {
-            r.setAttribute("logs",vn.codegym.salesinventory.service.AuditService.read(c,access(r),filter.sql(),filter.args().toArray(),(filter.page()-1)*100));
-            long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM audit_logs a"+filter.sql(),filter.args().toArray()).get("total"));
-            r.setAttribute("hasNext",filter.page()*100L<total);return null;
-        });options(r);r.setAttribute("pageNumber",filter.page());view(r,s,"admin/audit");
+        var page=new AuditReadService(source()).search(actor(r).id(),filter.sql(),filter.args().toArray(),value(r,"q"),PageRequest.parse(value(r,"page"),value(r,"pageSize")));
+        r.setAttribute("logs",page.items());r.setAttribute("pagination",page);options(r);r.setAttribute("pageNumber",page.page());view(r,s,"admin/audit");
     }
     private void options(HttpServletRequest r) {
-        Sql.transaction(source(),c -> {
-            r.setAttribute("users",Sql.query(c,"SELECT id,full_name FROM users ORDER BY full_name"));
-            var types=Sql.query(c,"SELECT DISTINCT object_type FROM audit_logs WHERE object_type IS NOT NULL");
-            for(var type:types)type.put("object_label",vn.codegym.salesinventory.service.AuditService.objectLabel(Sql.text(type.get("object_type"))));
-            r.setAttribute("types",types);return null;
-        });
+        var options=new AuditReadService(source()).options(actor(r).id(),value(r,"userId"));r.setAttribute("users",options.get("users"));r.setAttribute("types",options.get("types"));
     }
 }

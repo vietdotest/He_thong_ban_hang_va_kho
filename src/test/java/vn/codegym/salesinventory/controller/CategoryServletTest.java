@@ -18,4 +18,5 @@ class CategoryServletTest extends CatalogControllerTestSupport {
     @Test void deniedPermissionOrCsrfCannotModify() throws Exception {noPermissions();servlet.doPost(request,response);verify(response).sendError(403);verifyNoInteractions(service);}
     @Test void wrongCsrfCannotModify() throws Exception {params.put("_csrf","wrong");servlet.doPost(request,response);verify(response).sendError(403);verifyNoInteractions(service);}
     @Test void databaseFailureIs500() throws Exception {doThrow(new IllegalStateException("database down")).when(service).save(12,0,"C","Tên",null,0);servlet.doPost(request,response);verify(response).sendError(500);}
+    @Test void filteredTreeUsesCurrentActorAndSavePreservesFilter()throws Exception{params.put("q","Đồ & hộp");servlet.doGet(request,response);verify(service).tree(12,"Đồ & hộp");servlet.doPost(request,response);verify(response).setHeader("Location","/catalog/categories?q=%C4%90%E1%BB%93+%26+h%E1%BB%99p&notice=saved");}
 }

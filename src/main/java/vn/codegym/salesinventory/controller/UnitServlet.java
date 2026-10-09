@@ -2,6 +2,11 @@ package vn.codegym.salesinventory.controller;
 import jakarta.servlet.http.*;
 import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.validation.*;
+import vn.codegym.salesinventory.dto.PageRequest;
+import vn.codegym.salesinventory.dao.Sql;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 public final class UnitServlet extends PortalServlet {
     private final UnitService configured;private final ProductService products;
@@ -10,9 +15,14 @@ public final class UnitServlet extends PortalServlet {
     private UnitService service(){return configured==null?new UnitService(source()):configured;}
     private ProductService products(){return products==null?new ProductService(source()):products;}
     private void render(HttpServletRequest r,HttpServletResponse s,long product)throws Exception {
-        r.setAttribute("products",products().list(actor(r).id(),value(r,"q"),null,"",1));r.setAttribute("productId",product);
-        if(product>0)r.setAttribute("units",service().list(actor(r).id(),product));r.setAttribute("warehouses",access(r).warehouses());view(r,s,"catalog/units");
+        var options=new ArrayList<Map<String,Object>>(products().list(actor(r).id(),value(r,"productQuery"),null,"",1));
+        if(product>0&&options.stream().noneMatch(p->Sql.id(p.get("id"))==product))options.add(products().find(actor(r).id(),product));
+        r.setAttribute("products",options);r.setAttribute("productId",product);
+        if(product>0){var page=service().search(actor(r).id(),product,value(r,"q"),PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("units",page.items());r.setAttribute("pagination",page);}
+        r.setAttribute("paginationExtraParameters",Map.of("product",String.valueOf(product),"productQuery",value(r,"productQuery")));
+        r.setAttribute("unitReturn",returnPath(r,product));r.setAttribute("warehouses",access(r).warehouses());view(r,s,"catalog/units");
     }
+    private static String returnPath(HttpServletRequest r,long product){var page=PageRequest.parse(value(r,"page"),value(r,"pageSize"));return "/catalog/units?product="+product+"&q="+URLEncoder.encode(value(r,"q"),StandardCharsets.UTF_8)+"&productQuery="+URLEncoder.encode(value(r,"productQuery"),StandardCharsets.UTF_8)+"&page="+page.page()+"&pageSize="+page.pageSize();}
     protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception {
         access(r).require("CATALOG_READ");long product=0;
         try {
@@ -41,7 +51,7 @@ public final class UnitServlet extends PortalServlet {
                 java.math.BigDecimal factor;try{factor=CatalogValidation.decimal(value(r,"factor"),6,true);}catch(IllegalArgumentException invalid){throw FieldValidationException.field("factor",invalid.getMessage());}
                 service().save(actor(r).id(),id,product,value(r,"name"),factor,number(r,"warehouse"),value(r,"version").isEmpty()?0:number(r,"version"));
             }
-            redirect(r,s,"/catalog/units?product="+product+"&notice=saved");
+            redirect(r,s,returnPath(r,product)+"&notice=saved");
         }catch(IllegalArgumentException invalid){s.setStatus(400);r.setAttribute("edit",form);r.setAttribute("errors",fieldErrors(invalid));render(r,s,product);}
     }
 }

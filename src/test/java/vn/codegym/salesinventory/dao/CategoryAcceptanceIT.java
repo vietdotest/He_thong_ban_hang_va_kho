@@ -11,6 +11,19 @@ class CategoryAcceptanceIT extends StoryDatabaseSupport {
     @BeforeEach void fixture(){manager=user("SALES_MANAGER");categories=new CategoryService(source);}
     long save(Long parent){return categories.save(manager,0,"C-"+UUID.randomUUID(),"Nhóm thử",parent,0);}
     Map<String,Object> row(long id){return one("SELECT * FROM categories WHERE id=?",id);}
+    @Test void filteredTreeKeepsAncestorsAndDescendantsWithoutUnrelatedSiblings() {
+        long root=categories.save(manager,0,"ROOT-"+UUID.randomUUID(),"Nhóm gốc",null,0);
+        long match=categories.save(manager,0,"MATCH-"+UUID.randomUUID(),"Đồ uống",root,0),leaf=save(match),sibling=save(root);
+        var branch=categories.tree(manager,"do uong");
+        assertThat(branch.stream().map(r->Sql.id(r.get("id"))).toList()).containsExactly(root,match,leaf).doesNotContain(sibling);
+        assertThat(branch.get(2)).containsEntry("depth",2);assertThat(categories.tree(manager,"khong-ton-tai-"+UUID.randomUUID())).isEmpty();
+        assertThat(categories.tree(manager,Sql.text(row(leaf).get("code"))).stream().map(r->Sql.id(r.get("id"))).toList()).containsExactly(root,match,leaf);
+    }
+    @Test void lockedActorCannotSearchOrWriteTree() {
+        update("UPDATE users SET status='ADMIN_LOCKED' WHERE id=?",manager);
+        assertThatThrownBy(()->categories.tree(manager,"")).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->categories.save(manager,0,"NEW","Nhóm mới",null,0)).isInstanceOf(SecurityException.class);
+    }
     @Test void treeHasThreeLevelsAndCanMoveWholeBranch() {
         long root=save(null),child=save(root),leaf=save(child),other=save(null);
         assertThat(categories.tree().stream().filter(r->Sql.id(r.get("id"))==leaf).findFirst().orElseThrow()).containsEntry("depth",2);
