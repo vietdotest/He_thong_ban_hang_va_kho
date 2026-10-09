@@ -7,6 +7,7 @@
 .catalog-page .account-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;max-width:none;align-items:start}
 .catalog-page .account-form>.field{margin:0;min-width:0}
 .catalog-page .account-form>.form-actions,.catalog-page .account-form>.form-grid{grid-column:1/-1}
+.catalog-page .account-form>[role=alert]{grid-column:1/-1;margin:0}
 .catalog-page .account-form>.form-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:0}
 .catalog-page .account-form>.form-grid{margin-bottom:0}
 @media(max-width:640px){.catalog-page .account-form{grid-template-columns:minmax(0,1fr)}.catalog-page .account-form>.form-actions>.button{flex:1}}
