@@ -21,7 +21,7 @@
             <h2 id="audit-filter-heading">Bộ lọc nhật ký</h2>
             <p class="audit-helper">Tra cứu người thực hiện và đối chiếu dữ liệu trước, sau thay đổi.</p>
             <form method="get" action="${pageContext.request.contextPath}/admin/audit" class="audit-filters">
-                <c:if test="${not empty filterError}"><p class="field-error" role="alert"><c:out value="${filterError}"/></p></c:if>
+                <c:if test="${not empty filterError}"><p id="audit-filter-error" class="field-error" role="alert"><c:out value="${filterError}"/></p></c:if>
                 <input type="hidden" name="pageSize" value="${pagination.pageSize}">
                 <label class="field">Tìm trong toàn bộ nhật ký<input name="q" maxlength="150" value="<c:out value='${param.q}'/>" placeholder="Tên, tài khoản, mã thao tác hoặc ID đối tượng"></label>
                 <label class="field">Người thực hiện
@@ -41,7 +41,7 @@
                     </select>
                 </label>
                 <label class="field">Từ ngày <input type="date" name="from" value="<c:out value='${param.from}'/>"></label>
-                <label class="field">Đến ngày <input type="date" name="to" value="<c:out value='${param.to}'/>"></label>
+                <label class="field">Đến ngày <input type="date" name="to" value="<c:out value='${param.to}'/>" <c:if test="${not empty filterError and fn:contains(filterError, 'ngày')}">aria-invalid="true" aria-describedby="audit-filter-error"</c:if>></label>
                 <p class="muted">Gõ ít nhất 2 ký tự để chọn người thực hiện. Muốn tìm đầy đủ, để trống người thực hiện và dùng ô tìm kiếm phía trên.</p>
                 <div class="audit-filter-actions">
                     <button class="button button-primary" type="submit">Lọc nhật ký</button>
