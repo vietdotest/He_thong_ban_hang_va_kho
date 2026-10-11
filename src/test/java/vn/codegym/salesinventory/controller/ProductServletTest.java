@@ -54,6 +54,7 @@ class ProductServletTest {
         doReturn(products).when(servlet).products();
         doReturn(List.of(Map.of("id", 2L, "label", "Nhóm"))).when(servlet).categories();
         when(products.list(7, "", null, "", 1)).thenReturn(List.of());
+        when(products.search(eq(7L),anyString(),nullable(Long.class),anyString(),any())).thenReturn(new vn.codegym.salesinventory.dto.PageResult<>(List.of(),0,1,20));
     }
     @Test void invalidFormReturns400AndPreservesRawValues() throws Exception {
         parameters.put("sku", "BAD SKU"); parameters.put("name", "  <script>alert(1)</script>  ");
@@ -80,6 +81,16 @@ class ProductServletTest {
         verify(response).setStatus(303);
         verify(response).setHeader("Location", "/catalog/products");
         verify(session).setAttribute("productSuccess", "Đã lưu sản phẩm.");
+    }
+    @Test void editingDoesNotReplaceListCategoryOrStatusAndPreservesPaging()throws Exception{
+        parameters.putAll(Map.of("q","SKU & Lon","filterCategory","8","filterStatus","DISCONTINUED","page","2","pageSize","50"));servlet.doPost(request,response);
+        verify(response).setHeader("Location","/catalog/products?q=SKU+%26+Lon&category=8&status=DISCONTINUED&page=2&pageSize=50");
+        verify(products).save(eq(7L),eq(0L),argThat(in->in.category()==2L&&in.status().equals("ACTIVE")));
+    }
+    @Test void validationFailureRetainsListFilterWithoutUsingInvalidFormCategory()throws Exception{
+        parameters.putAll(Map.of("category","wrong","filterCategory","8","filterStatus","DISCONTINUED","q","Lon","page","2","pageSize","50"));servlet.doPost(request,response);
+        verify(products).search(eq(7L),eq("Lon"),eq(8L),eq("DISCONTINUED"),eq(new vn.codegym.salesinventory.dto.PageRequest(2,50)));
+        assertThat(map("productFilter")).containsEntry("category","8").containsEntry("status","DISCONTINUED");verify(response).setStatus(400);
     }
     @Test void missingOrWrongCsrfIs403() throws Exception {
         parameters.remove("_csrf"); servlet.doPost(request, response);

@@ -3,6 +3,11 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 class AccessTest {
+    @Test void warehouseRoleRemainsScopedWithoutWritePermissionIncludingMultipleRoles() {
+        assertThat(user(Set.of("WAREHOUSE","SALES"),Set.of("CATALOG_READ")).warehouseScoped()).isTrue();
+        assertThat(user(Set.of("ADMIN","WAREHOUSE_MANAGER"),Set.of("USER_MANAGE")).warehouseScoped()).isTrue();
+        assertThat(user(Set.of("ADMIN"),Set.of("CATALOG_READ")).warehouseScoped()).isFalse();
+    }
     private Access user(Set<String> roles,Set<String> permissions) { return new Access(roles,permissions,List.of(),List.of(),List.of()); }
     @Test void evenAdministratorCannotReadCostWithoutSalesManagerRole() {
         assertThat(user(Set.of("ADMIN"),Set.of("COST_READ","COST_WRITE")).allows("COST_READ")).isFalse();

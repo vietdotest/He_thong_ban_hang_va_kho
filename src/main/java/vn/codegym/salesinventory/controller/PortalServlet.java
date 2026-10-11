@@ -13,8 +13,18 @@ public abstract class PortalServlet extends HttpServlet {
     protected CurrentUser actor(HttpServletRequest r) { return (CurrentUser)r.getSession(false).getAttribute(SessionKeys.CURRENT_USER); }
     protected Access access(HttpServletRequest r) { return (Access)r.getAttribute("access"); }
     protected static String value(HttpServletRequest r,String key) { String v=r.getParameter(key); return v==null ? "" : v.trim(); }
+    protected static Map<String,Object> formValues(HttpServletRequest r,String... fields) {
+        Map<String,Object> values=new LinkedHashMap<>();for(String field:fields){String value=r.getParameter(field);values.put(field,value==null?"":value);}return values;
+    }
+    protected static Map<String,String> fieldErrors(IllegalArgumentException error) {
+        return error instanceof vn.codegym.salesinventory.validation.FieldValidationException fields ? fields.errors() : Map.of("form",error.getMessage());
+    }
     protected static long number(HttpServletRequest r,String key) { try { return Long.parseLong(value(r,key)); } catch(NumberFormatException e) { throw new IllegalArgumentException("Mã bản ghi không hợp lệ."); } }
-    protected void view(HttpServletRequest r,HttpServletResponse s,String path) throws ServletException,IOException { r.getRequestDispatcher("/WEB-INF/views/"+path+".jsp").forward(r,s); }
+    protected void view(HttpServletRequest r,HttpServletResponse s,String path) throws ServletException,IOException {
+        String uri = r.getRequestURI();
+        if(uri != null) r.setAttribute("paginationPath", uri.substring(Objects.requireNonNullElse(r.getContextPath(),"").length()));
+        r.getRequestDispatcher("/WEB-INF/views/"+path+".jsp").forward(r,s);
+    }
     protected void redirect(HttpServletRequest r,HttpServletResponse s,String path) { s.setStatus(303); s.setHeader("Location",r.getContextPath()+path); }
     protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }

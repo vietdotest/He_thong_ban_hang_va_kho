@@ -8,6 +8,10 @@ public final class AccountStatusServlet extends PortalServlet {
     }
     protected void post(HttpServletRequest r,HttpServletResponse s) {
         String action=value(r,"action");if(!action.equals("lock") && !action.equals("unlock"))throw new IllegalArgumentException("Thao tác không hợp lệ.");
-        new AccountStatusService(source()).change(actor(r).id(),number(r,"id"),action.equals("lock"),value(r,"reason"));redirect(r,s,"/admin/users/status?id="+number(r,"id"));
+        new AccountStatusService(source()).change(actor(r).id(),number(r,"id"),action.equals("lock"),value(r,"reason"));redirect(r,s,"/admin/users/status?id="+number(r,"id")+"&notice=saved");
+    }
+    protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws jakarta.servlet.ServletException,java.io.IOException {
+        r.setAttribute("formError",message);r.setAttribute("reason",value(r,"reason"));s.setStatus(400);
+        try {get(r,s);}catch(IllegalArgumentException invalid){super.badRequest(r,s,message);}catch(jakarta.servlet.ServletException|java.io.IOException failure){throw failure;}catch(Exception failure){throw new jakarta.servlet.ServletException(failure);}
     }
 }
