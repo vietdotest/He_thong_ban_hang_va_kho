@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhóm hàng</title><%@ include file="../fragments/assets.jspf" %></head>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhóm hàng | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %></head>
 <body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhóm hàng</h1><p>Sắp xếp nhóm hàng nhiều cấp và quản lý danh mục.</p></div><c:if test="${access.allows('PRODUCT_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}<c:out value='${categoryReturn}'/>&amp;new=1#editor" data-editor="editor">＋ Thêm mới</a></c:if></div>
