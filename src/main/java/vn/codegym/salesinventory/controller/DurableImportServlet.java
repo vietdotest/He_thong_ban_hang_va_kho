@@ -39,11 +39,18 @@ public abstract class DurableImportServlet extends PortalServlet {
         show(r,s,id);
     }
     private static void download(HttpServletResponse s,String name,byte[] bytes)throws IOException{s.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");s.setHeader("Content-Disposition","attachment; filename="+name);s.setHeader("Cache-Control","no-store");s.getOutputStream().write(bytes);}
+    protected final Part uploadFile(HttpServletRequest r) throws IOException {
+        return MultipartUploads.read(r,"file","Vui lòng chọn tệp Excel (.xlsx).","Tệp XLSX tối đa 10MB.");
+    }
+    @Override protected void preparePost(HttpServletRequest r) throws Exception {
+        access(r).require(permission());
+        if(MultipartUploads.multipart(r)) uploadFile(r);
+    }
     @Override protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{
         access(r).require(permission());String id=jobId(r);boolean confirming=value(r,"action").equals("confirm");
         try{
             if(confirming){if(id.isEmpty())throw new IllegalArgumentException("Hãy tải lên tệp trước.");jobs().confirm(actor(r).id(),importKind(),id,number(r,"version"),value(r,"token"));}
-            else{var file=r.getPart("file");if(file==null||file.getSize()==0)throw new IllegalArgumentException("Vui lòng chọn tệp XLSX.");if(file.getSize()>Xlsx.MAX_BYTES)throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");byte[] bytes;try(var input=file.getInputStream()){bytes=input.readNBytes(Xlsx.MAX_BYTES+1);}id=jobs().create(actor(r).id(),importKind(),file.getSubmittedFileName(),readPreview(actor(r).id(),bytes));}
+            else{var file=uploadFile(r);if(file==null||file.getSize()==0)throw new IllegalArgumentException("Vui lòng chọn tệp Excel (.xlsx).");if(file.getSize()>Xlsx.MAX_BYTES)throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");byte[] bytes;try(var input=file.getInputStream()){bytes=input.readNBytes(Xlsx.MAX_BYTES+1);}id=jobs().create(actor(r).id(),importKind(),file.getSubmittedFileName(),readPreview(actor(r).id(),bytes));}
             r.getSession().setAttribute(key(),id);
             // Clear any legacy in-memory state when upgrading an existing session.
             String old=importKind().equals("USER")?"userImport":"productImport";

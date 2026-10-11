@@ -21,6 +21,7 @@ class DurableImportServletTest {
     @Mock HttpServletRequest r;@Mock HttpServletResponse s;@Mock HttpSession session;@Mock ServletContext context;@Mock ServletConfig config;@Mock RequestDispatcher dispatcher;@Mock CsrfTokenManager csrf;@Mock Part file;@Mock ImportJobService jobs;
     final String id=UUID.randomUUID().toString();DurableImportServlet servlet;ImportPreview preview;
     @BeforeEach void setup()throws Exception{preview=new ImportPreview(12,List.of(new ImportPreview.Line(2,List.of("new-user"),"Tạo mới","")),Instant.now());servlet=new DurableImportServlet(){protected String importKind(){return "USER";}protected ImportPreview readPreview(long actor,byte[] bytes){assertThat(actor).isEqualTo(12);return preview;}};
+        lenient().when(r.getContentType()).thenReturn("multipart/form-data; boundary=qa");
         lenient().when(r.getParameter(anyString())).thenReturn(null);
         lenient().when(config.getServletContext()).thenReturn(context);servlet.init(config);lenient().when(r.getSession()).thenReturn(session);lenient().when(r.getSession(false)).thenReturn(session);lenient().when(r.getContextPath()).thenReturn("");lenient().when(r.getRequestURI()).thenReturn("/admin/users/import");lenient().when(r.getAttribute("access")).thenReturn(new Access(Set.of("ADMIN"),Set.of("USER_MANAGE"),List.of(),List.of(),List.of()));lenient().when(session.getAttribute(SessionKeys.CURRENT_USER)).thenReturn(new CurrentUser(12,"actor","actor@qa.local","QA"));lenient().when(context.getAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE)).thenReturn(jobs);lenient().when(context.getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER)).thenReturn(csrf);lenient().when(r.getParameter("_csrf")).thenReturn("valid");lenient().when(csrf.isValid(session,"valid")).thenReturn(true);lenient().when(r.getRequestDispatcher("/WEB-INF/views/imports/job.jsp")).thenReturn(dispatcher);
     }
@@ -32,6 +33,21 @@ class DurableImportServletTest {
     @Test void staleConfirmReturnsFieldErrorAndRetainsTheCurrentTask()throws Exception{selected();when(r.getParameter("action")).thenReturn("confirm");when(r.getParameter("version")).thenReturn("1");when(r.getParameter("token")).thenReturn("server-key");doThrow(new IllegalArgumentException("Xem trước đã thay đổi")).when(jobs).confirm(12,"USER",id,1,"server-key");when(jobs.find(12,"USER",id)).thenReturn(job());when(jobs.rows(eq(12L),eq("USER"),eq(id),anyString(),anyString(),any())).thenReturn(new PageResult<>(List.of(),0,1,20));servlet.doPost(r,s);verify(s).setStatus(400);verify(r).setAttribute("errors",Map.of("preview","Xem trước đã thay đổi"));verify(dispatcher).forward(r,s);verify(session,never()).removeAttribute("userImportJobId");}
     @Test void foreignTaskOrRevokedPermissionReturns403()throws Exception{selected();when(jobs.find(12,"USER",id)).thenThrow(new SecurityException());servlet.doGet(r,s);verify(s).sendError(403);verifyNoInteractions(dispatcher);}
     @Test void invalidUuidIs400NotDatabaseCallOr500()throws Exception{when(r.getParameter("job")).thenReturn("../../other");servlet.doGet(r,s);verify(s).setStatus(400);verifyNoInteractions(jobs);verify(dispatcher).forward(r,s);}
+    @Test void urlEncodedUploadReturns400AndDoesNotCreateTask() throws Exception {
+        when(r.getContentType()).thenReturn("application/x-www-form-urlencoded");
+        servlet.doPost(r,s);verify(s).setStatus(400);verify(r).setAttribute("errors",Map.of("file","Vui lòng chọn tệp Excel (.xlsx)."));verify(r,never()).getPart("file");verify(dispatcher).forward(r,s);verifyNoInteractions(jobs);
+    }
+    @Test void malformedMultipartReturnsInline400() throws Exception {
+        when(r.getPart("file")).thenThrow(new ServletException("missing boundary"));
+        servlet.doPost(r,s);verify(s).setStatus(400);verify(dispatcher).forward(r,s);verifyNoInteractions(jobs);
+    }
+    @Test void multipartSizeLimitReturnsInline400() throws Exception {
+        when(r.getPart("file")).thenThrow(new IllegalStateException("size limit"));
+        servlet.doPost(r,s);verify(s).setStatus(400);verify(dispatcher).forward(r,s);verifyNoInteractions(jobs);
+    }
+    @Test void missingMultipartFileReturns400() throws Exception {
+        servlet.doPost(r,s);verify(s).setStatus(400);verifyNoInteractions(jobs);verify(dispatcher).forward(r,s);
+    }
     @Test void csrfRejectsConfirmationWithoutQueueing()throws Exception{when(csrf.isValid(session,"valid")).thenReturn(false);servlet.doPost(r,s);verify(s).sendError(403);verifyNoInteractions(jobs);}
     @Test void progressJsonContainsScopedRowsNotSecrets()throws Exception{selected();when(r.getParameter("progress")).thenReturn("1");when(jobs.progress(12,"USER",id)).thenReturn(Map.of("id",id,"status","RUNNING","success_count",1));when(jobs.rows(eq(12L),eq("USER"),eq(id),anyString(),anyString(),any())).thenReturn(new PageResult<>(List.of(Map.of("number",2,"state","SUCCESS","cells",List.of("test"))),21,2,20));var output=new StringWriter();when(s.getWriter()).thenReturn(new PrintWriter(output));servlet.doGet(r,s);assertThat(output.toString()).contains("\"status\":\"RUNNING\"","\"page\":2","\"totalItems\":21").doesNotContain("password","confirm_key","row_token","lease_owner");verify(s).setHeader("Cache-Control","no-store");verifyNoInteractions(dispatcher);}
 }
