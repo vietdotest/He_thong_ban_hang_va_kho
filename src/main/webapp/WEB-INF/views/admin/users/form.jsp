@@ -6,30 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
+    <%@ include file="../../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
-<aside class="sidebar">
-    <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard">
-        <span class="wordmark-symbol" aria-hidden="true">BH</span><span>Quản lý bán hàng</span>
-    </a>
-    <nav class="sidebar-nav" aria-label="Điều hướng chính">
-        <a class="nav-item" href="${pageContext.request.contextPath}/dashboard"><span class="nav-icon">⌂</span>Tổng quan</a>
-        <a class="nav-item active" href="${pageContext.request.contextPath}/admin/users"><span class="nav-icon">♙</span>Người dùng</a>
-        <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password"><span class="nav-icon">⚙</span>Tài khoản</a>
-    </nav>
-    <div class="sidebar-user">
-        <span class="avatar" aria-hidden="true"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span>
-        <span class="sidebar-user-name"><strong><c:out value="${currentUser.fullName()}"/></strong><small><c:out value="${currentUser.email()}"/></small></span>
-    </div>
-</aside>
+<%@ include file="../../fragments/sidebar.jspf" %>
+<%@ include file="../../fragments/topbar.jspf" %>
 
 <div class="app-content">
-    <header class="app-topbar">
-        <div><p class="breadcrumb">Quản trị / Người dùng</p><h1>${editing ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản mới'}</h1></div>
-        <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Quay lại danh sách</a>
-    </header>
+
     <main class="page-body narrow-body">
+<div class="page-heading"><div><h1>${editing ? 'Thông tin người dùng' : 'Thêm người dùng'}</h1><p>Quản lý thông tin liên hệ và phân công tài khoản.</p></div><c:if test="${editing}"><div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/assignments?id=${userId}">Phân công</a><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/status?id=${userId}">Khóa / mở khóa</a></div></c:if></div>
+
         <section class="content-panel account-panel">
             <div class="panel-heading"><div><h2>Thông tin tài khoản</h2><p>${editing ? 'Cập nhật thông tin, vai trò và trạng thái sử dụng.' : 'Mật khẩu tạm sẽ được gửi đến email sau khi tạo thành công.'}</p></div></div>
             <c:if test="${not empty formError}"><div class="alert alert-error"><c:out value="${formError}"/></div></c:if>
@@ -42,7 +29,7 @@
                     <label class="field"><span>Tên đăng nhập <b>*</b></span><input name="username" maxlength="64" autocomplete="username" value="<c:out value='${form.username()}'/>" required><c:if test="${not empty errors.username}"><small class="field-error"><c:out value="${errors.username}"/></small></c:if></label>
                     <label class="field"><span>Email <b>*</b></span><input type="email" name="email" maxlength="254" autocomplete="email" value="<c:out value='${form.email()}'/>" required><c:if test="${not empty errors.email}"><small class="field-error"><c:out value="${errors.email}"/></small></c:if></label>
                     <label class="field"><span>Số điện thoại <b>*</b></span><input type="tel" name="phone" maxlength="20" autocomplete="tel" placeholder="0901234567" value="<c:out value='${form.phone()}'/>" required><c:if test="${not empty errors.phone}"><small class="field-error"><c:out value="${errors.phone}"/></small></c:if></label>
-                    <label class="field"><span>Vai trò <b>*</b></span><select name="roleCode" required>
+                    <label class="field"><span>Vai trò <b>*</b></span><c:if test="${editing}"><a href="${pageContext.request.contextPath}/admin/assignments?id=${userId}">Gán nhiều vai trò và phạm vi</a></c:if><select name="roleCode" ${editing ? 'disabled' : ''} required>
                         <c:forEach var="role" items="${roles}">
                             <c:choose>
                                 <c:when test="${form.roleCode() == role.code()}"><option value="${role.code()}" selected><c:out value="${role.name()}"/></option></c:when>
@@ -50,11 +37,7 @@
                             </c:choose>
                         </c:forEach>
                     </select><c:if test="${not empty errors.roleCode}"><small class="field-error"><c:out value="${errors.roleCode}"/></small></c:if></label>
-                    <label class="field"><span>Trạng thái <b>*</b></span><select name="status" required>
-                        <c:choose><c:when test="${form.status().name() == 'ACTIVE'}"><option value="ACTIVE" selected>Đang hoạt động</option></c:when><c:otherwise><option value="ACTIVE">Đang hoạt động</option></c:otherwise></c:choose>
-                        <c:choose><c:when test="${form.status().name() == 'DISABLED'}"><option value="DISABLED" selected>Đã vô hiệu hóa</option></c:when><c:otherwise><option value="DISABLED">Đã vô hiệu hóa</option></c:otherwise></c:choose>
-                        <c:choose><c:when test="${form.status().name() == 'ADMIN_LOCKED'}"><option value="ADMIN_LOCKED" selected>Bị khóa bởi quản trị viên</option></c:when><c:otherwise><option value="ADMIN_LOCKED">Bị khóa bởi quản trị viên</option></c:otherwise></c:choose>
-                    </select></label>
+                    <p class="muted">Khóa/mở tài khoản được thực hiện riêng từ danh sách người dùng, kèm lý do khóa.</p>
                 </div>
 
                 <div class="form-actions">
@@ -63,6 +46,7 @@
                 </div>
             </form>
         </section>
+        <c:if test="${editing and form.status().name() == 'PENDING_ACTIVATION'}"><form method="post" class="content-panel account-form" action="${pageContext.request.contextPath}/admin/users/activation"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><input type="hidden" name="id" value="${userId}"><p class="muted">Tài khoản đang chờ người dùng kích hoạt qua email.</p><button class="button button-secondary">Gửi lại email kích hoạt</button></form></c:if>
     </main>
 </div>
 </body>

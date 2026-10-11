@@ -126,18 +126,17 @@ class UserManagementServiceTest {
     }
 
     @Test
-    void disablingAnotherUserRevokesAllSessions() throws Exception {
+    void editingProfileCannotBypassDedicatedAccountLock() throws Exception {
         UserAccountCommand command = command(UserStatus.DISABLED, 4);
         when(users.userHasRole(connection, 1L, "ADMIN")).thenReturn(true);
         when(users.findByIdForUpdate(connection, 8L)).thenReturn(Optional.of(managedUser(8L, 4)));
         when(users.roleExists(connection, "SALES")).thenReturn(true);
-        when(users.update(connection, 8L, command)).thenReturn(1);
 
         UserManagementResult result = service.update(8L, command, 1L, CONTEXT);
 
-        assertThat(result.status()).isEqualTo(UserManagementResult.Status.SUCCESS);
-        verify(sessions).revokeAllForUser(connection, 8L, NOW, "ACCOUNT_STATUS_CHANGED");
-        verify(connection).commit();
+        assertThat(result.status()).isEqualTo(UserManagementResult.Status.FORBIDDEN);
+        verify(sessions, never()).revokeAllForUser(any(), any(Long.class), any(), any());
+        verify(connection).rollback();
     }
 
     @Test

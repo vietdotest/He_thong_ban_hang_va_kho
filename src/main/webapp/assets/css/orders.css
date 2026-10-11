@@ -1,0 +1,11 @@
+.order-form {display:grid;gap:20px;min-width:0}
+.order-header-fields {padding:0!important;border:0!important}
+.order-line {display:grid;grid-template-columns:minmax(200px,2fr) minmax(150px,1fr) minmax(100px,1fr) auto;gap:16px;align-items:end;border:1px solid var(--nvdo-line,#e2e8f0);border-radius:6px;padding:16px;margin:0 0 16px;min-width:0}
+.order-line-title,.order-line-error,.order-line-money {grid-column:1/-1;margin:0;overflow-wrap:anywhere}
+.order-line-title {font-weight:700}.order-line label,.order-line .lookup-control{min-width:0}
+.order-line .lookup-control {width:100%}.order-totals {margin-top:24px}
+.order-totals dl {display:grid;grid-template-columns:minmax(100px,1fr) minmax(100px,1fr);gap:12px}
+.order-totals dd {text-align:right;font-weight:700;margin:0;overflow-wrap:anywhere}
+.order-totals .checkbox-field {display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
+.order-read-lines {display:grid;gap:16px;margin-top:16px}
+@media(max-width:767px){.order-line {grid-template-columns:minmax(0,1fr);gap:12px;padding:16px}.order-line-title,.order-line-error,.order-line-money{grid-column:auto}.order-line .button{justify-self:start}.order-totals {border-top:3px solid var(--nvdo-primary,#2c8c91)}.order-totals dl {grid-template-columns:1fr 1fr}.order-read-lines h2{font-size:16px;overflow-wrap:anywhere}}

@@ -7,8 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Đăng nhập hệ thống quản lý bán hàng và kho">
     <title>Đăng nhập | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
-    <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
+    <%@ include file="../fragments/assets.jspf" %>
+    <script src="${pageContext.request.contextPath}/assets/js/login.js?v=nvdo-ui-20261004" defer></script>
 </head>
 <body class="auth-page">
 <header class="auth-topbar">
@@ -67,3 +67,4 @@
 <footer class="auth-bottom">Hệ thống quản lý bán hàng và kho</footer>
 </body>
 </html>
+
