@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %><%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %><fmt:setLocale value="vi_VN"/>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bảng giá</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bảng giá | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Bảng giá</h1><p>Giá bán theo nhóm khách hàng và thời gian hiệu lực.</p></div><c:if test="${access.allows('PRICE_MANAGE')}"><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${priceReturn}'/>&amp;new=1#price-editor" data-editor="price-editor">＋ Tạo bảng giá</a></c:if></div>
 <c:if test="${param.notice == 'saved'}"><p class="alert alert-success" role="status">Đã lưu bảng giá.</p></c:if>
