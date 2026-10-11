@@ -1,0 +1,19 @@
+INSERT INTO permissions(code,name) VALUES('DEALER_ADDRESS_MANAGE','Quản lý điểm giao của đại lý');
+INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code IN ('SALES_MANAGER','SALES') AND p.code='DEALER_ADDRESS_MANAGE';
+CREATE TABLE dealer_addresses (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+ dealer_id BIGINT UNSIGNED NOT NULL,
+ address VARCHAR(500) NOT NULL,
+ recipient VARCHAR(150) NOT NULL,
+ phone VARCHAR(30) NOT NULL,
+ directions VARCHAR(1000) NOT NULL DEFAULT '',
+ status ENUM('ACTIVE','DISCONTINUED') NOT NULL DEFAULT 'ACTIVE',
+ is_default BOOLEAN NOT NULL DEFAULT FALSE,
+ default_dealer BIGINT UNSIGNED GENERATED ALWAYS AS (CASE WHEN is_default=1 THEN dealer_id ELSE NULL END) STORED,
+ version BIGINT NOT NULL DEFAULT 1,
+ created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+ updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+ FOREIGN KEY(dealer_id) REFERENCES dealers(id),
+ UNIQUE(default_dealer),UNIQUE(dealer_id,id),INDEX(dealer_id,status,id),
+ CHECK(is_default=0 OR status='ACTIVE')
+);

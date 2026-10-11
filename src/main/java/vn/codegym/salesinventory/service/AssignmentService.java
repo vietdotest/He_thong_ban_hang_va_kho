@@ -10,10 +10,12 @@ public final class AssignmentService {
     public AssignmentService(DataSource source) { this.source=source; }
     public static void validate(long actor,long target,Set<String> roles,Set<Long> warehouses) {
         if(roles.isEmpty()) throw new IllegalArgumentException("Phải chọn ít nhất một vai trò.");
+        if(roles.contains("DEALER"))throw new IllegalArgumentException("Tài khoản đại lý được cấp riêng qua cổng, không gán vai trò nội bộ.");
         if(actor==target && !roles.contains("ADMIN")) throw new IllegalArgumentException("Không thể tự thu hồi vai trò quản trị.");
         if((roles.contains("WAREHOUSE") || roles.contains("WAREHOUSE_MANAGER")) && warehouses.isEmpty()) throw new IllegalArgumentException("Vai trò kho phải gắn với ít nhất một kho.");
     }
     public static void replace(java.sql.Connection c,long target,Set<String> roles,Set<Long> warehouses,Set<Long> territories) throws java.sql.SQLException {
+            if(roles.contains("DEALER")||"DEALER".equals(Sql.one(c,"SELECT account_kind FROM users WHERE id=? FOR UPDATE",target).get("account_kind")))throw new SecurityException("Không thay vai trò tài khoản cổng qua quản trị nội bộ.");
             for(String role:roles) Sql.one(c,"SELECT id FROM roles WHERE code=?",role);
             for(long id:warehouses) Sql.one(c,"SELECT id FROM warehouses WHERE id=?",id);
             for(long id:territories) Sql.one(c,"SELECT id FROM territories WHERE id=?",id);
