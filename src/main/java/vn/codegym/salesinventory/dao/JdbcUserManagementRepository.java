@@ -18,6 +18,12 @@ import vn.codegym.salesinventory.model.RoleOption;
 import vn.codegym.salesinventory.model.UserStatus;
 
 public final class JdbcUserManagementRepository implements UserManagementRepository {
+    @Override public boolean isPortalAccount(Connection connection,long userId)throws SQLException{return "DEALER".equals(Sql.one(connection,"SELECT account_kind FROM users WHERE id=?",userId).get("account_kind"));}
+    private static final String SCOPES = """
+            ,CONCAT_WS(' · ',
+              (SELECT GROUP_CONCAT(CONCAT('Kho: ',w.name) ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
+              (SELECT GROUP_CONCAT(CONCAT('Địa bàn: ',t.name) ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
+            """;
     private static final String FILTER = """
             WHERE (? = ''
                    OR LOWER(u.full_name) LIKE ?
@@ -62,7 +68,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
     public List<RoleOption> findRoles(Connection connection) throws SQLException {
         List<RoleOption> roles = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT id, code, name FROM roles ORDER BY name, code");
+                "SELECT id, code, name FROM roles WHERE code<>'DEALER' ORDER BY name, code");
              ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
                 roles.add(new RoleOption(
@@ -82,18 +88,17 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                        u.must_change_password, u.version, u.created_at,
                        (SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id
                         WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_code,
-                       (SELECT r.name FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-                        WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_name
-                FROM users u
-                """ + FILTER + """
+                       (SELECT GROUP_CONCAT(r.name ORDER BY r.code SEPARATOR ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                        WHERE ur.user_id = u.id) AS role_name
+                """ + SCOPES + " FROM users u " + FILTER + """
                 ORDER BY u.full_name, u.id
                 LIMIT ? OFFSET ?
                 """;
         List<ManagedUser> users = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int next = bindFilters(statement, criteria);
-            statement.setInt(next++, UserSearchCriteria.PAGE_SIZE);
-            statement.setInt(next, criteria.offset());
+            statement.setInt(next++, criteria.pageSize());
+            statement.setLong(next, criteria.offset());
             try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     users.add(map(resultSet));
@@ -121,6 +126,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 SELECT u.id, u.username, u.email, u.full_name, u.phone, u.status,
                        u.must_change_password, u.version, u.created_at,
                        r.code AS role_code, r.name AS role_name
+                """ + SCOPES + """
                 FROM users u
                 LEFT JOIN user_roles ur ON ur.user_id = u.id
                 LEFT JOIN roles r ON r.id = ur.role_id
@@ -194,8 +200,6 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 UPDATE users
                 SET username = ?, username_normalized = ?, email = ?, email_normalized = ?,
                     full_name = ?, phone = ?, phone_normalized = ?, status = ?,
-                    failed_login_count = CASE WHEN ? = 'ACTIVE' THEN 0 ELSE failed_login_count END,
-                    locked_until = CASE WHEN ? = 'ACTIVE' THEN NULL ELSE locked_until END,
                     version = version + 1
                 WHERE id = ? AND version = ?
                 """;
@@ -208,10 +212,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
             statement.setString(6, command.phone());
             statement.setString(7, command.normalizedPhone());
             statement.setString(8, command.status().name());
-            statement.setString(9, command.status().name());
-            statement.setString(10, command.status().name());
-            statement.setLong(11, userId);
-            statement.setLong(12, command.version());
+            statement.setLong(9, userId);
+            statement.setLong(10, command.version());
             return statement.executeUpdate();
         }
     }
@@ -219,7 +221,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
     private static int bindFilters(PreparedStatement statement, UserSearchCriteria criteria) throws SQLException {
         String keyword = criteria.keyword().toLowerCase(Locale.ROOT);
         String pattern = "%" + keyword + "%";
-        String phoneDigits = criteria.keyword().replaceAll("\\D", "");
+        String phoneDigits = criteria.keyword().matches("[+0-9().\\s-]+")
+                ? criteria.keyword().replaceAll("\\D", "") : "";
         String phonePattern = phoneDigits.isBlank() ? "\u0000" : "%" + phoneDigits + "%";
         int index = 1;
         statement.setString(index++, keyword);
@@ -245,7 +248,8 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 resultSet.getString("role_name"),
                 resultSet.getBoolean("must_change_password"),
                 resultSet.getLong("version"),
-                resultSet.getTimestamp("created_at").toInstant()
+                resultSet.getTimestamp("created_at").toInstant(),
+                resultSet.getString("scope_summary")
         );
     }
 }

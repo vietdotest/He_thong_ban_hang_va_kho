@@ -8,6 +8,8 @@ public final class ApplicationContextKeys {
     public static final String PASSWORD_RESET_SERVICE = "app.passwordResetService";
     public static final String PASSWORD_CHANGE_SERVICE = "app.passwordChangeService";
     public static final String USER_MANAGEMENT_SERVICE = "app.userManagementService";
+    public static final String IMPORT_JOB_SERVICE = "app.importJobService";
+    public static final String IMPORT_WORKER = "app.importWorker";
 
     private ApplicationContextKeys() {
     }
