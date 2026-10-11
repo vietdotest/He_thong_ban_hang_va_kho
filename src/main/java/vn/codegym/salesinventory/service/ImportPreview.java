@@ -23,4 +23,5 @@ public final class ImportPreview {
     public String getToken(){return token;}public List<Line> getLines(){return lines;}
     public ProductState productState(int row){return products.get(row);}
     public boolean hasCostColumn(){return costColumn;}
+    public synchronized boolean available(long actor,Instant now){return owner==actor&&!used&&now.isBefore(expires);}
 }
