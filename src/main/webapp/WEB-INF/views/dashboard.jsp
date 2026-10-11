@@ -1,70 +1,17 @@
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Tổng quan | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css">
-</head>
-<body class="app-page">
-<aside class="sidebar">
-    <a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard">
-        <span class="wordmark-symbol" aria-hidden="true">BH</span>
-        <span>Quản lý bán hàng</span>
-    </a>
-    <nav class="sidebar-nav" aria-label="Điều hướng chính">
-        <a class="nav-item active" href="${pageContext.request.contextPath}/dashboard" aria-current="page">
-            <span class="nav-icon" aria-hidden="true">⌂</span>Tổng quan
-        </a>
-        <c:if test="${currentUser.hasRole('ADMIN')}">
-            <a class="nav-item" href="${pageContext.request.contextPath}/admin/users">
-                <span class="nav-icon" aria-hidden="true">♙</span>Người dùng
-            </a>
-        </c:if>
-        <a class="nav-item" href="${pageContext.request.contextPath}/account/change-password">
-            <span class="nav-icon" aria-hidden="true">⚙</span>Tài khoản
-        </a>
-    </nav>
-    <div class="sidebar-user">
-        <span class="avatar" aria-hidden="true"><c:out value="${currentUser.username().substring(0,1).toUpperCase()}"/></span>
-        <span class="sidebar-user-name">
-            <strong><c:out value="${currentUser.fullName()}"/></strong>
-            <small><c:out value="${currentUser.email()}"/></small>
-        </span>
-    </div>
-</aside>
-
-<div class="app-content">
-    <header class="app-topbar">
-        <div>
-            <p class="breadcrumb">Tổng quan</p>
-            <h1>Tình hình hôm nay</h1>
-        </div>
-        <form method="post" action="${pageContext.request.contextPath}/logout">
-            <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
-            <button class="button button-secondary" type="submit">Đăng xuất</button>
-        </form>
-    </header>
-
-    <main class="page-body">
-        <section class="summary-grid" aria-label="Số liệu tổng quan">
-            <article class="summary-card"><p>Doanh thu hôm nay</p><strong>0 ₫</strong><span>Chưa phát sinh giao dịch</span></article>
-            <article class="summary-card"><p>Đơn hàng</p><strong>0</strong><span>Trong ngày hôm nay</span></article>
-            <article class="summary-card"><p>Sản phẩm sắp hết</p><strong>0</strong><span>Cần bổ sung tồn kho</span></article>
-            <article class="summary-card"><p>Công nợ cần thu</p><strong>0 ₫</strong><span>Đang theo dõi</span></article>
-        </section>
-
-        <section class="content-panel">
-            <div class="panel-heading"><div><h2>Hoạt động gần đây</h2><p>Các giao dịch mới sẽ xuất hiện tại đây.</p></div></div>
-            <div class="empty-state">
-                <span class="empty-icon" aria-hidden="true">▤</span>
-                <h3>Chưa có hoạt động</h3>
-                <p>Dữ liệu sẽ được cập nhật khi có giao dịch đầu tiên.</p>
-            </div>
-        </section>
-    </main>
-</div>
-</body>
-</html>
+<%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tổng quan công việc | Quản lý bán hàng</title><%@ include file="fragments/assets.jspf" %></head>
+<body class="app-page"><%@ include file="fragments/sidebar.jspf" %><%@ include file="fragments/topbar.jspf" %>
+<main class="page-body app-content dashboard-page"><div class="page-heading"><div><h1>Tổng quan công việc</h1><p>Xin chào <c:out value="${currentUser.fullName()}"/>. Chọn phần việc để bắt đầu.</p></div></div>
+<div class="dashboard-work"><section class="content-panel dashboard-tasks"><h2>Phần việc thường dùng</h2>
+<c:forEach var="area" items="${taskAreas}"><c:set var="areaIcon" value="${area.path() == '/admin/users' ? 'users1' : area.path() == '/pricing/lists' ? 'tag1' : area.path() == '/catalog/units' ? 'unit' : area.path() == '/catalog/suppliers' ? 'truck' : 'box1'}"/>
+<div class="task-row"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/${areaIcon}.svg" alt=""><div class="task-copy"><strong><c:out value="${area.label()}"/></strong><p><c:out value="${area.description()}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}${area.path()}">Mở</a></div>
+</c:forEach><c:if test="${empty taskAreas}"><div class="empty-state"><p>Tài khoản chưa được cấp quyền nghiệp vụ. Liên hệ quản trị viên để được phân công.</p><a class="button" href="${pageContext.request.contextPath}/account/profile">Xem hồ sơ</a></div></c:if>
+</section>
+<c:if test="${access.allows('USER_MANAGE') or access.allows('ROLE_MANAGE') or access.allows('AUDIT_READ')}"><section class="content-panel dashboard-admin"><h2>Quản trị hệ thống</h2><p>Quản lý nhân sự và phạm vi truy cập của từng vai trò.</p>
+<c:if test="${access.allows('USER_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/import"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/upload.svg" alt="">Nhập người dùng từ Excel</a><a class="nav-item" href="${pageContext.request.contextPath}/admin/scopes"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/pin.svg" alt="">Kho và địa bàn</a></c:if>
+<c:if test="${access.allows('ROLE_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/roles"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/shield.svg" alt="">Phân quyền</a></c:if>
+<c:if test="${access.allows('AUDIT_READ')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/audit"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/clock.svg" alt="">Nhật ký thao tác</a></c:if>
+</section></c:if></div>
+<c:if test="${access.allows('AUDIT_READ')}"><div class="section-heading"><h2>Hoạt động gần đây</h2><a class="button button-plain" href="${pageContext.request.contextPath}/admin/audit"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/clock1.svg" alt="">Xem nhật ký</a></div>
+<c:choose><c:when test="${empty recentOperations}"><div class="alert">Chưa có thao tác được ghi nhận.</div></c:when><c:otherwise><div class="table-wrap"><table><thead><tr><th scope="col">Thao tác</th><th scope="col">Đối tượng</th><th scope="col">Người thực hiện</th><th scope="col">Thời điểm</th></tr></thead><tbody><c:forEach var="entry" items="${recentOperations}"><tr><td><c:out value="${entry.event_label}"/></td><td><c:out value="${entry.object_label}"/><c:if test="${not empty entry.object_id}"> #<c:out value="${entry.object_id}"/></c:if></td><td><c:out value="${entry.full_name}"/></td><td><c:out value="${entry.display_time}"/></td></tr></c:forEach></tbody></table></div></c:otherwise></c:choose>
+</c:if></main></body></html>

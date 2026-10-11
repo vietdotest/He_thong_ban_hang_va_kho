@@ -74,6 +74,8 @@ public final class LoginServlet extends HttpServlet {
         String reason = request.getParameter("reason");
         if ("logged_out".equals(reason)) {
             request.setAttribute("notice", "Bạn đã đăng xuất.");
+        } else if ("activated".equals(reason)) {
+            request.setAttribute("successMessage","Tài khoản đã được kích hoạt. Vui lòng đăng nhập bằng mật khẩu tạm.");
         } else if ("session_expired".equals(reason)) {
             request.setAttribute("notice", "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         } else if ("password_reset".equals(reason)) {
@@ -128,7 +130,7 @@ public final class LoginServlet extends HttpServlet {
             String serverSessionId = sessionService.create(
                     result.currentUser(), newSessionId, RequestMetadata.authenticationContext(request));
             session.setAttribute(SessionKeys.SERVER_SESSION_ID, serverSessionId);
-            RequestMetadata.seeOther(response, request.getContextPath() + "/dashboard");
+            RequestMetadata.seeOther(response, request.getContextPath() + (result.currentUser().hasRole("DEALER")?"/portal":"/dashboard"));
         } catch (AuthenticationException exception) {
             getServletContext().log("Login could not be processed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);

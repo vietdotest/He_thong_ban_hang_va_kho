@@ -57,9 +57,13 @@ class AuthenticationDatabaseIT {
             .withUsername("sales_app")
             .withPassword("sales_app123")
             .withCommand(
+                    // Disposable fixture only; production migrations use the separate DBA runner.
+                    "--log-bin-trust-function-creators=1",
                     "--default-time-zone=+00:00",
                     "--character-set-server=utf8mb4",
-                    "--collation-server=utf8mb4_0900_ai_ci"
+                    "--collation-server=utf8mb4_0900_ai_ci",
+                    "--innodb-flush-log-at-trx-commit=2",
+                    "--sync-binlog=0"
             );
 
     private HikariDataSource dataSource;
@@ -75,6 +79,9 @@ class AuthenticationDatabaseIT {
         hikari.setMaximumPoolSize(6);
         dataSource = new HikariDataSource(hikari);
         Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").load().migrate();
+        dataSource.close();
+        dataSource = vn.codegym.salesinventory.config.DatabaseFactory.create(new vn.codegym.salesinventory.config.AppConfig.DatabaseSettings(
+                MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword(), 6, 1, 10000));
         users = new JdbcUserRepository();
     }
 
