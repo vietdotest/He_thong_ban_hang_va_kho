@@ -318,4 +318,8 @@
     </error-page>
     <servlet><servlet-name>OrderServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.OrderServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>OrderServlet</servlet-name><url-pattern>/orders</url-pattern><url-pattern>/api/orders/options</url-pattern></servlet-mapping>
+    <servlet><servlet-name>PortalAccountsServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.PortalAccountsServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>PortalAccountsServlet</servlet-name><url-pattern>/dealers/accounts</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerPortalServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerPortalServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerPortalServlet</servlet-name><url-pattern>/portal</url-pattern><url-pattern>/portal/orders</url-pattern><url-pattern>/api/portal/options</url-pattern><url-pattern>/api/portal/products</url-pattern></servlet-mapping>
 </web-app>

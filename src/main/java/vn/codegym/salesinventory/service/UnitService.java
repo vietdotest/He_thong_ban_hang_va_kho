@@ -6,6 +6,7 @@ import javax.sql.DataSource;
 import vn.codegym.salesinventory.dao.Sql;
 import vn.codegym.salesinventory.validation.*;
 import vn.codegym.salesinventory.security.Access;
+import vn.codegym.salesinventory.dto.*;
 
 public final class UnitService {
     private final DataSource source;
@@ -23,24 +24,47 @@ public final class UnitService {
         return errors;
     }
     public List<Map<String,Object>> list(long actor,long product) {
-        var access=new AccessService(source).load(actor);access.require("CATALOG_READ");
-        return Sql.transaction(source,c->Sql.query(c,"SELECT u.id,u.product_id,u.name,u.factor,u.version,u.is_base,u.warehouse_id,w.name warehouse_name FROM product_units u LEFT JOIN warehouses w ON w.id=u.warehouse_id WHERE product_id=? ORDER BY is_base DESC,u.name,u.id",product)
-                .stream().filter(row->!access.warehouseScoped()||row.get("warehouse_id")==null||access.managesWarehouse(Sql.id(row.get("warehouse_id")))).toList());
+        return search(actor,product,"",new PageRequest(1,100)).items();
+    }
+    public PageResult<Map<String,Object>> search(long actor,long product,String query,PageRequest requested) {
+        String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
+        return Sql.snapshot(source,c->{var access=access(c,actor,"CATALOG_READ");
+            String condition=" WHERE u.product_id=? AND (u.name LIKE ? OR w.name LIKE ? OR w.code LIKE ?) AND (? OR u.warehouse_id IS NULL OR EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=u.warehouse_id))";
+            var args=new ArrayList<Object>(List.of(product,pattern,pattern,pattern,!access.warehouseScoped(),actor));
+            long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM product_units u LEFT JOIN warehouses w ON w.id=u.warehouse_id"+condition,args.toArray()).get("total"));var page=requested.clamp(total);args.add(page.pageSize());args.add(page.offset());
+            var rows=Sql.query(c,"SELECT u.id,u.product_id,u.name,u.factor,u.version,u.is_base,u.warehouse_id,w.name warehouse_name FROM product_units u LEFT JOIN warehouses w ON w.id=u.warehouse_id"+condition+" ORDER BY u.is_base DESC,u.name,u.id LIMIT ? OFFSET ?",args.toArray());
+            return new PageResult<>(rows,total,page.page(),page.pageSize());});
+    }
+    private static Access access(Connection c,long actor,String permission)throws SQLException {
+        var a=DealerService.access(c,actor,permission);
+        if(PortalAccountService.portal(c,actor))throw new SecurityException();
+        return new Access(a.roles(),a.permissions(),a.roleNames(),Sql.query(c,"SELECT w.id,w.code,w.name,w.address FROM warehouses w JOIN user_warehouses uw ON uw.warehouse_id=w.id WHERE uw.user_id=? ORDER BY w.name,w.id FOR SHARE",actor),List.of());
+    }
+    /** The editor must not reuse USER_MANAGE or expose unassigned warehouses. */
+    public List<Map<String,Object>> suggestWarehouses(long actor,String query) {
+        String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);
+        String exact=q,prefix=q+"%",contains="%"+q+"%";
+        return Sql.snapshot(source,c->{access(c,actor,"WAREHOUSE_MANAGE");if(exact.length()<2)return List.of();
+            return Sql.query(c,"SELECT w.id,w.code,w.name,w.address detail FROM warehouses w JOIN user_warehouses uw ON uw.warehouse_id=w.id WHERE uw.user_id=? AND (w.code LIKE ? OR w.name LIKE ? OR w.address LIKE ?) ORDER BY (w.code=?) DESC,(w.code LIKE ?) DESC,w.name,w.id LIMIT 10",actor,contains,contains,contains,exact,prefix);});
+    }
+    public List<Map<String,Object>> suggestNames(long actor,long product,String query) {
+        String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);
+        String exact=q,prefix=q+"%",contains="%"+q+"%";
+        return Sql.snapshot(source,c->{var a=access(c,actor,"CATALOG_READ");if(product<=0)throw new IllegalArgumentException("Hãy chọn sản phẩm trước khi tìm đơn vị.");if(exact.length()<2)return List.of();
+            return Sql.query(c,"SELECT u.id,u.name code,u.name,COALESCE(w.name,'Dùng chung') detail FROM product_units u LEFT JOIN warehouses w ON w.id=u.warehouse_id WHERE u.product_id=? AND (u.name LIKE ? OR w.code LIKE ? OR w.name LIKE ?) AND (? OR u.warehouse_id IS NULL OR EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=u.warehouse_id)) ORDER BY (u.name=?) DESC,(u.name LIKE ?) DESC,u.name,u.id LIMIT 10",product,contains,contains,contains,!a.warehouseScoped(),actor,exact,prefix);});
     }
     public Map<String,Object> find(long actor,long id) {
-        var access=new AccessService(source).load(actor);access.require("CATALOG_READ");
-        return Sql.transaction(source,c->{var row=Sql.one(c,"SELECT id,product_id,name,factor,version,is_base,warehouse_id FROM product_units WHERE id=?",id);requireWarehouse(access,row);return row;});
+        return Sql.transaction(source,c->{var access=access(c,actor,"CATALOG_READ");var row=Sql.one(c,"SELECT id,product_id,name,factor,version,is_base,warehouse_id FROM product_units WHERE id=?",id);requireWarehouse(access,row);return row;});
     }
     private static void requireWarehouse(Access access,Map<String,Object> row) {
         if(access.warehouseScoped()&&row.get("warehouse_id")!=null&&!access.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();
     }
     public long save(long actor,long id,long product,String name,BigDecimal factor,long warehouse,long version) {
-        var access=new AccessService(source).load(actor);access.require("WAREHOUSE_MANAGE");
-        if(!access.managesWarehouse(warehouse))throw new SecurityException();
         var errors=errors(name,factor,product,version);if(id<0)errors.put("form","Đơn vị không hợp lệ.");
         if(!errors.isEmpty())throw new FieldValidationException(errors);
         String normalizedName=name.trim();BigDecimal normalizedFactor=CatalogValidation.decimal(factor,6,true);
         return Sql.transaction(source,c->{
+            var access=access(c,actor,"WAREHOUSE_MANAGE");if(!access.managesWarehouse(warehouse))throw new SecurityException();
             if(Sql.query(c,"SELECT id FROM products WHERE id=? FOR UPDATE",product).isEmpty())throw FieldValidationException.field("form","Sản phẩm không còn tồn tại.");
             Map<String,Object> before=null;
             if(id!=0) {
@@ -66,8 +90,7 @@ public final class UnitService {
         });
     }
     public Conversion convert(long actor,long unit,BigDecimal quantity) {
-        var access=new AccessService(source).load(actor);access.require("CATALOG_READ");
-        return Sql.transaction(source,c->convert(c,access,unit,quantity));
+        return Sql.transaction(source,c->convert(c,access(c,actor,"CATALOG_READ"),unit,quantity));
     }
     public static Conversion convert(Connection c,Access access,long unit,BigDecimal quantity)throws SQLException {
         access.require("CATALOG_READ");BigDecimal normalized=CatalogValidation.decimal(quantity,6,false);
@@ -91,8 +114,8 @@ public final class UnitService {
     }
     public void delete(long actor,long id) {delete(actor,id,null);}
     public void delete(long actor,long id,Long product) {
-        var access=new AccessService(source).load(actor);access.require("WAREHOUSE_MANAGE");
         Sql.transaction(source,c->{
+            var access=access(c,actor,"WAREHOUSE_MANAGE");
             var row=Sql.one(c,"SELECT id,product_id,name,factor,version,is_base,warehouse_id FROM product_units WHERE id=? FOR UPDATE",id);
             if(row.get("warehouse_id")==null)throw FieldValidationException.field("form","Không thể xóa đơn vị cơ sở.");
             if(!access.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();
