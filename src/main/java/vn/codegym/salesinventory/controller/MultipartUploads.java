@@ -23,6 +23,14 @@ final class MultipartUploads {
         } catch (ServletException invalid) {
             if (sizeLimit(invalid)) throw new IllegalArgumentException(tooLarge, invalid);
             throw new IllegalArgumentException("Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
+        } catch (IOException invalid) {
+            if (sizeLimit(invalid)) throw new IllegalArgumentException(tooLarge, invalid);
+            for (Throwable cause = invalid; cause != null; cause = cause.getCause()) {
+                String type = cause.getClass().getName();
+                if (type.contains(".fileupload.") && (type.endsWith(".FileUploadException") || type.endsWith("MalformedStreamException")))
+                    throw new IllegalArgumentException("Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
+            }
+            throw invalid;
         }
     }
     private static boolean sizeLimit(Throwable failure) {
