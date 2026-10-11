@@ -37,6 +37,7 @@
                     <option value="">Tất cả trạng thái</option>
                     <option value="ACTIVE" ${criteria.status() == 'ACTIVE' ? 'selected' : ''}>Đang hoạt động</option>
                     <option value="DISABLED" ${criteria.status() == 'DISABLED' ? 'selected' : ''}>Đã vô hiệu hóa</option>
+                    <option value="PENDING_ACTIVATION" ${criteria.status() == 'PENDING_ACTIVATION' ? 'selected' : ''}>Chờ kích hoạt</option>
                     <option value="ADMIN_LOCKED" ${criteria.status() == 'ADMIN_LOCKED' ? 'selected' : ''}>Bị khóa</option>
                 </select></label>
                 <div class="filter-actions"><button class="button button-primary" type="submit">Áp dụng</button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Đặt lại</a></div>
