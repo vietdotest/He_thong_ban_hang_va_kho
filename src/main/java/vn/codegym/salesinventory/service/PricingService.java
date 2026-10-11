@@ -1,22 +1,145 @@
 package vn.codegym.salesinventory.service;
-import java.math.*;import java.time.*;import java.sql.*;import java.util.*;import javax.sql.DataSource;import vn.codegym.salesinventory.dao.Sql;import vn.codegym.salesinventory.validation.CatalogValidation;import vn.codegym.salesinventory.security.Access;
+import java.math.*;
+import java.time.*;
+import java.sql.*;
+import java.util.*;
+import javax.sql.DataSource;
+import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.validation.*;
+import vn.codegym.salesinventory.security.Access;
+import vn.codegym.salesinventory.dto.*;
 public final class PricingService {
- private final DataSource source;public PricingService(DataSource source){this.source=source;}
- public record Quote(long itemId,long versionId,long productId,BigDecimal sellingPrice,BigDecimal floorPrice,LocalDate date){public boolean requiresApproval(BigDecimal proposed){return proposed.compareTo(floorPrice)<0;}}
- private static void dates(LocalDate from,LocalDate to){if(from==null||to==null||to.isBefore(from))throw new IllegalArgumentException("Ngày kết thúc phải từ ngày bắt đầu trở đi.");}
- public List<Map<String,Object>> groups(){return Sql.transaction(source,c->Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY id"));}
- public List<Map<String,Object>> versions(long actor){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC"));}
- public List<Map<String,Object>> items(long actor,long version){new AccessService(source).load(actor).require("PRICE_READ");return Sql.transaction(source,c->Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku",version));}
- private static void lockGroup(Connection c,long group)throws SQLException{Sql.one(c,"SELECT id FROM customer_groups WHERE id=? FOR UPDATE",group);}
- private static void unused(Connection c,long version)throws SQLException{if(!Sql.query(c,"SELECT id FROM price_order_references WHERE version_id=? LIMIT 1 FOR UPDATE",version).isEmpty())throw new IllegalArgumentException("Phiên bản đã được dùng. Hãy kế thừa thành phiên bản mới.");}
- private static void overlap(Connection c,long group,long product,LocalDate from,LocalDate to,long excluded)throws SQLException{if(!Sql.query(c,"SELECT v.id FROM price_versions v JOIN price_items i ON i.version_id=v.id WHERE v.group_id=? AND i.product_id=? AND v.id<>? AND v.valid_from<=? AND v.valid_to>=? LIMIT 1 FOR UPDATE",group,product,excluded,to,from).isEmpty())throw new IllegalArgumentException("Thời gian giá chồng nhau cho cùng nhóm khách và SKU.");}
- public long create(long actor,long group,String name,LocalDate from,LocalDate to,Long parent){new AccessService(source).load(actor).require("PRICE_MANAGE");dates(from,to);CatalogValidation.text(name,150,"Tên bảng giá");return Sql.transaction(source,c->{lockGroup(c,group);if(parent!=null){var base=Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",parent);if(Sql.id(base.get("group_id"))!=group)throw new IllegalArgumentException("Phiên bản kế thừa phải cùng nhóm khách.");for(var item:Sql.query(c,"SELECT product_id FROM price_items WHERE version_id=? FOR UPDATE",parent))overlap(c,group,Sql.id(item.get("product_id")),from,to,0);}long id=Sql.insert(c,"INSERT INTO price_versions(group_id,name,valid_from,valid_to,parent_id) VALUES(?,?,?,?,?)",group,name,from,to,parent);if(parent!=null)Sql.update(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) SELECT ?,product_id,selling_price,floor_price FROM price_items WHERE version_id=?",id,parent);AuditService.record(c,actor,"PRICE_VERSION_CREATED","PRICE_VERSION",id,null,Map.of("group_id",group,"name",name,"valid_from",from,"valid_to",to,"parent_id",parent==null?"":parent));return id;});}
- public void edit(long actor,long id,long revision,String name,LocalDate from,LocalDate to){new AccessService(source).load(actor).require("PRICE_MANAGE");dates(from,to);CatalogValidation.text(name,150,"Tên bảng giá");Sql.transaction(source,c->{long group=Sql.id(Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",id).get("group_id"));lockGroup(c,group);var before=Sql.one(c,"SELECT id,name,group_id,valid_from,valid_to,revision FROM price_versions WHERE id=? FOR UPDATE",id);unused(c,id);if(Sql.id(before.get("revision"))!=revision)throw new IllegalArgumentException("Bảng giá đã thay đổi. Hãy tải lại.");for(var item:Sql.query(c,"SELECT product_id FROM price_items WHERE version_id=? FOR UPDATE",id))overlap(c,group,Sql.id(item.get("product_id")),from,to,id);Sql.update(c,"UPDATE price_versions SET name=?,valid_from=?,valid_to=?,revision=revision+1 WHERE id=?",name,from,to,id);AuditService.record(c,actor,"PRICE_VERSION_UPDATED","PRICE_VERSION",id,before,Map.of("name",name,"valid_from",from,"valid_to",to));return null;});}
- public void saveItem(long actor,long version,long product,BigDecimal selling,BigDecimal floor){new AccessService(source).load(actor).require("PRICE_MANAGE");CatalogValidation.decimal(selling.toPlainString(),4,false);CatalogValidation.decimal(floor.toPlainString(),4,false);if(selling.compareTo(floor)<0)throw new IllegalArgumentException("Giá bán bảng giá phải từ giá sàn trở lên.");Sql.transaction(source,c->{long group=Sql.id(Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",version).get("group_id"));lockGroup(c,group);var v=Sql.one(c,"SELECT valid_from,valid_to FROM price_versions WHERE id=? FOR UPDATE",version);unused(c,version);Sql.one(c,"SELECT id FROM products WHERE id=?",product);overlap(c,group,product,LocalDate.parse(v.get("valid_from").toString()),LocalDate.parse(v.get("valid_to").toString()),version);var found=Sql.query(c,"SELECT id,product_id,selling_price,floor_price FROM price_items WHERE version_id=? AND product_id=? FOR UPDATE",version,product);Map<String,Object> before=found.isEmpty()?null:found.get(0);long item;if(before==null)item=Sql.insert(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) VALUES(?,?,?,?)",version,product,selling,floor);else{item=Sql.id(before.get("id"));Sql.update(c,"UPDATE price_items SET selling_price=?,floor_price=? WHERE id=?",selling,floor,item);}Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);AuditService.record(c,actor,"PRICE_ITEM_SAVED","PRICE_ITEM",item,before,Map.of("version_id",version,"product_id",product,"selling_price",selling,"floor_price",floor));return null;});}
- public void deleteItem(long actor,long version,long item){new AccessService(source).load(actor).require("PRICE_MANAGE");Sql.transaction(source,c->{long group=Sql.id(Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",version).get("group_id"));lockGroup(c,group);unused(c,version);var before=Sql.one(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE id=? AND version_id=?",item,version);Sql.update(c,"DELETE FROM price_items WHERE id=?",item);Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);AuditService.record(c,actor,"PRICE_ITEM_DELETED","PRICE_ITEM",item,before,null);return null;});}
- public Quote quote(long actor,long group,long product,LocalDate date){var a=new AccessService(source).load(actor);a.require("PRICE_READ");return Sql.transaction(source,c->quote(c,a,group,product,date));}
- /** Đơn hàng gọi quote và snapshot trên cùng connection để khóa phiên bản đã dùng. */
- public static Quote quote(Connection c,Access a,long group,long product,LocalDate date)throws SQLException{a.require("PRICE_READ");Sql.one(c,"SELECT id FROM customer_groups WHERE id=? FOR SHARE",group);var row=Sql.one(c,"SELECT i.id,i.version_id,i.selling_price,i.floor_price FROM price_items i JOIN price_versions v ON v.id=i.version_id WHERE v.group_id=? AND i.product_id=? AND v.valid_from<=? AND v.valid_to>=?",group,product,date,date);return new Quote(Sql.id(row.get("id")),Sql.id(row.get("version_id")),product,(BigDecimal)row.get("selling_price"),(BigDecimal)row.get("floor_price"),date);}
- public static long snapshot(Connection c,String orderReference,Quote q)throws SQLException{return Sql.insert(c,"INSERT INTO price_order_references(order_reference,price_item_id,version_id,selling_price,floor_price) VALUES(?,?,?,?,?)",CatalogValidation.text(orderReference,100,"Tham chiếu đơn"),q.itemId,q.versionId,q.sellingPrice,q.floorPrice);}
+    private final DataSource source;
+    public PricingService(DataSource source){this.source=source;}
+    public record Quote(long itemId,long versionId,long productId,BigDecimal sellingPrice,BigDecimal floorPrice,LocalDate date){
+        public boolean requiresApproval(BigDecimal proposed){return CatalogValidation.decimal(proposed,4,false).compareTo(floorPrice)<0;}
+    }
+    public static Map<String,String> versionErrors(String name,LocalDate from,LocalDate to){
+        var errors=new LinkedHashMap<String,String>();
+        if(name==null||name.trim().isEmpty()||name.trim().length()>150)errors.put("name","Tên bảng giá phải có từ 1 đến 150 ký tự.");
+        if(from==null||from.getYear()<1000||from.getYear()>9999)errors.put("from","Ngày bắt đầu không hợp lệ.");
+        if(to==null||to.getYear()<1000||to.getYear()>9999)errors.put("to","Ngày kết thúc không hợp lệ.");
+        if(from!=null&&to!=null&&to.isBefore(from))errors.put("to","Ngày kết thúc phải từ ngày bắt đầu trở đi.");
+        return errors;
+    }
+    public static Map<String,String> priceErrors(BigDecimal selling,BigDecimal floor){
+        var errors=new LinkedHashMap<String,String>();
+        try{CatalogValidation.decimal(selling,4,false);}catch(IllegalArgumentException invalid){errors.put("selling",invalid.getMessage());}
+        try{CatalogValidation.decimal(floor,4,false);}catch(IllegalArgumentException invalid){errors.put("floor",invalid.getMessage());}
+        if(errors.isEmpty()&&selling.compareTo(floor)<0)errors.put("selling","Giá bán bảng giá phải từ giá sàn trở lên.");
+        return errors;
+    }
+    private static void validVersion(String name,LocalDate from,LocalDate to){var errors=versionErrors(name,from,to);if(!errors.isEmpty())throw new FieldValidationException(errors);}
+    public List<Map<String,Object>> groups(){return Sql.transaction(source,c->Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY id"));}
+    public List<Map<String,Object>> versions(long actor){
+        var rows=Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");return Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id ORDER BY v.valid_from DESC,v.id DESC");});
+        decorateVersions(rows);return rows;
+    }
+    private static void decorateVersions(List<Map<String,Object>> rows){
+        LocalDate today=LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE);
+        var format=java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        for(var row:rows){
+            LocalDate from=LocalDate.parse(row.get("valid_from").toString()),to=LocalDate.parse(row.get("valid_to").toString());
+            row.put("display_from",from.format(format));row.put("display_to",to.format(format));
+            row.put("effective_state",today.isBefore(from)?"UPCOMING":today.isAfter(to)?"EXPIRED":"ACTIVE");
+            row.put("effective_label",today.isBefore(from)?"Sắp có hiệu lực":today.isAfter(to)?"Hết hiệu lực":"Đang hiệu lực");
+        }
+    }
+    private static String term(String query){String q=query==null?"":query.trim();return q.length()>150?q.substring(0,150):q;}
+    public PageResult<Map<String,Object>> searchVersions(long actor,String query,PageRequest request){String pattern="%"+term(query)+"%";return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");
+        String from=" FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.name LIKE ? OR g.name LIKE ? OR CAST(v.id AS CHAR) LIKE ?";
+        long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+from,pattern,pattern,pattern).get("total"));var page=request.clamp(total);
+        var rows=Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used"+from+" ORDER BY v.valid_from DESC,v.id DESC LIMIT ? OFFSET ?",pattern,pattern,pattern,page.pageSize(),page.offset());decorateVersions(rows);return new PageResult<>(rows,total,page.page(),page.pageSize());});}
+    public Map<String,Object> findVersion(long actor,long id){return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");var rows=Sql.query(c,"SELECT v.id,v.group_id,v.name,v.valid_from,v.valid_to,v.parent_id,v.revision,g.name group_name,EXISTS(SELECT 1 FROM price_order_references r WHERE r.version_id=v.id) used FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.id=?",id);if(rows.isEmpty())throw FieldValidationException.field("form","Không tìm thấy phiên bản.");decorateVersions(rows);return rows.get(0);});}
+    public PageResult<Map<String,Object>> searchItems(long actor,long version,String query,PageRequest request){String pattern="%"+term(query)+"%";return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");
+        String from=" FROM price_items i JOIN products p ON p.id=i.product_id WHERE i.version_id=? AND (p.sku LIKE ? OR p.name LIKE ?)";long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+from,version,pattern,pattern).get("total"));var page=request.clamp(total);
+        var rows=Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price"+from+" ORDER BY p.sku,i.id LIMIT ? OFFSET ?",version,pattern,pattern,page.pageSize(),page.offset());return new PageResult<>(rows,total,page.page(),page.pageSize());});}
+    public List<Map<String,Object>> suggestVersions(long actor,String query){String q=term(query);return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");if(q.length()<2)return List.of();return Sql.query(c,"SELECT v.id,CAST(v.id AS CHAR) code,v.name,g.name detail FROM price_versions v JOIN customer_groups g ON g.id=v.group_id WHERE v.name LIKE ? OR g.name LIKE ? OR CAST(v.id AS CHAR) LIKE ? ORDER BY (CAST(v.id AS CHAR)=?) DESC,(v.name LIKE ?) DESC,v.valid_from DESC,v.id DESC LIMIT 10","%"+q+"%","%"+q+"%","%"+q+"%",q,q+"%");});}
+    public List<Map<String,Object>> items(long actor,long version){return Sql.snapshot(source,c->{DealerService.access(c,actor,"PRICE_READ");return Sql.query(c,"SELECT i.id,i.product_id,p.sku,p.name,p.base_unit,i.selling_price,i.floor_price FROM price_items i JOIN products p ON p.id=i.product_id WHERE version_id=? ORDER BY p.sku,i.id",version);});}
+    private static void lockGroup(Connection c,long group)throws SQLException{if(Sql.query(c,"SELECT id FROM customer_groups WHERE id=? FOR UPDATE",group).isEmpty())throw FieldValidationException.field("group","Nhóm khách không còn tồn tại.");}
+    private static void unused(Connection c,long version)throws SQLException{if(!Sql.query(c,"SELECT id FROM price_order_references WHERE version_id=? LIMIT 1 FOR UPDATE",version).isEmpty())throw FieldValidationException.field("form","Phiên bản đã được dùng. Hãy kế thừa thành phiên bản mới.");}
+    private static void overlap(Connection c,long group,long product,LocalDate from,LocalDate to,long excluded)throws SQLException{
+        if(!Sql.query(c,"SELECT v.id FROM price_versions v JOIN price_items i ON i.version_id=v.id WHERE v.group_id=? AND i.product_id=? AND v.id<>? AND v.valid_from<=? AND v.valid_to>=? LIMIT 1 FOR UPDATE",group,product,excluded,to,from).isEmpty())throw FieldValidationException.field("form","Thời gian giá chồng nhau cho cùng nhóm khách và SKU.");
+    }
+    public long create(long actor,long group,String name,LocalDate from,LocalDate to,Long parent){
+        new AccessService(source).load(actor).require("PRICE_MANAGE");validVersion(name,from,to);
+        if(parent!=null&&parent<=0)throw FieldValidationException.field("parent","Phiên bản kế thừa không hợp lệ.");
+        return Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
+            lockGroup(c,group);
+            if(parent!=null){
+                var base=Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",parent);
+                if(Sql.id(base.get("group_id"))!=group)throw FieldValidationException.field("parent","Phiên bản kế thừa phải cùng nhóm khách.");
+                for(var item:Sql.query(c,"SELECT product_id FROM price_items WHERE version_id=? FOR UPDATE",parent))overlap(c,group,Sql.id(item.get("product_id")),from,to,0);
+            }
+            long id=Sql.insert(c,"INSERT INTO price_versions(group_id,name,valid_from,valid_to,parent_id) VALUES(?,?,?,?,?)",group,name.trim(),from,to,parent);
+            if(parent!=null)Sql.update(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) SELECT ?,product_id,selling_price,floor_price FROM price_items WHERE version_id=?",id,parent);
+            if(parent!=null){var oldVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",parent);var newVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",id);for(var item:Sql.query(c,"SELECT * FROM price_items WHERE version_id=?",id)){var previous=Sql.one(c,"SELECT * FROM price_items WHERE version_id=? AND product_id=?",parent,item.get("product_id"));PriceHistoryService.record(c,actor,"ITEM_INHERITED",Sql.id(item.get("product_id")),id,Sql.id(item.get("id")),previous,item,oldVersion,newVersion);}}
+            AuditService.record(c,actor,"PRICE_VERSION_CREATED","PRICE_VERSION",id,null,Sql.one(c,"SELECT id,group_id,name,valid_from,valid_to,parent_id,revision FROM price_versions WHERE id=?",id));return id;
+        });
+    }
+    private static Map<String,Object> lockedVersion(Connection c,long version,Long revision)throws SQLException{
+        long group=Sql.id(Sql.one(c,"SELECT group_id FROM price_versions WHERE id=?",version).get("group_id"));lockGroup(c,group);
+        var row=Sql.one(c,"SELECT id,name,group_id,valid_from,valid_to,revision FROM price_versions WHERE id=? FOR UPDATE",version);unused(c,version);
+        if(revision!=null&&(revision<1||Sql.id(row.get("revision"))!=revision))throw FieldValidationException.field("form","Bảng giá đã thay đổi. Hãy tải lại.");
+        return row;
+    }
+    public void edit(long actor,long id,long revision,String name,LocalDate from,LocalDate to){
+        new AccessService(source).load(actor).require("PRICE_MANAGE");validVersion(name,from,to);
+        Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
+            var before=lockedVersion(c,id,revision);long group=Sql.id(before.get("group_id"));
+            for(var item:Sql.query(c,"SELECT product_id FROM price_items WHERE version_id=? FOR UPDATE",id))overlap(c,group,Sql.id(item.get("product_id")),from,to,id);
+            Sql.update(c,"UPDATE price_versions SET name=?,valid_from=?,valid_to=?,revision=revision+1 WHERE id=?",name.trim(),from,to,id);
+            var afterVersion=Sql.one(c,"SELECT * FROM price_versions WHERE id=?",id);for(var item:Sql.query(c,"SELECT * FROM price_items WHERE version_id=?",id))PriceHistoryService.record(c,actor,"VERSION_CHANGED",Sql.id(item.get("product_id")),id,Sql.id(item.get("id")),item,item,before,afterVersion);
+            AuditService.record(c,actor,"PRICE_VERSION_UPDATED","PRICE_VERSION",id,before,Sql.one(c,"SELECT id,name,group_id,valid_from,valid_to,revision FROM price_versions WHERE id=?",id));return null;
+        });
+    }
+    public void saveItem(long actor,long version,long product,BigDecimal selling,BigDecimal floor){saveItemChecked(actor,version,product,selling,floor,null);}
+    public void saveItem(long actor,long version,long product,BigDecimal selling,BigDecimal floor,long revision){saveItemChecked(actor,version,product,selling,floor,revision);}
+    private void saveItemChecked(long actor,long version,long product,BigDecimal selling,BigDecimal floor,Long revision){
+        new AccessService(source).load(actor).require("PRICE_MANAGE");var errors=priceErrors(selling,floor);if(!errors.isEmpty())throw new FieldValidationException(errors);
+        BigDecimal cleanSelling=CatalogValidation.decimal(selling,4,false),cleanFloor=CatalogValidation.decimal(floor,4,false);
+        Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");
+            var v=lockedVersion(c,version,revision);long group=Sql.id(v.get("group_id"));
+            if(Sql.query(c,"SELECT id FROM products WHERE id=? FOR SHARE",product).isEmpty())throw FieldValidationException.field("product","Sản phẩm không còn tồn tại.");
+            overlap(c,group,product,LocalDate.parse(v.get("valid_from").toString()),LocalDate.parse(v.get("valid_to").toString()),version);
+            var found=Sql.query(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE version_id=? AND product_id=? FOR UPDATE",version,product);
+            Map<String,Object> before=found.isEmpty()?null:found.get(0);long item;
+            if(before==null)item=Sql.insert(c,"INSERT INTO price_items(version_id,product_id,selling_price,floor_price) VALUES(?,?,?,?)",version,product,cleanSelling,cleanFloor);
+            else{item=Sql.id(before.get("id"));Sql.update(c,"UPDATE price_items SET selling_price=?,floor_price=? WHERE id=?",cleanSelling,cleanFloor,item);}
+            Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);
+            PriceHistoryService.record(c,actor,before==null?"ITEM_CREATED":"ITEM_UPDATED",product,version,item,before,Sql.one(c,"SELECT * FROM price_items WHERE id=?",item),before==null?null:v,v);
+            AuditService.record(c,actor,"PRICE_ITEM_SAVED","PRICE_ITEM",item,before,Sql.one(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE id=?",item));return null;
+        });
+    }
+    public void deleteItem(long actor,long version,long item){deleteItemChecked(actor,version,item,null);}
+    public void deleteItem(long actor,long version,long item,long revision){deleteItemChecked(actor,version,item,revision);}
+    private void deleteItemChecked(long actor,long version,long item,Long revision){
+        new AccessService(source).load(actor).require("PRICE_MANAGE");
+        Sql.transaction(source,c->{
+            DealerService.access(c,actor,"PRICE_MANAGE");var v=lockedVersion(c,version,revision);
+            var before=Sql.one(c,"SELECT id,version_id,product_id,selling_price,floor_price FROM price_items WHERE id=? AND version_id=?",item,version);
+            Sql.update(c,"DELETE FROM price_items WHERE id=?",item);Sql.update(c,"UPDATE price_versions SET revision=revision+1 WHERE id=?",version);
+            PriceHistoryService.record(c,actor,"ITEM_DELETED",Sql.id(before.get("product_id")),version,item,before,null,v,v);
+            AuditService.record(c,actor,"PRICE_ITEM_DELETED","PRICE_ITEM",item,before,null);return null;
+        });
+    }
+    public Quote quote(long actor,long group,long product,LocalDate date){var a=new AccessService(source).load(actor);a.require("PRICE_READ");return Sql.transaction(source,c->quote(c,a,group,product,date));}
+    /** Đơn hàng gọi quote và snapshot trên cùng connection để khóa phiên bản đã dùng. */
+    public static Quote quote(Connection c,Access a,long group,long product,LocalDate date)throws SQLException{
+        a.require("PRICE_READ");return orderQuote(c,group,product,date);
+    }
+    /** Trusted order context only: caller has already checked actor and dealer scope. */
+    static Quote orderQuote(Connection c,long group,long product,LocalDate date)throws SQLException{
+        if(date==null)throw FieldValidationException.field("date","Ngày tra giá không hợp lệ.");
+        Sql.one(c,"SELECT id FROM customer_groups WHERE id=? FOR SHARE",group);
+        var row=Sql.one(c,"SELECT i.id,i.version_id,i.selling_price,i.floor_price FROM price_items i JOIN price_versions v ON v.id=i.version_id WHERE v.group_id=? AND i.product_id=? AND v.valid_from<=? AND v.valid_to>=?",group,product,date,date);
+        return new Quote(Sql.id(row.get("id")),Sql.id(row.get("version_id")),product,(BigDecimal)row.get("selling_price"),(BigDecimal)row.get("floor_price"),date);
+    }
+    public static long snapshot(Connection c,String orderReference,Quote q)throws SQLException{
+        return Sql.insert(c,"INSERT INTO price_order_references(order_reference,price_item_id,version_id,selling_price,floor_price) VALUES(?,?,?,?,?)",CatalogValidation.text(orderReference,100,"Tham chiếu đơn"),q.itemId,q.versionId,q.sellingPrice,q.floorPrice);
+    }
 }
 
