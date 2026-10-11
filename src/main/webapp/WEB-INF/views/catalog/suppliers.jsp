@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhà cung cấp</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhà cung cấp | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhà cung cấp</h1><p>Thông tin liên hệ, thanh toán và kho phụ trách.</p></div><c:if test="${access.allows('WAREHOUSE_MANAGE')}"><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${supplierReturn}'/>&amp;new=1#editor" data-editor="editor">＋ Thêm mới</a></c:if></div>
 <c:if test="${param.notice == 'saved'}"><p class="alert alert-success" role="status">Đã lưu nhà cung cấp.</p></c:if>
