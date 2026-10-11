@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kho và địa bàn</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kho và địa bàn | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content scopes-page">
 <div class="page-heading"><div><h1>Kho và địa bàn</h1><p>Kho lưu địa chỉ nơi chứa hàng. Địa bàn xác định khu vực phụ trách kinh doanh.</p></div><div class="page-actions"><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${scopeReturn}'/>&amp;new=1&amp;kind=warehouse#scope-editor" data-editor="scope-editor" data-scope-kind="warehouse">＋ Thêm kho</a><a class="button button-secondary" href="<c:out value='${pageContext.request.contextPath}${scopeReturn}'/>&amp;new=1&amp;kind=territory#scope-editor" data-editor="scope-editor" data-scope-kind="territory">＋ Thêm địa bàn</a></div></div>

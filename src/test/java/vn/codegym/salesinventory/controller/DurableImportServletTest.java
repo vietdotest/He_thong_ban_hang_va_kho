@@ -48,6 +48,10 @@ class DurableImportServletTest {
     @Test void missingMultipartFileReturns400() throws Exception {
         servlet.doPost(r,s);verify(s).setStatus(400);verifyNoInteractions(jobs);verify(dispatcher).forward(r,s);
     }
+    @Test void unrelatedUploadIoFailureRemains500() throws Exception {
+        when(r.getPart("file")).thenThrow(new IOException("Storage unavailable"));
+        servlet.doPost(r,s);verify(s).sendError(500);verifyNoInteractions(jobs,dispatcher);
+    }
     @Test void csrfRejectsConfirmationWithoutQueueing()throws Exception{when(csrf.isValid(session,"valid")).thenReturn(false);servlet.doPost(r,s);verify(s).sendError(403);verifyNoInteractions(jobs);}
     @Test void progressJsonContainsScopedRowsNotSecrets()throws Exception{selected();when(r.getParameter("progress")).thenReturn("1");when(jobs.progress(12,"USER",id)).thenReturn(Map.of("id",id,"status","RUNNING","success_count",1));when(jobs.rows(eq(12L),eq("USER"),eq(id),anyString(),anyString(),any())).thenReturn(new PageResult<>(List.of(Map.of("number",2,"state","SUCCESS","cells",List.of("test"))),21,2,20));var output=new StringWriter();when(s.getWriter()).thenReturn(new PrintWriter(output));servlet.doGet(r,s);assertThat(output.toString()).contains("\"status\":\"RUNNING\"","\"page\":2","\"totalItems\":21").doesNotContain("password","confirm_key","row_token","lease_owner");verify(s).setHeader("Cache-Control","no-store");verifyNoInteractions(dispatcher);}
 }
