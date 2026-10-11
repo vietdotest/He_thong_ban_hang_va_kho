@@ -35,6 +35,7 @@ class UserImportServletTest {
         lenient().when(config.getServletContext()).thenReturn(context); servlet.init(config);
         lenient().when(request.getSession()).thenReturn(session);
         lenient().when(request.getSession(false)).thenReturn(session);
+        lenient().when(request.getAttribute("access")).thenReturn(new Access(Set.of("ADMIN"),Set.of("USER_MANAGE"),List.of(),List.of(),List.of()));
         lenient().when(session.getAttribute(SessionKeys.CURRENT_USER)).thenReturn(new CurrentUser(12,"actor","actor@test.local","Người nhập"));
         lenient().when(context.getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER)).thenReturn(csrf);
         lenient().when(request.getParameter("_csrf")).thenReturn("valid");
@@ -52,7 +53,7 @@ class UserImportServletTest {
     @Test void downloadsReadableTemplateWithExpectedColumns() throws Exception {
         var bytes = new ByteArrayOutputStream();
         var stream = new ServletOutputStream() { public boolean isReady(){return true;} public void setWriteListener(WriteListener l){} public void write(int b){bytes.write(b);} };
-        when(request.getParameter("template")).thenReturn("1"); when(response.getOutputStream()).thenReturn(stream);
+        lenient().when(request.getParameter("template")).thenReturn("1"); when(response.getOutputStream()).thenReturn(stream);
         servlet.doGet(request,response);
         assertThat(Xlsx.read(bytes.toByteArray()).get(0).cells()).isEqualTo(UserImportService.HEADERS);
         verify(response).setHeader("Content-Disposition","attachment; filename=nguoi-dung.xlsx"); verifyNoInteractions(service);

@@ -32,7 +32,9 @@ public final class HealthServlet extends HttpServlet {
              ResultSet resultSet = statement.executeQuery()) {
             if (resultSet.next()) {
                 response.setStatus(HttpServletResponse.SC_OK);
-                response.getWriter().write("{\"status\":\"UP\",\"database\":\"UP\"}");
+                String sha=System.getProperty("app.release.sha","");
+                String release=sha.matches("[a-f0-9]{40}")?",\"release\":\""+sha+"\"":"";
+                response.getWriter().write("{\"status\":\"UP\",\"database\":\"UP\""+release+"}");
                 return;
             }
         } catch (SQLException exception) {
