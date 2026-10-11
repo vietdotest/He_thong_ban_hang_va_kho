@@ -6,7 +6,6 @@ import jakarta.servlet.ServletContextEvent;
 import jakarta.servlet.ServletContextListener;
 import java.time.Clock;
 import java.time.Duration;
-import org.flywaydb.core.Flyway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vn.codegym.salesinventory.config.AppConfig;
@@ -36,13 +35,7 @@ public final class ApplicationLifecycleListener implements ServletContextListene
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
         AppConfig config = AppConfig.load();
-        try (HikariDataSource migrationSource = DatabaseFactory.createMigrationSource(config.database())) {
-            Flyway.configure()
-                    .dataSource(migrationSource)
-                    .locations(config.flywayLocations())
-                    .load()
-                    .migrate();
-        }
+        vn.codegym.salesinventory.config.SchemaMigration.initialize(config.database(),config.migration(),config.flywayLocations());
         HikariDataSource dataSource = DatabaseFactory.create(config.database());
         try {
             Clock clock = Clock.system(vn.codegym.salesinventory.config.VietnamTime.ZONE);
@@ -102,6 +95,13 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             servletContext.setAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE, passwordChangeService);
             servletContext.setAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE, userManagementService);
             servletContext.setAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER, new CsrfTokenManager());
+            var imports=config.imports();
+            var reportAge=Duration.ofDays(imports.reportDays());
+            var jobs=new vn.codegym.salesinventory.service.ImportJobService(dataSource,clock,Duration.ofMinutes(imports.previewMinutes()),reportAge);
+            var worker=new vn.codegym.salesinventory.service.ImportWorker(dataSource,userManagementService,imports.workers(),config.database().maximumPoolSize(),clock,reportAge);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE,jobs);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_WORKER,worker);
+            if(config.importWorkerEnabled())worker.start();
             LOGGER.info("Application initialized and database migrations completed");
         } catch (RuntimeException exception) {
             dataSource.close();
@@ -111,6 +111,8 @@ public final class ApplicationLifecycleListener implements ServletContextListene
 
     @Override
     public void contextDestroyed(ServletContextEvent event) {
+        Object worker=event.getServletContext().getAttribute(ApplicationContextKeys.IMPORT_WORKER);
+        if(worker instanceof vn.codegym.salesinventory.service.ImportWorker imports)imports.close();
         Object dataSource = event.getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
         if (dataSource instanceof HikariDataSource hikariDataSource) {
             hikariDataSource.close();

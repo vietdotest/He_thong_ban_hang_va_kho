@@ -1,8 +1,11 @@
 package vn.codegym.salesinventory.service;
 
 import java.util.*;
+import java.sql.*;
 import javax.sql.DataSource;
 import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.dto.*;
+import vn.codegym.salesinventory.security.Access;
 import vn.codegym.salesinventory.validation.*;
 
 public final class SupplierService {
@@ -11,12 +14,26 @@ public final class SupplierService {
     public SupplierService(DataSource source){this.source=source;}
     public record Input(String code,String name,String taxCode,String contact,String phone,String terms,long warehouse,String status,long version) {}
     public List<Map<String,Object>> list(long actor,String query){
-        var a=new AccessService(source).load(actor);a.require("CATALOG_READ");
-        return Sql.transaction(source,c->Sql.query(c,"SELECT s.id,s.code,s.name,s.tax_code,s.contact_name,s.contact_phone,s.payment_terms,s.warehouse_id,s.status,s.version,w.name warehouse_name FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id WHERE (s.code LIKE ? OR s.name LIKE ?)"+(a.warehouseScoped()?" AND EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id)":"")+" ORDER BY s.name LIMIT 1000",a.warehouseScoped()?new Object[]{"%"+query+"%","%"+query+"%",actor}:new Object[]{"%"+query+"%","%"+query+"%"}));
+        return search(actor,query,new PageRequest(1,100)).items();
+    }
+    public PageResult<Map<String,Object>> search(long actor,String query,PageRequest requested){
+        String q=term(query),pattern="%"+q+"%";
+        return Sql.snapshot(source,c->{var a=access(c,actor,"CATALOG_READ");
+            String condition=" WHERE (s.code LIKE ? OR s.name LIKE ?) AND (? OR EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id))";
+            var args=new ArrayList<Object>(List.of(pattern,pattern,!a.warehouseScoped(),actor));
+            long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id"+condition,args.toArray()).get("total"));var page=requested.clamp(total);args.add(page.pageSize());args.add(page.offset());
+            var rows=Sql.query(c,"SELECT s.*,w.name warehouse_name FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id"+condition+" ORDER BY s.name,s.id LIMIT ? OFFSET ?",args.toArray());
+            return new PageResult<>(rows,total,page.page(),page.pageSize());});
+    }
+    public List<Map<String,Object>> suggest(long actor,String query){String q=term(query);return Sql.snapshot(source,c->{var a=access(c,actor,"CATALOG_READ");if(q.length()<2)return List.of();
+        return Sql.query(c,"SELECT s.id,s.code,s.name,w.name detail FROM suppliers s JOIN warehouses w ON w.id=s.warehouse_id WHERE (s.code LIKE ? OR s.name LIKE ?) AND (? OR EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id)) ORDER BY (s.code=?) DESC,(s.code LIKE ?) DESC,s.name,s.id LIMIT 10","%"+q+"%","%"+q+"%",!a.warehouseScoped(),actor,q,q+"%");});}
+    private static String term(String query){String q=query==null?"":query.trim();return q.length()>150?q.substring(0,150):q;}
+    private static Access access(Connection c,long actor,String permission)throws SQLException{
+        var a=DealerService.access(c,actor,permission);
+        return new Access(a.roles(),a.permissions(),a.roleNames(),Sql.query(c,"SELECT w.id,w.code,w.name,w.address FROM warehouses w JOIN user_warehouses uw ON uw.warehouse_id=w.id WHERE uw.user_id=? ORDER BY w.name,w.id FOR SHARE",actor),List.of());
     }
     public Map<String,Object> find(long actor,long id){
-        var a=new AccessService(source).load(actor);a.require("CATALOG_READ");
-        return Sql.transaction(source,c->{var row=Sql.one(c,"SELECT "+FIELDS+" FROM suppliers WHERE id=?",id);
+        return Sql.transaction(source,c->{var a=access(c,actor,"CATALOG_READ");var row=Sql.one(c,"SELECT "+FIELDS+" FROM suppliers WHERE id=?",id);
             if(a.warehouseScoped()&&!a.managesWarehouse(Sql.id(row.get("warehouse_id"))))throw new SecurityException();return row;});
     }
     public static Map<String,String> errors(Input in){
@@ -34,11 +51,10 @@ public final class SupplierService {
     }
     private static void check(Map<String,String> errors,String field,Runnable check){try{check.run();}catch(IllegalArgumentException invalid){errors.put(field,invalid.getMessage());}}
     public long save(long actor,long id,Input in){
-        var a=new AccessService(source).load(actor);a.require("WAREHOUSE_MANAGE");
-        if(!a.managesWarehouse(in.warehouse))throw new SecurityException();
         var errors=errors(in);if(id<0)errors.put("form","Mã bản ghi không hợp lệ.");if(!errors.isEmpty())throw new FieldValidationException(errors);
         String code=in.code.trim(),name=in.name.trim(),tax=in.taxCode.trim(),contact=in.contact.trim(),terms=in.terms.trim(),phone=PhoneNumber.normalize(in.phone);
         return Sql.transaction(source,c->{
+            var a=access(c,actor,"WAREHOUSE_MANAGE");if(!a.managesWarehouse(in.warehouse))throw new SecurityException();
             Map<String,Object> before=null;
             if(id!=0){
                 before=Sql.one(c,"SELECT "+FIELDS+" FROM suppliers WHERE id=? FOR UPDATE",id);
@@ -60,8 +76,8 @@ public final class SupplierService {
         });
     }
     public void delete(long actor,long id){
-        var a=new AccessService(source).load(actor);a.require("WAREHOUSE_MANAGE");
         Sql.transaction(source,c->{
+            var a=access(c,actor,"WAREHOUSE_MANAGE");
             var before=Sql.one(c,"SELECT "+FIELDS+" FROM suppliers WHERE id=? FOR UPDATE",id);
             if(!a.managesWarehouse(Sql.id(before.get("warehouse_id"))))throw new SecurityException();
             if(!Sql.query(c,"SELECT supplier_id FROM supplier_receipt_references WHERE supplier_id=? LIMIT 1",id).isEmpty())throw FieldValidationException.field("form","Nhà cung cấp đã có phiếu nhập. Hãy ngừng giao dịch.");
