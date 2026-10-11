@@ -21,20 +21,6 @@ public final class UserImportServlet extends DurableImportServlet {
                 (UserManagementService) getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE));
     }
 
-    @Override protected void preparePost(HttpServletRequest request) throws Exception {
-        String type = request.getContentType();
-        if (type == null || !type.toLowerCase(java.util.Locale.ROOT).startsWith("multipart/form-data")) return;
-        try { request.getPart("file"); }
-        catch (Exception e) {
-            for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-                String name = cause.getClass().getName();
-                if (name.contains(".fileupload.") && (name.endsWith("SizeLimitExceededException") || name.endsWith("FileSizeLimitExceededException")))
-                    throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.", e);
-            }
-            throw e;
-        }
-    }
-
     @Override protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
         if(injectedService==null){super.get(request,response);return;}
         access(request).require("USER_MANAGE");
@@ -71,8 +57,8 @@ public final class UserImportServlet extends DurableImportServlet {
                 } finally { request.getSession().removeAttribute("userImport"); }
             } else {
                 ImportFlow.clear(request,"userImport");
-                var file = request.getPart("file");
-                if (file == null || file.getSize() == 0) throw new IllegalArgumentException("Vui lòng chọn tệp XLSX.");
+                var file = uploadFile(request);
+                if (file == null || file.getSize() == 0) throw new IllegalArgumentException("Vui lòng chọn tệp Excel (.xlsx).");
                 if (file.getSize() > Xlsx.MAX_BYTES) throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");
                 byte[] bytes;
                 try (var input = file.getInputStream()) { bytes = input.readNBytes(Xlsx.MAX_BYTES + 1); }
