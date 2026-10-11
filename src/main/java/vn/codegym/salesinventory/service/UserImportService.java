@@ -23,12 +23,14 @@ public final class UserImportService {
         this.clock = clock;
     }
 
-    private record Input(UserAccountCommand command, Set<String> roles, Set<Long> warehouses, Set<Long> territories) { }
+    record Input(UserAccountCommand command, Set<String> roles, Set<Long> warehouses, Set<Long> territories) { }
 
     private Input validate(List<String> row) {
+        return Sql.transaction(source,c -> resolve(c,row));
+    }
+    static Input resolve(java.sql.Connection c,List<String> row) throws java.sql.SQLException {
         var input = UserImportValidator.validate(row);
         var command = input.command();
-        return Sql.transaction(source, c -> {
             for (String role : input.roles()) {
                 if (Sql.query(c, "SELECT id FROM roles WHERE code=?", role).isEmpty())
                     throw new IllegalArgumentException("Vai trò không tồn tại: " + role);
@@ -49,7 +51,6 @@ public final class UserImportService {
                     command.normalizedUsername(), command.normalizedEmail(), command.normalizedPhone()).isEmpty())
                 throw new IllegalArgumentException("Tên đăng nhập, email hoặc điện thoại đã được dùng.");
             return new Input(command, input.roles(), warehouses, territories);
-        });
     }
 
     public ImportPreview preview(long actor, byte[] bytes) {
@@ -57,6 +58,7 @@ public final class UserImportService {
         var rows = Xlsx.read(bytes);
         if (rows.isEmpty() || !rows.get(0).cells().equals(HEADERS) || !rows.get(0).error().isEmpty())
             throw new IllegalArgumentException("Tiêu đề không đúng tệp mẫu.");
+        return Sql.transaction(source,c -> {
         List<ImportPreview.Line> lines = new ArrayList<>();
         Set<String> names = new HashSet<>(), emails = new HashSet<>(), phones = new HashSet<>();
         for (var row : rows.subList(1, rows.size())) {
@@ -64,7 +66,7 @@ public final class UserImportService {
             String error = row.error();
             try {
                 if (!error.isEmpty()) throw new IllegalArgumentException(error);
-                var in = validate(row.cells());
+                var in = resolve(c,row.cells());
                 String name = in.command.normalizedUsername(), email = in.command.normalizedEmail(), phone = in.command.normalizedPhone();
                 if (names.contains(name) || emails.contains(email) || phones.contains(phone))
                     throw new IllegalArgumentException("Dòng trùng trong tệp.");
@@ -75,6 +77,7 @@ public final class UserImportService {
         }
         if (lines.isEmpty()) throw new IllegalArgumentException("Tệp không có dòng dữ liệu.");
         return new ImportPreview(actor, lines, clock.instant());
+        });
     }
 
     public List<ImportPreview.Line> confirm(long actor, ImportPreview preview, String token, AuthenticationContext context) {

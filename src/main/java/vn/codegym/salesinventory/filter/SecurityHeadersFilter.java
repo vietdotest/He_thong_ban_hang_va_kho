@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 public final class SecurityHeadersFilter implements Filter {
@@ -13,6 +14,9 @@ public final class SecurityHeadersFilter implements Filter {
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
         HttpServletResponse httpResponse = (HttpServletResponse) response;
+        if (((HttpServletRequest) request).isSecure()) {
+            httpResponse.setHeader("Strict-Transport-Security", "max-age=31536000");
+        }
         httpResponse.setHeader("X-Content-Type-Options", "nosniff");
         httpResponse.setHeader("X-Frame-Options", "DENY");
         httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");

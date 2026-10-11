@@ -36,10 +36,13 @@ public final class UserListServlet extends HttpServlet {
                 limited(request.getParameter("q"), 150),
                 limited(request.getParameter("role"), 50),
                 validStatus(request.getParameter("status")),
-                positiveInt(request.getParameter("page"), 1)
+                positiveInt(request.getParameter("page"), 1),
+                positiveInt(request.getParameter("pageSize"), 20)
         );
         try {
-            request.setAttribute("userPage", userManagementService.search(criteria));
+            var result = userManagementService.search(criteria);
+            request.setAttribute("userPage", result);
+            request.setAttribute("pagination", new vn.codegym.salesinventory.dto.PageResult<>(result.items(), result.totalItems(), result.page(), result.pageSize()));
             request.setAttribute("roles", userManagementService.roles());
             request.setAttribute("criteria", criteria);
             String notice = request.getParameter("notice");
@@ -49,6 +52,7 @@ public final class UserListServlet extends HttpServlet {
                 request.setAttribute("successMessage", "Thông tin tài khoản đã được cập nhật.");
             }
             prepareCommon(request);
+            request.setAttribute("paginationPath", "/admin/users");
             request.getRequestDispatcher("/WEB-INF/views/admin/users/list.jsp").forward(request, response);
         } catch (RuntimeException exception) {
             getServletContext().log("User list could not be loaded", exception);

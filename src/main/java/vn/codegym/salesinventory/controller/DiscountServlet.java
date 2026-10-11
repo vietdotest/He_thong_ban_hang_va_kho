@@ -1,0 +1,21 @@
+package vn.codegym.salesinventory.controller;
+import jakarta.servlet.http.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.*;
+import vn.codegym.salesinventory.dto.PageRequest;
+import vn.codegym.salesinventory.service.*;
+import vn.codegym.salesinventory.validation.FieldValidationException;
+public final class DiscountServlet extends PortalServlet {
+    private final DiscountService configured;private final PricingService pricing;private final CategoryService categories;private final ProductService products;
+    public DiscountServlet(){this(null,null,null,null);}
+    DiscountServlet(DiscountService service,PricingService pricing,CategoryService categories,ProductService products){this.configured=service;this.pricing=pricing;this.categories=categories;this.products=products;}
+    private DiscountService service(){return configured==null?new DiscountService(source()):configured;}
+    private void load(HttpServletRequest r){var result=service().search(actor(r).id(),value(r,"q"),PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("policies",result.items());r.setAttribute("pagination",result);r.setAttribute("groups",(pricing==null?new PricingService(source()):pricing).groups());r.setAttribute("categories",(categories==null?new CategoryService(source()):categories).tree());}
+    protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception{load(r);if(!value(r,"id").isEmpty()){var edit=service().find(actor(r).id(),number(r,"id"));edit.put("targetType",edit.get("product_id")==null?"CATEGORY":"SKU");r.setAttribute("edit",edit);if(edit.get("product_id")!=null)r.setAttribute("selectedProduct",(products==null?new ProductService(source()):products).find(actor(r).id(),((Number)edit.get("product_id")).longValue()));}view(r,s,"pricing/discounts");}
+    protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{access(r).require("DISCOUNT_MANAGE");var form=formValues(r,"id","revision","name","targetType","product","category","group","mode","from","to","status");form.put("product_id",form.get("product"));form.put("category_id",form.get("category"));form.put("customer_group_id",form.get("group"));form.put("valid_from",form.get("from"));form.put("valid_to",form.get("to"));String[] minimum=r.getParameterValues("minimum"),value=r.getParameterValues("discountValue");var shown=new ArrayList<Map<String,String>>();if(minimum!=null&&value!=null)for(int i=0;i<Math.min(100,Math.min(minimum.length,value.length));i++)shown.add(Map.of("minimum_quantity",minimum[i],"discount_value",value[i]));form.put("tiers",shown);
+        try{if(minimum==null||value==null||minimum.length!=value.length||minimum.length<1||minimum.length>100)throw FieldValidationException.field("tiers","Chính sách cần 1–100 bậc hợp lệ.");var tiers=new ArrayList<DiscountService.TierInput>();var errors=new LinkedHashMap<String,String>();for(int i=0;i<minimum.length;i++){BigDecimal q=null,d=null;try{q=new BigDecimal(minimum[i]);}catch(NumberFormatException e){errors.put("minimum"+i,"Mốc sản lượng phải là số không âm.");}try{d=new BigDecimal(value[i]);}catch(NumberFormatException e){errors.put("value"+i,"Giá trị chiết khấu không hợp lệ.");}tiers.add(new DiscountService.TierInput(q,d));}if(!errors.isEmpty())throw new FieldValidationException(errors);
+            if(!Set.of("SKU","CATEGORY").contains(value(r,"targetType")))throw FieldValidationException.field("target","Loại đối tượng không hợp lệ.");Long product="SKU".equals(value(r,"targetType"))?number(r,"product"):null,category="CATEGORY".equals(value(r,"targetType"))?number(r,"category"):null;LocalDate from,to;try{from=LocalDate.parse(value(r,"from"));to=LocalDate.parse(value(r,"to"));}catch(java.time.DateTimeException e){throw FieldValidationException.field("from","Ngày áp dụng không hợp lệ.");}
+            service().save(actor(r).id(),value(r,"id").isEmpty()?0:number(r,"id"),new DiscountService.Input(value(r,"name"),product,category,value(r,"group").isEmpty()?null:number(r,"group"),value(r,"mode"),from,to,value(r,"status"),value(r,"revision").isEmpty()?0:number(r,"revision"),tiers));redirect(r,s,"/pricing/discounts?notice=saved");
+        }catch(IllegalArgumentException e){s.setStatus(400);r.setAttribute("edit",form);r.setAttribute("errors",fieldErrors(e));load(r);view(r,s,"pricing/discounts");}}
+}

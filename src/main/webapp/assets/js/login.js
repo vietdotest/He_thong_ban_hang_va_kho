@@ -20,6 +20,11 @@
     const identityError = document.getElementById('identity-error');
     const passwordError = document.getElementById('password-error');
     const submitButton = document.getElementById('submit-button');
+    addEventListener('pageshow', () => {
+        form.classList.remove('is-loading');
+        form.removeAttribute('aria-busy');
+        submitButton.disabled = false;
+    });
 
     const clearError = (input, error) => {
         input.setAttribute('aria-invalid', 'false');
@@ -28,6 +33,10 @@
     identity.addEventListener('input', () => clearError(identity, identityError));
     password.addEventListener('input', () => clearError(password, passwordError));
     form.addEventListener('submit', (event) => {
+        if (form.getAttribute('aria-busy') === 'true') {
+            event.preventDefault();
+            return;
+        }
         let firstInvalid = null;
         if (!identity.value.trim()) {
             identity.setAttribute('aria-invalid', 'true');
