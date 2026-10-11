@@ -32,6 +32,7 @@ class UserImportServletTest {
 
     @BeforeEach void prepare() throws Exception {
         servlet = new UserImportServlet(service);
+        lenient().when(request.getContentType()).thenReturn("multipart/form-data; boundary=qa");
         lenient().when(config.getServletContext()).thenReturn(context); servlet.init(config);
         lenient().when(request.getSession()).thenReturn(session);
         lenient().when(request.getSession(false)).thenReturn(session);

@@ -64,7 +64,7 @@ public final class AuditService {
     /** Overview intentionally excludes snapshots and all sensitive values. */
     public static List<Map<String,Object>> recent(Connection c,vn.codegym.salesinventory.security.Access access) throws SQLException {
         access.require("AUDIT_READ");
-        var rows=Sql.query(c,"SELECT a.event_type,a.object_type,a.object_id,a.occurred_at,u.full_name FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id ORDER BY a.occurred_at DESC,a.id DESC LIMIT 5");
+        var rows=Sql.query(c,"SELECT a.event_type,a.object_type,a.object_id,a.occurred_at,u.full_name FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id WHERE "+AuditReadService.LEGACY+" AND NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.actor_user_id AND pu.account_kind='DEALER') AND (a.object_type IS NULL OR a.object_type<>'USER' OR NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.object_id AND pu.account_kind='DEALER')) ORDER BY a.occurred_at DESC,a.id DESC LIMIT 5");
         for(var row:rows) {
             row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
             row.put("event_label",eventLabel(Sql.text(row.get("event_type"))));
@@ -76,7 +76,8 @@ public final class AuditService {
         access.require("AUDIT_READ");
         if(offset<0)throw new IllegalArgumentException("Trang không hợp lệ.");
         String sensitive=access.allows("COST_READ") ? ",a.before_cost,a.after_cost" : "";
-        var rows=Sql.query(c,"SELECT a.id,a.event_type,a.object_type,a.object_id,a.before_values,a.after_values,a.occurred_at,u.full_name"+sensitive+" FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id"+filter+" ORDER BY a.occurred_at DESC,a.id DESC LIMIT 100 OFFSET "+offset,args);
+        String scoped=(filter.isBlank()?" WHERE 1=1 ":filter)+" AND "+AuditReadService.LEGACY+" AND NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.actor_user_id AND pu.account_kind='DEALER') AND (a.object_type IS NULL OR a.object_type<>'USER' OR NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.object_id AND pu.account_kind='DEALER'))";
+        var rows=Sql.query(c,"SELECT a.id,a.event_type,a.object_type,a.object_id,a.before_values,a.after_values,a.occurred_at,u.full_name"+sensitive+" FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id"+scoped+" ORDER BY a.occurred_at DESC,a.id DESC LIMIT 100 OFFSET "+offset,args);
         for(var row:rows) {
             row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
             row.put("event_label",eventLabel(Sql.text(row.get("event_type"))));row.put("object_label",objectLabel(Sql.text(row.get("object_type"))));
