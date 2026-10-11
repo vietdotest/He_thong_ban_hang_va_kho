@@ -11,15 +11,6 @@ public final class ProductImportServlet extends DurableImportServlet {
     @Override protected String importKind(){return "PRODUCT";}
     @Override protected ImportPreview readPreview(long actor,byte[] bytes){return service().preview(actor,bytes);}
     private ProductImportService service(){return configured==null?new ProductImportService(source()):configured;}
-    @Override protected void preparePost(HttpServletRequest r)throws Exception{
-        String type=r.getContentType();if(type==null||!type.toLowerCase(Locale.ROOT).startsWith("multipart/form-data"))return;
-        try{r.getPart("file");}catch(Exception failure){
-            for(Throwable cause=failure;cause!=null;cause=cause.getCause()){
-                String name=cause.getClass().getName();
-                if(name.contains(".fileupload.")&&(name.endsWith("SizeLimitExceededException")||name.endsWith("FileSizeLimitExceededException")))throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.",failure);
-            }throw failure;
-        }
-    }
     protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception{
         if(configured==null){super.get(r,s);return;}
         access(r).require("PRODUCT_MANAGE");
@@ -49,8 +40,8 @@ public final class ProductImportServlet extends DurableImportServlet {
                     ImportFlow.result(r,"productImport",actor(r).id(),false,headers,result,access(r));
                 }finally{r.getSession().removeAttribute("productImport");}
             }else{
-                ImportFlow.clear(r,"productImport");var file=r.getPart("file");
-                if(file==null||file.getSize()==0)throw new IllegalArgumentException("Vui lòng chọn tệp XLSX.");
+                ImportFlow.clear(r,"productImport");var file=uploadFile(r);
+                if(file==null||file.getSize()==0)throw new IllegalArgumentException("Vui lòng chọn tệp Excel (.xlsx).");
                 if(file.getSize()>Xlsx.MAX_BYTES)throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");
                 byte[] bytes;try(var input=file.getInputStream()){bytes=input.readNBytes(Xlsx.MAX_BYTES+1);}
                 var preview=service().preview(actor(r).id(),bytes);ImportFlow.preview(r,"productImport",preview,ImportFlow.filename(file.getSubmittedFileName()));
