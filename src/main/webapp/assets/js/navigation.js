@@ -34,7 +34,7 @@
   const path = location.pathname;
   document.querySelectorAll('.sidebar-nav a, .sidebar-user a').forEach(link => {
     const target = new URL(link.href).pathname;
-    const active = path === target || (target.endsWith('/admin/users') && (path.startsWith(target + '/') || path.endsWith('/admin/assignments'))) || (target.endsWith('/catalog/products') && path.startsWith(target + '/'));
+    const active = path === target || (target.endsWith('/admin/users') && (path.startsWith(target + '/') || path.endsWith('/admin/assignments'))) || (target.endsWith('/catalog/products') && path.startsWith(target + '/')) || (target.endsWith('/dealers') && path.startsWith(target + '/'));
     link.classList.toggle('active', active);
     if (active) link.setAttribute('aria-current', 'page');
   });
