@@ -6,14 +6,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Đổi mật khẩu | Quản lý bán hàng</title>
-    <link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=sprint2-20261001">
+    <%@ include file="../fragments/assets.jspf" %>
     <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
 </head>
 <body class="app-page">
 <%@ include file="../fragments/sidebar.jspf" %>
+<%@ include file="../fragments/topbar.jspf" %>
 <div class="app-content">
-    <header class="app-topbar"><div><p class="breadcrumb">Tài khoản</p><h1>Đổi mật khẩu</h1></div><a class="button button-secondary" href="${pageContext.request.contextPath}/dashboard">Quay lại</a></header>
+
     <main class="page-body narrow-body">
+<div class="page-heading"><div><h1><c:out value="${uiTitle}"/></h1></div></div>
+
         <section class="content-panel account-panel">
             <div class="panel-heading"><div><h2>Cập nhật mật khẩu</h2><p>Sau khi đổi, các thiết bị khác đang đăng nhập sẽ được đăng xuất.</p></div></div>
             <c:if test="${param.required == 'true'}"><div class="alert alert-warning">Đây là lần đăng nhập đầu tiên. Bạn cần đổi mật khẩu tạm trước khi tiếp tục.</div></c:if>

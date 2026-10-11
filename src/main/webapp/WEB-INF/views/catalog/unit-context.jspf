@@ -1,0 +1,4 @@
+<input type="hidden" name="q" value="<c:out value='${param.q}'/>">
+<input type="hidden" name="productQuery" value="<c:out value='${param.productQuery}'/>">
+<input type="hidden" name="page" value="<c:out value='${param.page}'/>">
+<input type="hidden" name="pageSize" value="<c:out value='${param.pageSize}'/>">

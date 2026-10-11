@@ -16,14 +16,21 @@ import static org.assertj.core.api.Assertions.*;
 @Testcontainers(disabledWithoutDocker=true)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SprintAcceptanceIT {
-    @Container static final MySQLContainer MYSQL=new MySQLContainer("mysql:8.4.11").withDatabaseName("acceptance").withUsername("test").withPassword("test");
+    @Container static final MySQLContainer MYSQL=new MySQLContainer("mysql:8.4.11").withDatabaseName("acceptance").withUsername("test").withPassword("test")
+            .withCommand("--log-bin-trust-function-creators=1", "--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     HikariDataSource source;
     final Instant now=Instant.parse("2026-10-01T00:00:00Z");
     @BeforeAll void prepare() {
         HikariConfig config=new HikariConfig();config.setJdbcUrl(MYSQL.getJdbcUrl()+"?serverTimezone=UTC");config.setUsername(MYSQL.getUsername());config.setPassword(MYSQL.getPassword());source=new HikariDataSource(config);
         // Nâng cấp database cũ, thay vì chỉ thử database trống.
         Flyway.configure().dataSource(source).target("4").load().migrate();
+        // Tài khoản, vai trò và phiên có dữ liệu trước khi nâng cấp lên Sprint 2.
+        Sql.transaction(source,c->{long legacy=Sql.insert(c,"INSERT INTO users(username,username_normalized,email,email_normalized,full_name,password_hash,status) SELECT 'legacy-preserved','legacy-preserved','legacy@test.local','legacy@test.local','Tài khoản cũ',password_hash,'ACTIVE' FROM users WHERE id=1");Sql.update(c,"INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE code='SALES'",legacy);Sql.update(c,"INSERT INTO user_sessions(id,user_id,token_hash,expires_at) VALUES(?,?,?,?)","00000000-0000-0000-0000-000000000099",legacy,"9".repeat(64),java.sql.Timestamp.from(now.plusSeconds(86400)));return null;});
         Flyway.configure().dataSource(source).load().migrate();
+        source.close();
+        source=vn.codegym.salesinventory.config.DatabaseFactory.create(new vn.codegym.salesinventory.config.AppConfig.DatabaseSettings(
+                MYSQL.getJdbcUrl(),MYSQL.getUsername(),MYSQL.getPassword(),10,1,10000));
+        var legacy=Sql.transaction(source,c->Sql.one(c,"SELECT u.username,u.status,r.code,s.token_hash FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id JOIN user_sessions s ON s.user_id=u.id WHERE u.username='legacy-preserved'"));assertThat(legacy.get("status")).isEqualTo("ACTIVE");assertThat(legacy.get("code")).isEqualTo("SALES");assertThat(legacy.get("token_hash")).isEqualTo("9".repeat(64));
     }
     @AfterAll void close() { source.close(); }
     long user(String role) {
@@ -152,4 +159,5 @@ class SprintAcceptanceIT {
  @Test void concurrentPriceWritersCannotCreateOverlappingSkuPrices()throws Exception{
   long actor=user("SALES_MANAGER"),category=new CategoryService(source).save(actor,0,"PRICE-CON","Nhóm giá đồng thời",null,0);long product=new ProductService(source).save(actor,0,new ProductService.Input("PRICE-CON","Hàng đồng thời",category,"Cái","",null,null,"ACTIVE",0));var pricing=new PricingService(source);long group=Sql.id(pricing.groups().get(1).get("id"));var from=LocalDate.of(2027,1,1);long a=pricing.create(actor,group,"Bản A",from,from.plusDays(30),null),b=pricing.create(actor,group,"Bản B",from,from.plusDays(30),null);var pool=java.util.concurrent.Executors.newFixedThreadPool(2);var gate=new java.util.concurrent.CountDownLatch(1);try{List<java.util.concurrent.Future<Boolean>> futures=new ArrayList<>();for(long version:List.of(a,b))futures.add(pool.submit(()->{gate.await();try{pricing.saveItem(actor,version,product,java.math.BigDecimal.TEN,java.math.BigDecimal.ONE);return true;}catch(IllegalArgumentException rejected){return false;}}));gate.countDown();int successes=0;for(var f:futures)if(f.get(30,java.util.concurrent.TimeUnit.SECONDS))successes++;assertThat(successes).isEqualTo(1);}finally{pool.shutdownNow();}
  }
+ @Test void emailFailureRollsBackPendingAccountActivationAndAudit(){MailService fail=new MailService(){public void sendPasswordReset(String a,String b,String d,int e){}public void sendActivation(String a,String b,String u,String p,String link){throw new IllegalStateException("SMTP lỗi giả lập");}};var activation=new ActivationService(source,Clock.systemUTC(),"http://localhost",fail);var management=new UserManagementService(source,new JdbcUserManagementRepository(),new JdbcSessionRepository(),new JdbcAuditLogRepository(),new BCryptPasswordHasher(),fail,new TemporaryPasswordGenerator(),Clock.systemUTC(),activation);var result=management.create(new UserAccountCommand("fail-email","fail-email@test.local","Chưa gửi được","0998899776","SALES",UserStatus.ACTIVE,0),1,new AuthenticationContext("127.0.0.1","JUnit"));assertThat(result.status()).isEqualTo(UserManagementResult.Status.EMAIL_DELIVERY_FAILED);var rows=Sql.transaction(source,c->Sql.query(c,"SELECT id FROM users WHERE username='fail-email'"));assertThat(rows).isEmpty();var audits=Sql.transaction(source,c->Sql.query(c,"SELECT id FROM audit_logs WHERE after_values LIKE '%fail-email%'"));assertThat(audits).isEmpty();}
 }
