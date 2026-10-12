@@ -5,6 +5,10 @@ public final class RoutePermissions {
     public static boolean publicPath(String p) {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
+    public static String required(String path,String method,String action) {
+        if(path.equals("/orders")&&method.equals("POST")&&("approve".equals(action)||"reject".equals(action)))return "ORDER_APPROVE";
+        return required(path,method);
+    }
     public static String required(String path,String method) {
         if(path.equals("/dealers/accounts"))return "PORTAL_ACCOUNT_MANAGE";
         if(path.equals("/portal")||path.equals("/api/portal/products")||path.equals("/api/portal/options"))return method.equals("GET")?"PORTAL_ORDER_READ":null;
