@@ -11,8 +11,22 @@ import static org.assertj.core.api.Assertions.*;
 class DealerProfileAcceptanceIT extends StoryDatabaseSupport {
     long manager,sales,territory,group;DealerService service;
     @BeforeEach void fixture(){manager=user("SALES_MANAGER");sales=user("SALES");territory=insert("INSERT INTO territories(code,name) VALUES(?,'Hà Nội')","T-"+UUID.randomUUID());group=Sql.id(one("SELECT id FROM customer_groups LIMIT 1").get("id"));service=new DealerService(source);}
-    DealerService.Input input(String code,long version){return new DealerService.Input(code,"Đại lý Cà phê","0101234567","0912345678",group,territory,sales,null,"ACTIVE",version);}
+    DealerService.Input input(String code,long version){return new DealerService.Input(code,"Đại lý Cà phê","","0912345678",group,territory,sales,null,"ACTIVE",version);}
     long dealer(){return service.save(manager,0,input("DL-"+UUID.randomUUID(),0));}
+    @Test void internationalPhoneAndTaxBranchesAreNormalizedAndTaxIsUnique() {
+        String tax="0109"+String.format(Locale.ROOT,"%06d",manager%1000000)+"001";
+        long id=service.save(manager,0,new DealerService.Input("DL-"+UUID.randomUUID(),"Đại lý kiểm tra",tax,"+84 912-345-678",group,territory,sales,null,"ACTIVE",0));
+        var row=service.find(manager,id);assertThat(row).containsEntry("phone","0912345678").containsEntry("tax_code",tax.substring(0,10)+"-001");
+        assertThatThrownBy(()->service.save(manager,0,new DealerService.Input("DL-"+UUID.randomUUID(),"Đại lý trùng",tax.substring(0,10)+"-001","0912345678",group,territory,sales,null,"ACTIVE",0))).isInstanceOfSatisfying(FieldValidationException.class,e->assertThat(e.errors()).containsKey("taxCode"));
+    }
+    @Test void concurrentDuplicateTaxCreatesExactlyOneProfile() throws Exception {
+        String tax="0119"+String.format(Locale.ROOT,"%06d",manager%1000000);
+        var pool=Executors.newFixedThreadPool(2);try {
+            var tasks=new ArrayList<Callable<Boolean>>();for(int i=0;i<2;i++)tasks.add(()->{try{service.save(manager,0,new DealerService.Input("DL-"+UUID.randomUUID(),"Đại lý đồng thời",tax,"0912345678",group,territory,sales,null,"ACTIVE",0));return true;}catch(FieldValidationException e){assertThat(e.errors()).containsKey("taxCode");return false;}});
+            var results=pool.invokeAll(tasks);assertThat(List.of(results.get(0).get(),results.get(1).get())).containsExactlyInAnyOrder(true,false);
+            assertThat(count("SELECT COUNT(*) n FROM dealers WHERE tax_code=?",tax)).isEqualTo(1);
+        } finally {pool.shutdownNow();}
+    }
     @Test void createsProfileUniqueCodeAndReferencesCorrectPriceGroup(){
         String code="DL-"+UUID.randomUUID();long id=service.save(manager,0,input(code,0));
         assertThat(service.find(manager,id)).containsEntry("code",code).containsEntry("name","Đại lý Cà phê");
