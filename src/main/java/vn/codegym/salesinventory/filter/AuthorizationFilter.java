@@ -15,11 +15,16 @@ public final class AuthorizationFilter implements Filter {
         HttpServletRequest r=(HttpServletRequest)req; HttpServletResponse s=(HttpServletResponse)res;
         String path=r.getRequestURI().substring(r.getContextPath().length());
         if(RoutePermissions.publicPath(path)) { chain.doFilter(req,res); return; }
-        String required=RoutePermissions.required(path,r.getMethod());
+        String required=RoutePermissions.required(path,r.getMethod(),path.equals("/orders")&&r.getMethod().equals("POST")?r.getParameter("action"):null);
         if(required==null) { s.sendError(404); return; }
         Object principal=r.getSession(false)==null ? null : r.getSession(false).getAttribute(SessionKeys.CURRENT_USER);
         if(!(principal instanceof CurrentUser user)) { s.sendError(403); return; }
         Access access=service.load(user.id());
+        if(access.roles().contains("DEALER")){
+            if(!access.roles().equals(java.util.Set.of("DEALER"))){s.sendError(403);return;}
+            if(path.equals("/dashboard")){s.setStatus(303);s.setHeader("Location",r.getContextPath()+"/portal");return;}
+            if(!(path.equals("/portal")||path.equals("/portal/orders")||path.startsWith("/api/portal/")||path.startsWith("/account/")||path.equals("/logout"))){s.sendError(403);return;}
+        }
         if(!access.allows(required)) { s.sendError(403); return; }
         r.setAttribute("access",access); r.setAttribute("currentUser",user);
         r.setAttribute("canCost",access.allows("COST_READ"));

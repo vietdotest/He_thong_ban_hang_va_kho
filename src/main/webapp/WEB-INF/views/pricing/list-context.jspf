@@ -1,0 +1,2 @@
+<%@ page pageEncoding="UTF-8" %>
+<c:forEach var="entry" items="${priceContext}"><input type="hidden" name="<c:out value='${entry.key}'/>" value="<c:out value='${entry.value}'/>"></c:forEach>
