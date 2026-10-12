@@ -1,0 +1,17 @@
+// Read-only visual evidence from synthetic fixtures on the isolated QA viewer.
+const {chromium}=require('playwright');
+const fs=require('node:fs'),path=require('node:path');
+const folder=path.resolve(__dirname,'../.tools/s3-evidence'),base='http://127.0.0.1:18094';
+const fixture=JSON.parse(fs.readFileSync(path.join(folder,'business-ux-fixture.json'),'utf8'));
+if(!/^qa-ux-[a-z0-9]+$/.test(fixture.marker)||fixture.username!==fixture.marker+'-actor')throw Error('Synthetic QA fixture required');
+const urls={scopes:'/admin/scopes?'+new URLSearchParams({q:fixture.marker,warehousePage:'2',territoryPage:'2'}),units:'/catalog/units?'+new URLSearchParams({product:String(fixture.products[0]),productQuery:fixture.marker,q:fixture.marker,page:'2',pageSize:'20'}),categories:'/catalog/categories?'+new URLSearchParams({q:'do uong '+fixture.marker}),audit:'/admin/audit?'+new URLSearchParams({userId:String(fixture.actor),type:'SUPPLIER',pageSize:'20'})};
+async function main(){const browser=await chromium.launch(),result={},errors=[];try{
+const context=await browser.newContext(),page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+await page.goto(base+'/login');await page.locator('[name=identity]').fill(fixture.username);await page.locator('[name=password]').fill('admin123');await Promise.all([page.waitForURL('**/dashboard'),page.getByRole('button',{name:'Đăng nhập',exact:true}).click()]);
+for(const [name,url]of Object.entries(urls)){result[name]={url,devices:{}};for(const [device,viewport]of Object.entries({desktop:{width:1440,height:1020},mobile:{width:360,height:900}})){
+await page.setViewportSize(viewport);const response=await page.goto(base+url);if(response.status()!==200)throw Error(name+' HTTP '+response.status());
+result[name].devices[device]=await page.evaluate(()=>{const box=n=>{const r=n.getBoundingClientRect(),s=getComputedStyle(n);return{x:r.x,y:r.y,width:r.width,height:r.height,font:s.font,gap:s.gap,padding:s.padding};};const main=document.querySelector('main');return{viewport:[innerWidth,innerHeight],overflow:document.documentElement.scrollWidth>innerWidth,sections:[...main.children].filter(n=>getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().height).map(n=>({tag:n.tagName,class:n.className,text:n.innerText,...box(n),children:[...n.children].filter(c=>c.getBoundingClientRect().height).map(c=>({class:c.className,...box(c)})),fields:[...n.querySelectorAll('label.field,button.button')].filter(c=>c.getBoundingClientRect().height).map(c=>({text:c.innerText,...box(c)}))})),tables:[...main.querySelectorAll('table')].map(n=>({...box(n),columns:[...n.querySelectorAll('thead th')].map(c=>({text:c.innerText,...box(c)})),rows:[...n.querySelectorAll('tbody tr')].map(c=>({text:c.innerText,...box(c),cells:[...c.children].map(td=>({text:td.innerText,...box(td),pre:[...td.querySelectorAll('pre')].map(p=>({text:p.innerText,...box(p)}))}))}))}))};});
+if(result[name].devices[device].overflow)throw Error(name+' '+device+' page overflow');await page.screenshot({path:path.join(folder,'ux-'+name+'-layout-'+device+'.png'),fullPage:true});console.log('PASS '+name+' '+device+' layout');}}
+if(errors.length)throw Error(errors.join('; '));result.errors=errors;result.finishedAt=new Date().toISOString();fs.writeFileSync(path.join(folder,'business-layouts-result.json'),JSON.stringify(result,null,2));
+}finally{await browser.close();}}
+main().catch(e=>{console.error('FAIL '+e.message);process.exitCode=1;});

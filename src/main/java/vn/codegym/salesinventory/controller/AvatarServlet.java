@@ -17,21 +17,35 @@ public final class AvatarServlet extends PortalServlet {
         if(key.isBlank()) {s.sendError(404);return;}Path path=ImageStorage.configured().path(key,!value(r,"size").equals("full"));
         if(!Files.exists(path)) {s.sendError(404);return;}s.setContentType("image/png");s.setHeader("X-Content-Type-Options","nosniff");Files.copy(path,s.getOutputStream());
     }
+    private jakarta.servlet.http.Part image(HttpServletRequest r) throws java.io.IOException {
+        return MultipartUploads.read(r,"image","Vui lòng chọn ảnh JPG/PNG.","Chọn ảnh JPG/PNG tối đa 2MB.");
+    }
+    @Override protected void preparePost(HttpServletRequest r) throws Exception {
+        access(r).require("PROFILE");
+        if(MultipartUploads.multipart(r)) image(r);
+    }
+    @Override protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws jakarta.servlet.ServletException,java.io.IOException {
+        invalid(r,s,message);
+    }
+    private void invalid(HttpServletRequest r,HttpServletResponse s,String message) throws jakarta.servlet.ServletException,java.io.IOException {
+        var value=(profile==null ? new ProfileService(source()) : profile).find(actor(r).id());
+        r.setAttribute("profile",value);
+        r.setAttribute("form",Map.of("fullName",Sql.text(value.get("full_name")),"phone",Sql.text(value.get("phone"))));
+        r.setAttribute("errors",Map.of("image",message));
+        s.setStatus(400);view(r,s,"account/profile");
+    }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception {
         access(r).require("PROFILE");
         try {
-            var part=r.getPart("image");
-            if(part==null || part.getSize()==0 || part.getSize()>ImageStorage.MAX_BYTES)
+            var part=image(r);
+            if(part==null || part.getSize()==0) throw new IllegalArgumentException("Vui lòng chọn ảnh JPG/PNG.");
+            if(part.getSize()>ImageStorage.MAX_BYTES)
                 throw new IllegalArgumentException("Chọn ảnh JPG/PNG tối đa 2MB.");
             byte[] bytes;try(var input=part.getInputStream()) {bytes=input.readNBytes(ImageStorage.MAX_BYTES+1);}
             (configured==null ? new AvatarService(source()) : configured).replace(actor(r).id(),bytes);
             redirect(r,s,"/account/profile?notice=saved");
         } catch(IllegalArgumentException invalid) {
-            var value=(profile==null ? new ProfileService(source()) : profile).find(actor(r).id());
-            r.setAttribute("profile",value);
-            r.setAttribute("form",Map.of("fullName",Sql.text(value.get("full_name")),"phone",Sql.text(value.get("phone"))));
-            r.setAttribute("errors",Map.of("image",invalid.getMessage()));
-            s.setStatus(400);view(r,s,"account/profile");
+            invalid(r,s,invalid.getMessage());
         }
     }
 }
