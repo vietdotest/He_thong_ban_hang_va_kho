@@ -29,7 +29,7 @@ class SchemaMigrationAcceptanceIT extends StoryDatabaseSupport {
                     SchemaMigration.initialize(runtime,new AppConfig.MigrationSettings(false,privileged),"classpath:db/migration");
                     try(var web=DatabaseFactory.create(runtime)){
                         var grants=Sql.transaction(web,c->Sql.query(c,"SHOW GRANTS"));assertThat(grants.toString()).doesNotContain("SUPER","CREATE","ALTER","DROP","TRIGGER");
-                        long applied=Sql.transaction(web,c->Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM flyway_schema_history WHERE success=1 AND CAST(version AS UNSIGNED)=28").get("n")));assertThat(applied).isEqualTo(1);
+                        long applied=Sql.transaction(web,c->Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM flyway_schema_history WHERE success=1 AND CAST(version AS UNSIGNED)=29").get("n")));assertThat(applied).isEqualTo(1);
                         long preservedChecksum=Sql.transaction(web,c->Sql.id(Sql.one(c,"SELECT checksum FROM flyway_schema_history WHERE CAST(version AS UNSIGNED)=16").get("checksum")));assertThat(preservedChecksum).isEqualTo(1601);
                         var jobs=Sql.transaction(web,c->Sql.query(c,"SELECT id FROM import_jobs"));assertThat(jobs).isEmpty();
                         assertThatThrownBy(()->Sql.transaction(web,c->{Sql.update(c,"CREATE TABLE forbidden_runtime_ddl(id BIGINT)");return null;})).isInstanceOf(IllegalStateException.class);
@@ -37,6 +37,20 @@ class SchemaMigrationAcceptanceIT extends StoryDatabaseSupport {
                     }
                 }finally{sql.execute("SET GLOBAL log_bin_trust_function_creators=1");}
             }
+        }
+    }
+    @Test void legacyDuplicateTaxCodesStopBeforeChangingOrdersOrProfiles()throws Exception{
+        String database="duplicate_tax_"+UUID.randomUUID().toString().replace("-","").substring(0,16),url=MYSQL.getJdbcUrl().replace("/story_acceptance","/"+database);
+        try(var root=DriverManager.getConnection(MYSQL.getJdbcUrl(),"root",MYSQL.getPassword());var statement=root.createStatement()){statement.execute("CREATE DATABASE "+database);}
+        var privileged=new AppConfig.DatabaseSettings(url,"root",MYSQL.getPassword(),2,1,10000);
+        try(var ds=DatabaseFactory.createMigrationSource(privileged)){
+            Flyway.configure().dataSource(ds).target("28").load().migrate();
+            Sql.transaction(ds,c->{Sql.update(c,"INSERT INTO territories(code,name) VALUES('DUP-QA','Khu vực QA')");for(String code:new String[]{"DUP-A","DUP-B"})Sql.update(c,"INSERT INTO dealers(code,name,tax_code,group_id,territory_id,primary_staff_id) SELECT ?,'Đại lý QA',?,g.id,t.id,1 FROM customer_groups g CROSS JOIN territories t WHERE t.code='DUP-QA' LIMIT 1",code,code.equals("DUP-A")?"0101234567-001":"0101234567001");return null;});
+            assertThatThrownBy(()->SchemaMigration.initialize(privileged,new AppConfig.MigrationSettings(true,privileged),"classpath:db/migration")).isInstanceOf(RuntimeException.class);
+            var duplicates=Sql.transaction(ds,c->Sql.query(c,"SELECT code,tax_code FROM dealers ORDER BY code"));assertThat(duplicates).hasSize(2);assertThat(duplicates.get(0)).containsEntry("tax_code","0101234567-001");assertThat(duplicates.get(1)).containsEntry("tax_code","0101234567001");
+            long taxColumns=Sql.transaction(ds,c->Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='dealers' AND column_name='tax_code_key'").get("n")));
+            long approvalPermissions=Sql.transaction(ds,c->Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM permissions WHERE code='ORDER_APPROVE'").get("n")));
+            assertThat(taxColumns).isZero();assertThat(approvalPermissions).isZero();
         }
     }
 }

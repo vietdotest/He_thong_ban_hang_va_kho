@@ -221,8 +221,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
     private static int bindFilters(PreparedStatement statement, UserSearchCriteria criteria) throws SQLException {
         String keyword = criteria.keyword().toLowerCase(Locale.ROOT);
         String pattern = "%" + keyword + "%";
-        String phoneDigits = criteria.keyword().matches("[+0-9().\\s-]+")
-                ? criteria.keyword().replaceAll("\\D", "") : "";
+        String phoneDigits = vn.codegym.salesinventory.validation.PhoneNumber.searchDigits(criteria.keyword());
         String phonePattern = phoneDigits.isBlank() ? "\u0000" : "%" + phoneDigits + "%";
         int index = 1;
         statement.setString(index++, keyword);
