@@ -4,6 +4,11 @@ import java.util.*;
 import vn.codegym.salesinventory.security.Access;
 import static org.assertj.core.api.Assertions.*;
 class DashboardServiceTest {
+    @Test void adminHasThreeDesignShortcutsWithoutRemovingOtherPermissions() {
+        var a=new Access(Set.of("ADMIN"),Set.of("USER_MANAGE","ROLE_MANAGE","CATALOG_READ","PRICE_READ","AUDIT_READ"),List.of(),List.of(),List.of());
+        assertThat(DashboardService.areas(a)).extracting(DashboardService.WorkArea::path).containsExactly("/admin/users","/catalog/products","/pricing/lists");
+        assertThat(a.allows("ROLE_MANAGE")).isTrue();assertThat(a.allows("AUDIT_READ")).isTrue();
+    }
     @Test void salesCannotNavigateToWarehouseOrAdministration() {
         var a=new Access(Set.of("SALES"),Set.of("CATALOG_READ","PRICE_READ"),List.of(),List.of(),List.of());
         assertThat(DashboardService.areas(a)).extracting(DashboardService.WorkArea::path).containsExactly("/catalog/products","/pricing/lists");

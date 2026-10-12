@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 class ProfileAcceptanceIT {
     @Container static final MySQLContainer MYSQL=new MySQLContainer("mysql:8.4.11")
             .withDatabaseName("profile_acceptance").withUsername("test").withPassword("test")
-            .withCommand("--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
+            .withCommand("--log-bin-trust-function-creators=1", "--innodb-flush-log-at-trx-commit=2", "--sync-binlog=0");
     HikariDataSource source;
     ProfileService service;
     @org.junit.jupiter.api.io.TempDir java.nio.file.Path imageRoot;

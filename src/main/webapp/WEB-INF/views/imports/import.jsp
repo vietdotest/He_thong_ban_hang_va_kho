@@ -65,7 +65,7 @@
                     <td><c:choose><c:when test="${userImportPage}"><c:out value="${importRoleLabels[line.number]}"/></c:when><c:otherwise><c:out value="${line.cells[1]}"/></c:otherwise></c:choose></td>
                     <td><span class="badge ${not empty line.error ? 'badge-danger' : 'badge-success'}"><c:choose><c:when test="${not empty line.error}">Bỏ qua</c:when><c:when test="${userImportPage}">${importStep == 2 ? 'Hợp lệ' : 'Đã tạo mới'}</c:when><c:otherwise>${importStep == 3 ? 'Đã ' : ''}<c:out value="${line.operation}"/></c:otherwise></c:choose></span></td>
                     <td><c:choose><c:when test="${not empty line.error}"><c:out value="${line.error}"/></c:when><c:otherwise>${importStep == 2 ? 'Sẵn sàng nhập' : 'Đã lưu dữ liệu'}</c:otherwise></c:choose>
-                        <c:if test="${importStep == 2}"><details class="row-details"><summary>Thông tin dòng</summary><dl><c:forEach var="header" items="${headers}" varStatus="column"><div><dt><c:out value="${header}"/></dt><dd><c:out value="${line.cells[column.index]}"/></dd></div></c:forEach></dl></details></c:if>
+                        <c:if test="${importStep == 2}"><details class="row-details"><summary>Thông tin dòng</summary><dl><c:forEach var="columnLabel" items="${headers}" varStatus="column"><div><dt><c:out value="${columnLabel}"/></dt><dd><c:out value="${line.cells[column.index]}"/></dd></div></c:forEach></dl></details></c:if>
                     </td>
                 </tr></c:forEach><tr data-import-empty hidden><td colspan="5" class="empty-state">Không có dòng thuộc trạng thái này.</td></tr></tbody>
             </table>
