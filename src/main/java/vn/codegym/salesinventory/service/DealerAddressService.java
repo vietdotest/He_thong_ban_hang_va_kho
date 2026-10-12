@@ -11,7 +11,7 @@ public final class DealerAddressService {
     public record Input(String address,String recipient,String phone,String directions,boolean defaultPoint,String status,long version,long dealerVersion){}
     public static Map<String,String> errors(Input in){var errors=new LinkedHashMap<String,String>();
         for(var field:List.of(new Object[]{"address",in.address,500,"Địa chỉ"},new Object[]{"recipient",in.recipient,150,"Người nhận"}))try{CatalogValidation.text(clean((String)field[1]),(int)field[2],field[3].toString());}catch(IllegalArgumentException e){errors.put(field[0].toString(),e.getMessage());}
-        if(!clean(in.phone).matches("[+0-9() .-]{7,30}"))errors.put("phone","Điện thoại phải có 7–30 ký tự hợp lệ.");
+        try { PhoneNumber.normalize(in.phone); } catch(IllegalArgumentException e) { errors.put("phone",e.getMessage()); }
         if(clean(in.directions).length()>1000)errors.put("directions","Ghi chú đường đi tối đa 1.000 ký tự.");
         if(!Set.of("ACTIVE","DISCONTINUED").contains(clean(in.status)))errors.put("status","Trạng thái không hợp lệ.");
         if(in.defaultPoint && "DISCONTINUED".equals(in.status))errors.put("defaultPoint","Điểm mặc định phải đang sử dụng.");
@@ -37,7 +37,7 @@ public final class DealerAddressService {
             boolean defaultPoint=in.defaultPoint || (defaults.isEmpty()&&"ACTIVE".equals(in.status));
             if(before!=null && isDefault(before.get("is_default")) && !defaultPoint)throw FieldValidationException.field("defaultPoint","Hãy đặt một điểm khác làm mặc định trước khi ngừng hoặc bỏ mặc định điểm này.");
             if(defaultPoint)for(var old:defaults)if(Sql.id(old.get("id"))!=id){long oldId=Sql.id(old.get("id"));Sql.update(c,"UPDATE dealer_addresses SET is_default=0,version=version+1 WHERE id=?",oldId);AuditService.record(c,actor,"DEALER_ADDRESS_DEFAULT_CHANGED","DEALER_ADDRESS",oldId,old,Sql.one(c,"SELECT * FROM dealer_addresses WHERE id=?",oldId));}
-            long saved=id;Object[] args={clean(in.address),clean(in.recipient),clean(in.phone),clean(in.directions),defaultPoint,in.status};
+            long saved=id;Object[] args={clean(in.address),clean(in.recipient),PhoneNumber.normalize(in.phone),clean(in.directions),defaultPoint,in.status};
             if(id==0){var params=new ArrayList<Object>();params.add(dealer);params.addAll(Arrays.asList(args));saved=Sql.insert(c,"INSERT INTO dealer_addresses(dealer_id,address,recipient,phone,directions,is_default,status) VALUES(?,?,?,?,?,?,?)",params.toArray());}
             else{var params=new ArrayList<Object>(Arrays.asList(args));params.add(id);Sql.update(c,"UPDATE dealer_addresses SET address=?,recipient=?,phone=?,directions=?,is_default=?,status=?,version=version+1 WHERE id=?",params.toArray());}
             Sql.update(c,"UPDATE dealers SET version=version+1 WHERE id=?",dealer);AuditService.record(c,actor,"DEALER_ADDRESS_SAVED","DEALER_ADDRESS",saved,before,Sql.one(c,"SELECT * FROM dealer_addresses WHERE id=?",saved));return saved;

@@ -18,8 +18,8 @@ public final class DealerService {
         var errors=new LinkedHashMap<String,String>();
         try { CatalogValidation.code(clean(in.code),50); } catch(IllegalArgumentException e) { errors.put("code",e.getMessage()); }
         try { CatalogValidation.text(clean(in.name),200,"Tên đại lý"); } catch(IllegalArgumentException e) { errors.put("name",e.getMessage()); }
-        if(!clean(in.taxCode).matches("(?:[0-9]{10}(?:-[0-9]{3})?)?"))errors.put("taxCode","Mã số thuế gồm 10 số, có thể thêm - và 3 số chi nhánh.");
-        if(!clean(in.phone).matches("[+0-9() .-]{7,30}"))errors.put("phone","Điện thoại từ 7–30 ký tự, chỉ gồm số và ký tự định dạng.");
+        try { TaxCode.normalize(in.taxCode); } catch(IllegalArgumentException e) { errors.put("taxCode",e.getMessage()); }
+        try { PhoneNumber.normalize(in.phone); } catch(IllegalArgumentException e) { errors.put("phone",e.getMessage()); }
         if(in.group<=0)errors.put("group","Hãy chọn nhóm bảng giá.");
         if(in.territory<=0)errors.put("territory","Hãy chọn khu vực.");
         if(in.staff<=0)errors.put("staff","Hãy chọn người phụ trách chính.");
@@ -53,10 +53,10 @@ public final class DealerService {
     }
     public PageResult<Map<String,Object>> search(long actor,Filter filter,PageRequest requested) {
         String q=clean(filter.query);if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
-        return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");
+        return Sql.snapshot(source,c->{var a=access(c,actor,"DEALER_READ");
             String condition=" WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.tax_code LIKE ? OR d.phone LIKE ?)"
-                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR d.status=?)";
-            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status)};
+                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR (?='LOCKED' AND d.transaction_locked=1) OR (?<>'LOCKED' AND d.status=? AND (?<>'ACTIVE' OR d.transaction_locked=0)))";
+            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status)};
             long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+condition,args).get("total"));var paging=requested.clamp(count);
             var params=new ArrayList<Object>(Arrays.asList(args));params.add(paging.pageSize());params.add(paging.offset());
             var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+condition+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
@@ -86,17 +86,19 @@ public final class DealerService {
             Map<String,Object> before=id==0?null:scoped(c,actor,a,id,true);
             if(before!=null && Sql.id(before.get("version"))!=in.version)throw FieldValidationException.field("form","Hồ sơ đã được người khác sửa. Hãy tải lại.");
             if(!Sql.query(c,"SELECT id FROM dealers WHERE code=? AND id<>?",clean(in.code),id).isEmpty())throw FieldValidationException.field("code","Mã đại lý đã tồn tại.");
+            String tax=TaxCode.normalize(in.taxCode);
+            if(!tax.isEmpty()&&!Sql.query(c,"SELECT id FROM dealers WHERE REPLACE(TRIM(tax_code),'-','')=? AND id<>? FOR UPDATE",tax.replace("-",""),id).isEmpty())throw FieldValidationException.field("taxCode","Mã số thuế đã tồn tại.");
             for(var check:List.of(new Object[]{"customer_groups",in.group,"group"},new Object[]{"territories",in.territory,"territory"}))
                 if(Sql.query(c,"SELECT id FROM "+check[0]+" WHERE id=? FOR SHARE",check[1]).isEmpty())throw FieldValidationException.field(check[2].toString(),"Lựa chọn không còn tồn tại.");
             if(Sql.query(c,"SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.status='ACTIVE' AND r.code IN ('SALES','SALES_MANAGER') FOR SHARE",in.staff).isEmpty())throw FieldValidationException.field("staff","Người phụ trách phải là nhân viên kinh doanh đang hoạt động.");
             if(in.warehouse!=null && Sql.query(c,"SELECT id FROM warehouses WHERE id=? FOR SHARE",in.warehouse).isEmpty())throw FieldValidationException.field("warehouse","Kho không còn tồn tại.");
             // Handover changes get a dedicated audited operation in SCRUM-42, not a silent profile edit.
             if(before!=null && Sql.id(before.get("primary_staff_id"))!=in.staff)throw FieldValidationException.field("staff","Dùng chức năng bàn giao để đổi người phụ trách.");
-            Object[] values={clean(in.code),clean(in.name),clean(in.taxCode),clean(in.phone),in.group,in.territory,in.staff,in.warehouse,in.status};
+            Object[] values={clean(in.code),clean(in.name),TaxCode.normalize(in.taxCode),PhoneNumber.normalize(in.phone),in.group,in.territory,in.staff,in.warehouse,in.status};
             long saved=id;
             try {if(id==0)saved=Sql.insert(c,"INSERT INTO dealers(code,name,tax_code,phone,group_id,territory_id,primary_staff_id,warehouse_id,status) VALUES(?,?,?,?,?,?,?,?,?)",values);
                 else {var params=new ArrayList<Object>(Arrays.asList(values));params.add(id);Sql.update(c,"UPDATE dealers SET code=?,name=?,tax_code=?,phone=?,group_id=?,territory_id=?,primary_staff_id=?,warehouse_id=?,status=?,version=version+1 WHERE id=?",params.toArray());}}
-            catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("code","Mã đại lý đã tồn tại.");throw e;}
+            catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field(e.getMessage().contains("uq_dealer_tax_code")?"taxCode":"code",e.getMessage().contains("uq_dealer_tax_code")?"Mã số thuế đã tồn tại.":"Mã đại lý đã tồn tại.");throw e;}
             syncReference(c,saved,in.staff);
             AuditService.record(c,actor,"DEALER_SAVED","DEALER",saved,before,Sql.one(c,"SELECT * FROM dealers WHERE id=?",saved));return saved;
         });
@@ -112,6 +114,8 @@ public final class DealerService {
         if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
         if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
         if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT user_id FROM dealer_accounts WHERE dealer_id=? LIMIT 1",id).isEmpty()||!Sql.query(c,"SELECT id FROM dealer_account_link_history WHERE old_dealer_id=? OR new_dealer_id=? LIMIT 1",id,id).isEmpty())throw new IllegalArgumentException("Đại lý đã có tài khoản cổng hoặc lịch sử liên kết. Hãy ngừng giao dịch để giữ lịch sử.");
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}
