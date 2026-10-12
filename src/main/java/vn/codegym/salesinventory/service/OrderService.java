@@ -39,7 +39,7 @@ public final class OrderService {
             for(var l:lines){var row=new LinkedHashMap<String,Object>();row.put("position",l.position);row.put("sku",l.sku);row.put("name",l.name);
                 row.put("unit",l.conversion.unitName());row.put("factor",l.conversion.factor().toPlainString());row.put("baseQuantity",l.conversion.baseQuantity().toPlainString());
                 row.put("selling",l.price.sellingPrice().toPlainString());row.put("gross",l.gross.toPlainString());row.put("discount",l.discount.toPlainString());row.put("net",l.net.toPlainString());
-                row.put("formatted",Map.of("gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
+                row.put("formatted",Map.of("selling",MoneyDisplay.format(l.price.sellingPrice()),"gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
                 row.put("needsApproval",belowFloor(l));row.put("policy",l.policy.applied()?l.policy.tier().name():"");rows.add(row);}
             var out=new LinkedHashMap<String,Object>();out.put("date",date.toString());out.put("lines",rows);out.put("gross",gross.toPlainString());out.put("discount",discount.toPlainString());out.put("net",net.toPlainString());out.put("errors",errors);out.put("warning",warning);out.put("token",token);out.put("confirmation",confirmation);out.put("needsApproval",needsApproval());out.put("formatted",Map.of("gross",MoneyDisplay.format(gross),"discount",MoneyDisplay.format(discount),"net",MoneyDisplay.format(net)));return out;
         }
@@ -185,7 +185,7 @@ public final class OrderService {
     }
     private static boolean canReview(Context ctx,long actor,Map<String,Object> request) {
         return !portal(ctx.access)&&ctx.access.allows("ORDER_APPROVE")&&ctx.access.roles().stream().anyMatch(Set.of("SALES_MANAGER","DIRECTOR")::contains)
-            &&Sql.id(ctx.order.get("created_by"))!=actor&&Sql.id(ctx.order.get("owner_id"))!=actor&&Sql.id(request.get("requested_by"))!=actor;
+            &&Sql.id(ctx.order.get("created_by"))!=actor&&Sql.id(ctx.order.get("owner_id"))!=actor&&Sql.id(request.get("requested_by"))!=actor&&Sql.id(ctx.dealer.get("primary_staff_id"))!=actor;
     }
     private static Map<String,Object> request(Connection c,long id)throws SQLException {
         return Sql.one(c,"SELECT * FROM order_approval_requests WHERE order_id=? FOR UPDATE",id);
