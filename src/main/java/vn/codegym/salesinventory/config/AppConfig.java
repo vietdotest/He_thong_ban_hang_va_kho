@@ -38,6 +38,23 @@ public final class AppConfig {
     public String flywayLocations() {
         return value("flyway.locations", "FLYWAY_LOCATIONS");
     }
+    public MigrationSettings migration(){
+        var runtime=database();String username=optionalValue("migration.username","MIGRATION_USERNAME").trim(),password=optionalValue("migration.password","MIGRATION_PASSWORD");
+        if(username.isEmpty()!=password.isEmpty())throw new IllegalStateException("Tài khoản migration cần cả tên và mật khẩu.");
+        var settings=username.isEmpty()?runtime:new DatabaseSettings(runtime.jdbcUrl(),username,password,2,1,runtime.connectionTimeoutMs());
+        return new MigrationSettings(booleanValue("migration.enabled","MIGRATION_ENABLED"),settings);
+    }
+    public record MigrationSettings(boolean enabled,DatabaseSettings database) { }
+    public boolean importWorkerEnabled(){return booleanValue("import.workerEnabled","IMPORT_WORKER_ENABLED");}
+
+    public ImportSettings imports() {
+        int workers=integerValue("import.workers","IMPORT_WORKERS");
+        int preview=integerValue("import.previewMinutes","IMPORT_PREVIEW_MINUTES");
+        int reports=integerValue("import.reportDays","IMPORT_REPORT_DAYS");
+        if(workers<1||workers>64||preview<1||reports<1)throw new IllegalStateException("Cấu hình nhập Excel phải dương và tối đa 64 worker.");
+        return new ImportSettings(workers,preview,reports);
+    }
+    public record ImportSettings(int workers,int previewMinutes,int reportDays) { }
 
     public SessionSettings session() {
         return new SessionSettings(
@@ -118,6 +135,7 @@ public final class AppConfig {
             int minimumIdle,
             long connectionTimeoutMs
     ) {
+        @Override public String toString(){return "DatabaseSettings[username="+username+", maximumPoolSize="+maximumPoolSize+", credentials=REDACTED]";}
     }
 
     public record SessionSettings(int idleTimeoutMinutes, int absoluteTimeoutHours) {

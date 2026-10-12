@@ -9,16 +9,24 @@ import vn.codegym.salesinventory.validation.ProductValidationException;
 public final class ProductServlet extends PortalServlet {
     protected ProductService products() { return new ProductService(source()); }
     protected List<Map<String, Object>> categories() { return new CategoryService(source()).tree(); }
+    private static String filter(HttpServletRequest r,String key,boolean post){return value(r,post&&Set.of("category","status").contains(key)?"filter"+Character.toUpperCase(key.charAt(0))+key.substring(1):key);}
+    private static String returnPath(HttpServletRequest r,boolean post){
+        var page=vn.codegym.salesinventory.dto.PageRequest.parse(value(r,"page"),value(r,"pageSize"));var params=new ArrayList<String>();
+        for(String key:List.of("q","category","status")){String v=filter(r,key,post);if(!v.isEmpty())params.add(key+"="+java.net.URLEncoder.encode(v,java.nio.charset.StandardCharsets.UTF_8));}
+        if(!value(r,"page").isEmpty()||!value(r,"pageSize").isEmpty()){params.add("page="+page.page());params.add("pageSize="+page.pageSize());}
+        return "/catalog/products"+(params.isEmpty()?"":"?"+String.join("&",params));
+    }
+    private void list(HttpServletRequest r,boolean post){
+        var filters=new LinkedHashMap<String,String>();for(String key:List.of("q","category","status"))filters.put(key,filter(r,key,post));
+        Long category=null;try{if(!filters.get("category").isEmpty()){category=Long.valueOf(filters.get("category"));if(category<=0)category=0L;}}catch(NumberFormatException invalid){category=0L;}
+        var result=products().search(actor(r).id(),filters.get("q"),category,filters.get("status"),vn.codegym.salesinventory.dto.PageRequest.parse(value(r,"page"),value(r,"pageSize")));
+        r.setAttribute("products",result.items());r.setAttribute("pagination",result);r.setAttribute("productFilter",filters);r.setAttribute("paginationFilterValues",filters);r.setAttribute("productReturn",returnPath(r,post));
+        r.setAttribute("pageNo",result.page());r.setAttribute("totalProducts",result.totalItems());r.setAttribute("hasNext",result.page()<result.getTotalPages());
+    }
 
     protected void get(HttpServletRequest r, HttpServletResponse s) throws Exception {
-        var paging = vn.codegym.salesinventory.dto.PageRequest.parse(value(r,"page"), value(r,"pageSize"));
         r.setAttribute("categories", categories());
-        var result = products().search(actor(r).id(), value(r,"q"), value(r,"category").isEmpty()?null:number(r,"category"), value(r,"status"), paging);
-        r.setAttribute("products", result.items());
-        r.setAttribute("pagination", result);
-        r.setAttribute("pageNo", result.page());
-        r.setAttribute("totalProducts", result.totalItems());
-        r.setAttribute("hasNext", result.page() < result.getTotalPages());
+        list(r,false);
         if (!value(r, "id").isEmpty()) r.setAttribute("edit", products().find(actor(r).id(), number(r, "id")));
         Object success = r.getSession().getAttribute("productSuccess");
         r.getSession().removeAttribute("productSuccess");
@@ -36,7 +44,7 @@ public final class ProductServlet extends PortalServlet {
             if (id <= 0 || !errors.isEmpty()) throw new IllegalArgumentException("Mã sản phẩm không hợp lệ.");
             products().delete(actor(r).id(), id);
             r.getSession().setAttribute("productSuccess", "Đã xóa sản phẩm.");
-            redirect(r, s, "/catalog/products");
+            redirect(r, s, returnPath(r,true));
             return;
         }
         long category = identifier(r, "category", false, errors);
@@ -72,14 +80,12 @@ public final class ProductServlet extends PortalServlet {
             r.setAttribute("errors", e.errors());
             r.setAttribute("formError", e.errors().get("form"));
             r.setAttribute("categories", categories());
-            var result = products().search(actor(r).id(), "", null, "", new vn.codegym.salesinventory.dto.PageRequest(1,20));
-            r.setAttribute("products", result.items());r.setAttribute("pagination",result);
-            r.setAttribute("pageNo",result.page());r.setAttribute("totalProducts",result.totalItems());r.setAttribute("hasNext",result.getTotalPages()>1);
+            list(r,true);
             view(r, s, "catalog/products");
             return;
         }
         r.getSession().setAttribute("productSuccess", "Đã lưu sản phẩm.");
-        redirect(r, s, "/catalog/products");
+        redirect(r, s, returnPath(r,true));
     }
 
     private static long identifier(HttpServletRequest r, String name, boolean allowEmpty, Map<String, String> errors) {
