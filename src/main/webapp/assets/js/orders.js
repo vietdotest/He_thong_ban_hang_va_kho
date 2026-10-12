@@ -43,7 +43,9 @@
   }
   async function preview(sequence){quoteController=new AbortController();const controller=quoteController;status.textContent='Đang tính báo giá…';status.setAttribute('aria-busy','true');
     const data=new FormData(form);data.set('action','preview');
-    try{const response=await fetch(form.action,{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
+    // Ô ẩn tên "action" che thuộc tính HTMLFormElement.action của trình duyệt.
+    const actionUrl=form.getAttribute('action')||window.location.href;
+    try{const response=await fetch(actionUrl,{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
     catch(error){if(error.name!=='AbortError'&&sequence===quoteSequence){status.textContent='Chưa thể tính báo giá. Kiểm tra kết nối và bấm Tính lại báo giá.';status.classList.add('field-error');}}
     finally{if(sequence===quoteSequence)status.removeAttribute('aria-busy');}
   }
