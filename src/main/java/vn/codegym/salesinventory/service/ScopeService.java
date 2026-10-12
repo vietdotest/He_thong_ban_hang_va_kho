@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.*;
 import javax.sql.DataSource;
 import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.dto.*;
 import vn.codegym.salesinventory.validation.FieldValidationException;
 
 public final class ScopeService {
@@ -17,14 +18,19 @@ public final class ScopeService {
         };
     }
     public List<Map<String,Object>> list(long actor,String kind) {
-        new AccessService(source).load(actor).require("USER_MANAGE");
         String table=table(kind),link=kind.equals("warehouse")?"user_warehouses":"user_territories",key=kind.equals("warehouse")?"warehouse_id":"territory_id";
-        return Sql.transaction(source,c->Sql.query(c,"SELECT s.id,s.code,s.name,s.address,s.version,(SELECT COUNT(*) FROM "+link+" a WHERE a."+key+"=s.id) assigned_count FROM "+table+" s ORDER BY s.name,s.id"));
+        return Sql.snapshot(source,c->{DealerService.access(c,actor,"USER_MANAGE");return Sql.query(c,"SELECT s.id,s.code,s.name,s.address,s.version,(SELECT COUNT(*) FROM "+link+" a WHERE a."+key+"=s.id) assigned_count FROM "+table+" s ORDER BY s.name,s.id");});
+    }
+    public PageResult<Map<String,Object>> search(long actor,String kind,String query,PageRequest request){
+        String table=table(kind),link=kind.equals("warehouse")?"user_warehouses":"user_territories",key=kind.equals("warehouse")?"warehouse_id":"territory_id";
+        String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
+        return Sql.snapshot(source,c->{DealerService.access(c,actor,"USER_MANAGE");String condition=" WHERE s.code LIKE ? OR s.name LIKE ? OR s.address LIKE ?";Object[] args={pattern,pattern,pattern};
+            long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM "+table+" s"+condition,args).get("total"));var page=request.clamp(total);
+            var rows=Sql.query(c,"SELECT s.id,s.code,s.name,s.address,s.version,(SELECT COUNT(*) FROM "+link+" a WHERE a."+key+"=s.id) assigned_count FROM "+table+" s"+condition+" ORDER BY s.name,s.id LIMIT ? OFFSET ?",pattern,pattern,pattern,page.pageSize(),page.offset());return new PageResult<>(rows,total,page.page(),page.pageSize());});
     }
     public Map<String,Object> find(long actor,String kind,long id) {
-        new AccessService(source).load(actor).require("USER_MANAGE");
         String table=table(kind);
-        return Sql.transaction(source,c->Sql.one(c,"SELECT id,code,name,address,version FROM "+table+" WHERE id=?",id));
+        return Sql.transaction(source,c->{DealerService.access(c,actor,"USER_MANAGE");return Sql.one(c,"SELECT id,code,name,address,version FROM "+table+" WHERE id=?",id);});
     }
     public static Map<String,String> errors(String code,String name,String address) {
         var errors=new LinkedHashMap<String,String>();
@@ -34,13 +40,13 @@ public final class ScopeService {
         return errors;
     }
     public long save(long actor,String kind,long id,String code,String name,String address,long version) {
-        new AccessService(source).load(actor).require("USER_MANAGE");
         String table=table(kind);
         var errors=errors(code,name,address);
         if(id<0||version<0)errors.put("form","Mã bản ghi hoặc phiên bản không hợp lệ.");
         if(!errors.isEmpty())throw new FieldValidationException(errors);
         String normalizedCode=code.trim(),normalizedName=name.trim(),normalizedAddress=address.trim();
         return Sql.transaction(source,c->{
+            DealerService.access(c,actor,"USER_MANAGE");
             Map<String,Object> before=id==0?null:Sql.one(c,"SELECT id,code,name,address,version FROM "+table+" WHERE id=? FOR UPDATE",id);
             if(before!=null&&Sql.id(before.get("version"))!=version)throw FieldValidationException.field("form","Kho / địa bàn đã thay đổi. Hãy tải lại trước khi sửa.");
             if(!Sql.query(c,"SELECT id FROM "+table+" WHERE code=? AND id<>?",normalizedCode,id).isEmpty())throw FieldValidationException.field("code","Mã đã tồn tại trong danh mục này.");
