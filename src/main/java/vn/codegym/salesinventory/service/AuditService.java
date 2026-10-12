@@ -23,6 +23,7 @@ public final class AuditService {
             case "DEALER_CREDIT_CHANGED" -> "Thay đổi cấu hình tín dụng";
             case "DEALER_LOCKED" -> "Khóa giao dịch đại lý";case "DEALER_UNLOCKED" -> "Mở giao dịch đại lý";
             case "DISCOUNT_POLICY_SAVED" -> "Lưu chính sách chiết khấu";
+            case "ORDER_APPROVAL_REQUESTED" -> "Gửi đơn chờ duyệt giá";case "ORDER_PRICE_APPROVED" -> "Duyệt giá đơn hàng";case "ORDER_PRICE_REJECTED" -> "Từ chối giá đơn hàng";
             case "ORDER_DRAFT_SAVED" -> "Lưu đơn nháp";case "ORDER_SUBMITTED" -> "Gửi đơn tiếp nhận";case "ORDER_DRAFT_TAKEN_OVER" -> "Tiếp quản đơn nháp";
             case "PORTAL_ACCOUNT_CREATED" -> "Cấp tài khoản đại lý";case "PORTAL_ACCOUNT_RELINKED" -> "Đổi liên kết đại lý";case "PORTAL_ACCOUNT_LOCKED" -> "Khóa tài khoản đại lý";case "PORTAL_ACCOUNT_UNLOCKED" -> "Mở tài khoản đại lý";case "PORTAL_ACTIVATION_RESENT" -> "Gửi lại kích hoạt đại lý";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";
