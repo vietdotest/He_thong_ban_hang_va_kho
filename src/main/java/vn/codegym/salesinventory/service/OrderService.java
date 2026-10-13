@@ -122,6 +122,8 @@ public final class OrderService {
         var approvals=Sql.query(c,"SELECT status,request_reason,requested_at,decision_reason,decided_at,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.gross')) requested_gross,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.discount')) requested_discount,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.net')) requested_net FROM order_approval_requests WHERE order_id=?",id);
         row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&!"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canReview(ctx,actor,request(c,id)));}
         row.put("can_confirm_portal","PENDING_APPROVAL".equals(row.get("status"))&&"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canConfirmPortal(ctx,actor));
+        row.put("history",Sql.query(c,"SELECT event_type,reason,occurred_at FROM mvp_order_history WHERE order_id=? ORDER BY id",id));
+        @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
         if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
     public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED").contains(status==null?"":status)?status:"";
         return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
@@ -183,7 +185,11 @@ public final class OrderService {
                 snapshot(c,actor,id,ctx,q,"PENDING_APPROVAL",key,false);
                 String reason=q.needsApproval()?"EXCEPTION":"STAFF_CONFIRMATION";
                 Sql.update(c,"UPDATE orders SET pending_reason=? WHERE id=?",reason,id);
-                Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),q.needsApproval()?"Giá dưới sàn hoặc vượt hạn mức cần phê duyệt.":"Đơn cổng chờ nhân viên phụ trách xác nhận.",Timestamp.from(clock.instant()));
+                String requestReason=q.needsApproval()?"Giá dưới sàn hoặc vượt hạn mức cần phê duyệt.":"Đơn cổng chờ nhân viên phụ trách xác nhận.";
+                if(Sql.query(c,"SELECT id FROM order_approval_requests WHERE order_id=? FOR UPDATE",id).isEmpty())
+                    Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()));
+                else Sql.update(c,"UPDATE order_approval_requests SET requested_by=?,request_key=?,request_digest=?,request_snapshot=?,request_reason=?,requested_at=?,status='PENDING',decision_key=NULL,decided_by=NULL,decision_reason=NULL,decision_snapshot=NULL,decided_at=NULL WHERE order_id=?",actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()),id);
+                history(c,actor,id,"REQUESTED",Sql.text(request(c,id).get("request_reason")));
                 AuditService.record(c,actor,"ORDER_APPROVAL_REQUESTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));
                 Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);return new Submission(false,id,null,"PENDING_APPROVAL");
             }
@@ -207,6 +213,23 @@ public final class OrderService {
     }
     private static Map<String,Object> request(Connection c,long id)throws SQLException {
         return Sql.one(c,"SELECT * FROM order_approval_requests WHERE order_id=? FOR UPDATE",id);
+    }
+    private void history(Connection c,long actor,long id,String event,String reason)throws SQLException {
+        Sql.insert(c,"INSERT INTO mvp_order_history(order_id,event_type,actor_id,reason,snapshot,occurred_at) VALUES(?,?,?,?,?,?)",id,event,actor,reason,AuditService.snapshot(request(c,id),false),Timestamp.from(clock.instant()));
+    }
+    public void returnForEdit(long actor,long id,long version,String requestKey,String reason,boolean staffConfirmation) {
+        String why=MvpCommands.text(reason,1000,"Ý kiến trả lại");
+        Sql.transaction(source,c->{var ctx=context(c,actor,id,true);var req=request(c,id);
+            if(staffConfirmation)portalConfirmer(c,ctx,actor);else reviewer(ctx,actor,req);
+            var command=MvpCommands.begin(c,actor,"ORDER_RETURN_EDIT",requestKey,id+":"+version+":"+staffConfirmation+":"+why);
+            if(command.replayId()!=null)return null;MvpCommands.version(ctx.order,version);
+            if(!"PENDING_APPROVAL".equals(ctx.order.get("status"))||staffConfirmation!= "STAFF_CONFIRMATION".equals(ctx.order.get("pending_reason")))throw new IllegalArgumentException("Đơn không chờ quyết định này.");
+            Sql.update(c,"UPDATE order_approval_requests SET status='RETURNED',decided_by=?,decision_reason=?,decided_at=? WHERE order_id=?",actor,why,Timestamp.from(clock.instant()),id);
+            history(c,actor,id,"RETURNED",why);
+            Sql.update(c,"UPDATE orders SET status='DRAFT',pending_reason=NULL,submit_key=NULL,version=version+1 WHERE id=?",id);
+            Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);
+            AuditService.record(c,actor,"ORDER_RETURNED_FOR_EDIT","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));MvpCommands.finish(c,command,id);return null;
+        });
     }
     private static void reviewer(Context ctx,long actor,Map<String,Object> request) {
         if(!canReview(ctx,actor,request))throw new SecurityException("Không được tự duyệt hoặc duyệt ngoài quyền của mình.");
@@ -250,6 +273,7 @@ public final class OrderService {
                 AuditService.record(c,actor,"PORTAL_ORDER_CONFIRMED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));
             }
             MvpCommands.finish(c,command,id);Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);
+            history(c,actor,id,q.needsApproval()?"ESCALATED":"STAFF_CONFIRMED",q.needsApproval()?"Chuyển quản lý duyệt điều kiện mới.":"NVKD phụ trách xác nhận đơn cổng.");
             return new Submission(!q.needsApproval(),id,null,q.needsApproval()?"PENDING_APPROVAL":"SUBMITTED");
         });
     }
@@ -298,6 +322,7 @@ public final class OrderService {
             try{Sql.update(c,"UPDATE order_approval_requests SET status=?,decision_key=?,decided_by=?,decision_reason=?,decision_snapshot=?,decided_at=? WHERE order_id=?",desired,key,actor,why,quoteSnapshot(q),Timestamp.from(clock.instant()),id);}
             catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("decisionKey","Mã quyết định đã dùng cho đơn khác.");throw e;}
             var audit=new LinkedHashMap<>(Sql.one(c,"SELECT * FROM orders WHERE id=?",id));audit.put("reason",why);
+            history(c,actor,id,desired,why);
             AuditService.record(c,actor,approve?"ORDER_PRICE_APPROVED":"ORDER_PRICE_REJECTED","ORDER",id,ctx.order,audit);
             Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);return new Submission(approve,id,null,approve?"SUBMITTED":"REJECTED");
         });
