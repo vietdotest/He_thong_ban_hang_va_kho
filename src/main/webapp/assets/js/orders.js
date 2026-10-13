@@ -66,9 +66,9 @@
   }
   function renderQuote(data){const errors=data.errors||{};const rows=[...lines.querySelectorAll('[data-order-line]')];rows.forEach((row,i)=>{const message=errors['line'+i]||errors['quantity'+i]||'',error=row.querySelector('[data-line-error]');error.textContent=message;error.id='order-line-error-'+i;error.setAttribute('role','alert');row.querySelectorAll('input:not([type=hidden]),select').forEach(input=>{input.setAttribute('aria-invalid',String(Boolean(message)));input.setAttribute('aria-describedby',error.id);});row.querySelector('[data-line-money]').textContent='';});
     (data.lines||[]).forEach(l=>{const row=rows[l.position];if(row)row.querySelector('[data-line-money]').textContent='Cơ sở: '+l.baseQuantity+' · Tiền hàng '+money(l.formatted?.gross)+' · Giảm '+money(l.formatted?.discount)+' · Phải thu '+money(l.formatted?.net)+(l.policy?' · '+l.policy:'');});
-    for(const key of ['gross','discount','net'])document.querySelector('[data-total='+key+']').textContent=money(data.formatted?.[key]);document.querySelector('[data-quote-warning]').textContent=(data.warning||'')+(data.needsApproval?' Đơn cần duyệt giá trước khi tiếp nhận.':'');
+    for(const key of ['gross','discount','net'])document.querySelector('[data-total='+key+']').textContent=money(data.formatted?.[key]);document.querySelector('[data-quote-warning]').textContent=(data.warning||'')+(data.needsApproval?' Đơn cần duyệt giá hoặc hạn mức trước khi tiếp nhận.':'');
     status.textContent=Object.keys(errors).length?'Chưa thể gửi: '+Object.values(errors).join(' '):'Báo giá ngày '+data.date+'. Giá và điều kiện sẽ được kiểm tra lại khi gửi.';
-    if(send){send.textContent=data.needsApproval?'Gửi chờ duyệt':'Gửi tiếp nhận';if(Object.keys(errors).length)send.disabled=true;}
+    if(send){send.textContent=data.needsApproval?'Gửi chờ duyệt':optionsPath.includes('/portal/')?'Gửi chờ NVKD xác nhận':'Gửi tiếp nhận';if(Object.keys(errors).length)send.disabled=true;}
     status.classList.toggle('field-error',Object.keys(errors).length>0);
   }
   async function preview(sequence){quoteController=new AbortController();const controller=quoteController;status.textContent='Đang tính báo giá…';status.setAttribute('aria-busy','true');
