@@ -122,10 +122,11 @@ public final class OrderService {
         var approvals=Sql.query(c,"SELECT status,request_reason,requested_at,decision_reason,decided_at,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.gross')) requested_gross,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.discount')) requested_discount,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.net')) requested_net FROM order_approval_requests WHERE order_id=?",id);
         row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&!"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canReview(ctx,actor,request(c,id)));}
         row.put("can_confirm_portal","PENDING_APPROVAL".equals(row.get("status"))&&"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canConfirmPortal(ctx,actor));
+        row.put("can_cancel",canCancel(ctx)&&!"CANCELLED".equals(row.get("status"))&&Sql.query(c,"SELECT id FROM mvp_shipments WHERE order_id=? LIMIT 1",id).isEmpty());
         row.put("history",Sql.query(c,"SELECT event_type,reason,occurred_at FROM mvp_order_history WHERE order_id=? ORDER BY id",id));
-        @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
+        @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "CANCELLED","LEGACY_CANCELLED"->"Hủy đơn";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
         if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
-    public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED").contains(status==null?"":status)?status:"";
+    public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED","CANCELLED").contains(status==null?"":status)?status:"";
         return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
             var args=new ArrayList<Object>();if(portal)args.add(PortalAccountService.linked(c,actor));else{args.add(all(a));args.add(actor);}args.addAll(Arrays.asList(state,state,dealer,dealer,term,term,term));long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+filter,args.toArray()).get("total"));var p=request.clamp(total);var params=new ArrayList<Object>(args);params.add(p.pageSize());params.add(p.offset());
             var rows=Sql.query(c,"SELECT o.id,o.status,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",params.toArray());for(var row:rows)row.put("net_formatted",MoneyDisplay.format(row.get("net_total")));return new PageResult<>(rows,total,p.page(),p.pageSize());});}
@@ -233,6 +234,26 @@ public final class OrderService {
     }
     private static void reviewer(Context ctx,long actor,Map<String,Object> request) {
         if(!canReview(ctx,actor,request))throw new SecurityException("Không được tự duyệt hoặc duyệt ngoài quyền của mình.");
+    }
+    private static boolean canCancel(Context ctx) {
+        return !portal(ctx.access)&&ctx.access.allows("ORDER_CANCEL")&&ctx.access.roles().stream().anyMatch(Set.of("SALES","SALES_MANAGER")::contains);
+    }
+    public void cancel(long actor,long id,long version,String requestKey,String reason) {
+        String why=MvpCommands.text(reason,1000,"Lý do hủy");
+        Sql.transaction(source,c->{var ctx=context(c,actor,id,true);if(!canCancel(ctx))throw new SecurityException();
+            var command=MvpCommands.begin(c,actor,"ORDER_CANCEL",requestKey,id+":"+version+":"+why);if(command.replayId()!=null)return null;
+            MvpCommands.version(ctx.order,version);if("CANCELLED".equals(ctx.order.get("status")))throw new IllegalArgumentException("Đơn đã hủy.");
+            if(!Sql.query(c,"SELECT id FROM mvp_shipments WHERE order_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đơn đã có xuất kho; không được hủy toàn đơn.");
+            Sql.query(c,"SELECT l.id FROM mvp_lots l WHERE l.id IN (SELECT h.lot_id FROM mvp_holds h WHERE h.order_id=?) ORDER BY l.product_id,l.received_date,l.id FOR UPDATE",id);
+            Sql.query(c,"SELECT id FROM mvp_holds WHERE order_id=? ORDER BY id FOR UPDATE",id);
+            Sql.update(c,"UPDATE mvp_holds SET released=quantity-consumed WHERE order_id=?",id);
+            if(!Sql.query(c,"SELECT id FROM order_approval_requests WHERE order_id=? FOR UPDATE",id).isEmpty()) {
+                Sql.update(c,"UPDATE order_approval_requests SET status='CANCELLED',decided_by=?,decision_reason=?,decided_at=? WHERE order_id=?",actor,why,Timestamp.from(clock.instant()),id);history(c,actor,id,"CANCELLED",why);
+            }
+            Sql.update(c,"UPDATE orders SET status='CANCELLED',fulfillment_state='CANCELLED',pending_reason=NULL,cancel_reason=?,version=version+1 WHERE id=?",why,id);
+            Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);
+            var after=new LinkedHashMap<>(Sql.one(c,"SELECT * FROM orders WHERE id=?",id));after.put("reason",why);AuditService.record(c,actor,"ORDER_CANCELLED","ORDER",id,ctx.order,after);MvpCommands.finish(c,command,id);return null;
+        });
     }
     private static boolean canConfirmPortal(Context ctx,long actor) {
         return !portal(ctx.access)&&ctx.access.allows("ORDER_CONFIRM_PORTAL")
