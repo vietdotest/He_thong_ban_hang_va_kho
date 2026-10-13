@@ -8,12 +8,7 @@
   let quoteTimer, quoteController, quoteSequence = 0, addressController, addressSequence = 0;
   const dealer = () => form.elements.dealer.value;
   const markUnsaved = () => {if(send)send.disabled=true;form.querySelector('[data-save-reminder]').textContent='Chưa lưu thay đổi. Lưu nháp trước khi gửi.';};
-  // Money is a decimal string from JDBC/BigDecimal, never converted to binary floating point.
-  function money(value) {
-    const match=String(value ?? '0').match(/^(\d+)(?:\.(\d+))?$/);
-    if(!match)return '—';const whole=match[1].replace(/\B(?=(\d{3})+(?!\d))/g,'.'),fraction=(match[2]||'').replace(/0+$/,'');
-    return whole+(fraction?','+fraction:'')+' đ';
-  }
+  const money=value=>(typeof value==='string'?value:'—')+' đ';
   function renumber(){const rows=[...lines.querySelectorAll('[data-order-line]')];rows.forEach((row,i)=>{row.querySelector('[data-line-number]').textContent=String(i+1);row.querySelector('[data-remove-line]').disabled=rows.length===1;});form.querySelector('[data-add-line]').disabled=rows.length>=100;}
   async function units(row,preserve=false){const product=row.querySelector('[name=product]'),select=row.querySelector('[name=unit]');
     unitRequests.get(row)?.abort();const controller=new AbortController();unitRequests.set(row,controller);const selected=preserve?select.value:'';
@@ -35,15 +30,17 @@
     finally{if(seq===addressSequence)select.disabled=false;}
   }
   function renderQuote(data){const errors=data.errors||{};const rows=[...lines.querySelectorAll('[data-order-line]')];rows.forEach((row,i)=>{const message=errors['line'+i]||errors['quantity'+i]||'',error=row.querySelector('[data-line-error]');error.textContent=message;error.id='order-line-error-'+i;error.setAttribute('role','alert');row.querySelectorAll('input:not([type=hidden]),select').forEach(input=>{input.setAttribute('aria-invalid',String(Boolean(message)));input.setAttribute('aria-describedby',error.id);});row.querySelector('[data-line-money]').textContent='';});
-    (data.lines||[]).forEach(l=>{const row=rows[l.position];if(row)row.querySelector('[data-line-money]').textContent='Cơ sở: '+l.baseQuantity+' · Tiền hàng '+money(l.gross)+' · Giảm '+money(l.discount)+' · Phải thu '+money(l.net)+(l.policy?' · '+l.policy:'');});
-    for(const key of ['gross','discount','net'])document.querySelector('[data-total='+key+']').textContent=money(data[key]);document.querySelector('[data-quote-warning]').textContent=data.warning||'';
+    (data.lines||[]).forEach(l=>{const row=rows[l.position];if(row)row.querySelector('[data-line-money]').textContent='Cơ sở: '+l.baseQuantity+' · Tiền hàng '+money(l.formatted?.gross)+' · Giảm '+money(l.formatted?.discount)+' · Phải thu '+money(l.formatted?.net)+(l.policy?' · '+l.policy:'');});
+    for(const key of ['gross','discount','net'])document.querySelector('[data-total='+key+']').textContent=money(data.formatted?.[key]);document.querySelector('[data-quote-warning]').textContent=(data.warning||'')+(data.needsApproval?' Đơn cần duyệt giá trước khi tiếp nhận.':'');
     status.textContent=Object.keys(errors).length?'Chưa thể gửi: '+Object.values(errors).join(' '):'Báo giá ngày '+data.date+'. Giá và điều kiện sẽ được kiểm tra lại khi gửi.';
-    if(Object.keys(errors).length&&send)send.disabled=true;
+    if(send){send.textContent=data.needsApproval?'Gửi chờ duyệt':'Gửi tiếp nhận';if(Object.keys(errors).length)send.disabled=true;}
     status.classList.toggle('field-error',Object.keys(errors).length>0);
   }
   async function preview(sequence){quoteController=new AbortController();const controller=quoteController;status.textContent='Đang tính báo giá…';status.setAttribute('aria-busy','true');
     const data=new FormData(form);data.set('action','preview');
-    try{const response=await fetch(form.action,{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
+    // Ô ẩn tên "action" che thuộc tính HTMLFormElement.action của trình duyệt.
+    const actionUrl=form.getAttribute('action')||window.location.href;
+    try{const response=await fetch(actionUrl,{method:'POST',body:new URLSearchParams(data),signal:controller.signal,headers:{Accept:'application/json'}});if(!response.ok&&response.status!==400)throw new Error('quote');const result=await response.json();if(sequence!==quoteSequence)return;renderQuote(result);}
     catch(error){if(error.name!=='AbortError'&&sequence===quoteSequence){status.textContent='Chưa thể tính báo giá. Kiểm tra kết nối và bấm Tính lại báo giá.';status.classList.add('field-error');}}
     finally{if(sequence===quoteSequence)status.removeAttribute('aria-busy');}
   }

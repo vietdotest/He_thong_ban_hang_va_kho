@@ -5,6 +5,12 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RoutePermissionsTest {
+    @Test void approvalActionsHaveTheirOwnInternalPermission() {
+        assertThat(RoutePermissions.required("/orders","POST","approve")).isEqualTo("ORDER_APPROVE");
+        assertThat(RoutePermissions.required("/orders","POST","reject")).isEqualTo("ORDER_APPROVE");
+        assertThat(RoutePermissions.required("/orders","POST","save")).isEqualTo("ORDER_WRITE");
+        assertThat(RoutePermissions.required("/portal/orders","POST","approve")).isEqualTo("PORTAL_ORDER_WRITE");
+    }
     private static final Map<String,String> LOOKUPS=Map.ofEntries(
         Map.entry("products","CATALOG_READ"),Map.entry("categories","CATALOG_READ"),
         Map.entry("suppliers","CATALOG_READ"),Map.entry("unitnames","CATALOG_READ"),
