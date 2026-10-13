@@ -10,6 +10,7 @@ public final class RoutePermissions {
         return required(path,method);
     }
     public static String required(String path,String method) {
+        if(path.equals("/inventory/receipts"))return "STOCK_RECEIPT_WRITE";
         if(path.equals("/dealers/accounts"))return "PORTAL_ACCOUNT_MANAGE";
         if(path.equals("/portal")||path.equals("/api/portal/products")||path.equals("/api/portal/options"))return method.equals("GET")?"PORTAL_ORDER_READ":null;
         if(path.equals("/portal/orders"))return method.equals("GET")?"PORTAL_ORDER_READ":"PORTAL_ORDER_WRITE";

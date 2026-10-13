@@ -1,0 +1,8 @@
+@media print {
+  .app-sidebar,.sidebar,.sidebar-shell,.topbar,.no-print { display:none!important; }
+  .app-content { margin:0!important;padding:0!important;width:100%!important; }
+  .table-scroll { overflow:visible!important; }
+  table { width:100%;border-collapse:collapse; }
+  td,th { border:1px solid #bbb;padding:8px; }
+  body { background:#fff!important;color:#000; }
+}
