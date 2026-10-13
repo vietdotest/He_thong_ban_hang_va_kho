@@ -10,12 +10,13 @@ import static org.assertj.core.api.Assertions.*;
 class PricingAcceptanceIT extends StoryDatabaseSupport {
     @Test void groupFilterUsesSamePredicateForCountAndPageRows(){
         String marker="GROUP-"+UUID.randomUUID();long other=Sql.id(pricing.groups().get(1).get("id"));
-        pricing.create(manager,group,marker+"-1",from,to,null);
-        pricing.create(manager,group,marker+"-2",from,to,null);
-        pricing.create(manager,other,marker+"-3",from,to,null);
-        var first=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(1,1),group);
-        var last=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(999,1),group);
-        assertThat(first.totalItems()).isEqualTo(2);assertThat(first.items()).hasSize(1);assertThat(last.items()).hasSize(1);
+        long oldest=0;
+        for(int i=0;i<21;i++){long id=pricing.create(manager,group,marker+"-"+i,from,to,null);if(i==0)oldest=id;}
+        pricing.create(manager,other,marker+"-other",from,to,null);
+        var first=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(1,20),group);
+        var last=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(999,20),group);
+        assertThat(first.totalItems()).isEqualTo(21);assertThat(first.items()).hasSize(20);assertThat(last.items()).hasSize(1);
+        assertThat(Sql.id(last.items().get(0).get("id"))).isEqualTo(oldest);
         assertThat(first.items()).allSatisfy(v->assertThat(Sql.id(v.get("group_id"))).isEqualTo(group));
         assertThat(last.items()).allSatisfy(v->assertThat(Sql.id(v.get("group_id"))).isEqualTo(group));
         assertThat(pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(1,20),other).totalItems()).isEqualTo(1);
