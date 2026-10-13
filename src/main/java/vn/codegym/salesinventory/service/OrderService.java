@@ -24,9 +24,12 @@ public final class OrderService {
     public record LineQuote(int position,long product,String sku,String name,UnitService.Conversion conversion,
                             PricingService.Quote price,DiscountMath.Selection policy,BigDecimal gross,BigDecimal discount,BigDecimal net){}
     public record Quote(LocalDate date,List<LineQuote> lines,BigDecimal gross,BigDecimal discount,BigDecimal net,
-                        Map<String,String> errors,String warning,String digest,String token,boolean confirmation){
+                        Map<String,String> errors,String warning,String digest,String token,boolean confirmation,Map<String,Object> controls){
+        public Quote(LocalDate date,List<LineQuote> lines,BigDecimal gross,BigDecimal discount,BigDecimal net,Map<String,String> errors,String warning,String digest,String token,boolean confirmation) {
+            this(date,lines,gross,discount,net,errors,warning,digest,token,confirmation,Map.of());
+        }
         public boolean valid(){return errors.isEmpty();}
-        public boolean needsApproval(){return lines.stream().anyMatch(OrderService::belowFloor);}
+        public boolean needsApproval(){return lines.stream().anyMatch(OrderService::belowFloor)||Boolean.TRUE.equals(controls.get("creditApproval"));}
         /** Explicit projection: no floor prices, internal actor data or costs in the public quote. */
         public Map<String,Object> reviewDisplay(){
             var out=new LinkedHashMap<>(display());
@@ -41,7 +44,7 @@ public final class OrderService {
                 row.put("selling",l.price.sellingPrice().toPlainString());row.put("gross",l.gross.toPlainString());row.put("discount",l.discount.toPlainString());row.put("net",l.net.toPlainString());
                 row.put("formatted",Map.of("selling",MoneyDisplay.format(l.price.sellingPrice()),"gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
                 row.put("needsApproval",belowFloor(l));row.put("policy",l.policy.applied()?l.policy.tier().name():"");rows.add(row);}
-            var out=new LinkedHashMap<String,Object>();out.put("date",date.toString());out.put("lines",rows);out.put("gross",gross.toPlainString());out.put("discount",discount.toPlainString());out.put("net",net.toPlainString());out.put("errors",errors);out.put("warning",warning);out.put("token",token);out.put("confirmation",confirmation);out.put("needsApproval",needsApproval());out.put("formatted",Map.of("gross",MoneyDisplay.format(gross),"discount",MoneyDisplay.format(discount),"net",MoneyDisplay.format(net)));return out;
+            var out=new LinkedHashMap<String,Object>();out.put("date",date.toString());out.put("lines",rows);out.put("gross",gross.toPlainString());out.put("discount",discount.toPlainString());out.put("net",net.toPlainString());out.put("errors",errors);out.put("warning",warning);out.put("token",token);out.put("confirmation",confirmation);out.put("needsApproval",needsApproval());out.put("controls",controls);out.put("formatted",Map.of("gross",MoneyDisplay.format(gross),"discount",MoneyDisplay.format(discount),"net",MoneyDisplay.format(net)));return out;
         }
     }
     public record Submission(boolean submitted,long order,Quote quote,String status){
@@ -95,13 +98,14 @@ public final class OrderService {
             if(id==0){var old=Sql.query(c,"SELECT id,creation_hash FROM orders WHERE created_by=? AND creation_key=?",actor,key);
                 if(!old.isEmpty()){if(!hash.equals(old.get(0).get("creation_hash")))throw FieldValidationException.field("form","Mã lưu đã dùng cho dữ liệu khác. Hãy mở lại đơn đã lưu.");return Sql.id(old.get(0).get("id"));}
                 DealerStatusService.requireNewOrderAllowed(dealer);
+                if(CreditService.snapshot(c,in.dealer,clock.instant()).overdue()) throw FieldValidationException.field("dealer","Đại lý có khoản quá hạn chưa thanh toán; không tạo đơn mới.");
             }
             Map<String,Object> before=null;
             if(id!=0){before=Sql.one(c,"SELECT * FROM orders WHERE id=? FOR UPDATE",id);if(Sql.id(before.get("dealer_id"))!=in.dealer)throw new SecurityException();owner(before,actor);editable(before,in.version);}
             address(c,dealer,in.address);productLocks(c,in.lines);var errors=new LinkedHashMap<String,String>();
             for(int i=0;i<in.lines.size();i++){var l=in.lines.get(i);try{UnitService.orderConversion(c,l.product,l.unit,l.quantity,nullableId(dealer.get("warehouse_id")));}catch(IllegalArgumentException e){errors.put("line"+i,e.getMessage());}}
             if(!errors.isEmpty())throw new FieldValidationException(errors);
-            long saved=id;if(id==0){try{saved=Sql.insert(c,"INSERT INTO orders(dealer_id,address_id,desired_delivery,created_by,owner_id,creation_key,creation_hash) VALUES(?,?,?,?,?,?,?)",in.dealer,in.address,in.delivery,actor,actor,key,hash);}catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("form","Mã lưu đã được dùng đồng thời. Hãy mở lại đơn đã lưu.");throw e;}}
+            long saved=id;if(id==0){try{saved=Sql.insert(c,"INSERT INTO orders(dealer_id,address_id,desired_delivery,created_by,owner_id,creation_key,creation_hash,source) VALUES(?,?,?,?,?,?,?,?)",in.dealer,in.address,in.delivery,actor,actor,key,hash,portal(a)?"PORTAL":"INTERNAL");}catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("form","Mã lưu đã được dùng đồng thời. Hãy mở lại đơn đã lưu.");throw e;}}
             else{Sql.update(c,"UPDATE orders SET address_id=?,desired_delivery=?,version=version+1 WHERE id=?",in.address,in.delivery,id);Sql.update(c,"DELETE FROM order_lines WHERE order_id=?",id);Sql.update(c,"DELETE FROM product_transaction_references WHERE reference_type='ORDER' AND reference_id=?",Long.toString(id));Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);}
             int position=0;for(var l:in.lines)Sql.insert(c,"INSERT INTO order_lines(order_id,position,product_id,unit_id,quantity) VALUES(?,?,?,?,?)",saved,position++,l.product,l.unit,CatalogValidation.decimal(l.quantity,6,true));
             Sql.update(c,"INSERT IGNORE INTO product_transaction_references(product_id,reference_type,reference_id) SELECT product_id,'ORDER',? FROM order_lines WHERE order_id=?",Long.toString(saved),saved);
@@ -116,7 +120,7 @@ public final class OrderService {
         row.put("formatted",Map.of("gross",MoneyDisplay.format(row.get("gross_total")),"discount",MoneyDisplay.format(row.get("discount_total")),"net",MoneyDisplay.format(row.get("net_total"))));
         @SuppressWarnings("unchecked") var detailLines=(List<Map<String,Object>>)row.get("lines");for(var line:detailLines)line.put("formatted",Map.of("selling",MoneyDisplay.format(line.get("selling_price")),"gross",MoneyDisplay.format(line.get("gross")),"discount",MoneyDisplay.format(line.get("discount")),"net",MoneyDisplay.format(line.get("net"))));
         var approvals=Sql.query(c,"SELECT status,request_reason,requested_at,decision_reason,decided_at,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.gross')) requested_gross,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.discount')) requested_discount,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.net')) requested_net FROM order_approval_requests WHERE order_id=?",id);
-        row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&canReview(ctx,actor,request(c,id)));}
+        row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&!"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canReview(ctx,actor,request(c,id)));}
         if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
     public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED").contains(status==null?"":status)?status:"";
         return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
@@ -136,7 +140,7 @@ public final class OrderService {
     private Quote ticket(Connection c,long actor,long id,long version,Quote q,boolean confirmation,String purpose)throws SQLException{String token=UUID.randomUUID().toString();
         Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=? AND expires_at<?",id,Timestamp.from(clock.instant()));
         Sql.update(c,"INSERT INTO order_quote_tickets(token,order_id,actor_id,order_version,digest,requires_confirmation,expires_at,purpose) VALUES(?,?,?,?,?,?,?,?)",token,id,actor,version,q.digest,confirmation,Timestamp.from(clock.instant().plusSeconds(900)),purpose);
-        return new Quote(q.date,q.lines,q.gross,q.discount,q.net,q.errors,q.warning,q.digest,token,confirmation);}
+        return new Quote(q.date,q.lines,q.gross,q.discount,q.net,q.errors,q.warning,q.digest,token,confirmation,q.controls);}
     private Quote calculate(Connection c,Map<String,Object> dealer,long address,LocalDate delivery,List<LineInput> input)throws SQLException{
         LocalDate date=clock.instant().atZone(VietnamTime.ZONE).toLocalDate();var errors=new LinkedHashMap<String,String>();var signature=new ArrayList<Object>();signature.add(date);signature.add(dealer);signature.add(delivery);
         try{signature.add(address(c,dealer,address));}catch(IllegalArgumentException e){errors.put("address",e.getMessage());}
@@ -155,7 +159,16 @@ public final class OrderService {
                 gross=DiscountMath.money(gross.add(g));discount=DiscountMath.money(discount.add(d));net=DiscountMath.money(net.add(n));
             }catch(IllegalArgumentException e){errors.put("line"+i,e.getMessage());}}
         String warning=DealerStatusService.locked(dealer)?"Đại lý hiện bị khóa: chỉ xử lý đơn đã tồn tại, không tạo đơn mới.":!"ACTIVE".equals(dealer.get("status"))?"Đại lý đã ngừng giao dịch; đây là đơn đã tồn tại.":"";
-        signature.add(lines);signature.add(errors);return new Quote(date,List.copyOf(lines),gross,discount,net,Collections.unmodifiableMap(errors),warning,digest(signature),"",false);
+        var controls=new LinkedHashMap<String,Object>();var available=new LinkedHashMap<String,Object>();
+        if(warehouse!=null) for(var entry:quantities.entrySet()) {
+            var stock=StockService.snapshot(c,warehouse,entry.getKey(),clock.instant());available.put(Long.toString(entry.getKey()),stock.available().toPlainString());
+            BigDecimal requested=entry.getValue().stream().reduce(BigDecimal.ZERO,BigDecimal::add);
+            if(requested.compareTo(stock.available())>0) for(int i=0;i<input.size();i++) if(input.get(i).product==entry.getKey()) errors.put("line"+i,"Vượt tồn khả dụng; tối đa "+stock.available().stripTrailingZeros().toPlainString()+" đơn vị cơ sở.");
+        }
+        var credit=CreditService.snapshot(c,Sql.id(dealer.get("id")),clock.instant());controls.put("available",available);controls.put("credit",credit.display());
+        controls.put("creditApproval",credit.netReceivable().add(credit.commitment()).add(net).compareTo(credit.limit())>0);
+        if(credit.overdue()) errors.put("dealer","Đại lý có khoản quá hạn chưa thanh toán.");
+        signature.add(lines);signature.add(controls);signature.add(errors);return new Quote(date,List.copyOf(lines),gross,discount,net,Collections.unmodifiableMap(errors),warning,digest(signature),"",false,Collections.unmodifiableMap(controls));
     }
     public Submission submit(long actor,long id,long version,String token,String submitKey,boolean confirmed){String key=uuid(submitKey,"submitKey");
         return Sql.transaction(source,c->{var ctx=context(c,actor,id,true);writer(ctx.access);owner(ctx.order,actor);
@@ -165,13 +178,16 @@ public final class OrderService {
             var tickets=Sql.query(c,"SELECT * FROM order_quote_tickets WHERE token=? AND actor_id=? AND order_id=? AND order_version=? AND purpose='SUBMIT'",uuid(token,"quote"),actor,id,version);
             if(tickets.isEmpty()||!q.digest.equals(tickets.get(0).get("digest"))||!Sql.instant(tickets.get(0).get("expires_at")).isAfter(clock.instant()))return new Submission(false,id,ticket(c,actor,id,version,q,true));
             if(DealerAddressService.isDefault(tickets.get(0).get("requires_confirmation"))&&!confirmed)return new Submission(false,id,ticket(c,actor,id,version,q,true));
-            if(q.needsApproval()) {
+            if(q.needsApproval()||portal(ctx.access)) {
                 snapshot(c,actor,id,ctx,q,"PENDING_APPROVAL",key,false);
-                Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),"Giá bán sau chiết khấu cần phê duyệt.",Timestamp.from(clock.instant()));
+                String reason=q.needsApproval()?"EXCEPTION":"STAFF_CONFIRMATION";
+                Sql.update(c,"UPDATE orders SET pending_reason=? WHERE id=?",reason,id);
+                Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),q.needsApproval()?"Giá dưới sàn hoặc vượt hạn mức cần phê duyệt.":"Đơn cổng chờ nhân viên phụ trách xác nhận.",Timestamp.from(clock.instant()));
                 AuditService.record(c,actor,"ORDER_APPROVAL_REQUESTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));
                 Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);return new Submission(false,id,null,"PENDING_APPROVAL");
             }
             snapshot(c,actor,id,ctx,q,"SUBMITTED",key,true);
+            StockService.reserve(c,actor,id,clock.instant());
             AuditService.record(c,actor,"ORDER_SUBMITTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);return new Submission(true,id,null);
         });
     }
@@ -185,7 +201,8 @@ public final class OrderService {
     }
     private static boolean canReview(Context ctx,long actor,Map<String,Object> request) {
         return !portal(ctx.access)&&ctx.access.allows("ORDER_APPROVE")&&ctx.access.roles().stream().anyMatch(Set.of("SALES_MANAGER","DIRECTOR")::contains)
-            &&Sql.id(ctx.order.get("created_by"))!=actor&&Sql.id(ctx.order.get("owner_id"))!=actor&&Sql.id(request.get("requested_by"))!=actor&&Sql.id(ctx.dealer.get("primary_staff_id"))!=actor;
+            &&Sql.id(ctx.order.get("created_by"))!=actor&&Sql.id(ctx.order.get("owner_id"))!=actor&&Sql.id(request.get("requested_by"))!=actor
+            &&("PORTAL".equals(ctx.order.get("source"))||Sql.id(ctx.dealer.get("primary_staff_id"))!=actor);
     }
     private static Map<String,Object> request(Connection c,long id)throws SQLException {
         return Sql.one(c,"SELECT * FROM order_approval_requests WHERE order_id=? FOR UPDATE",id);
@@ -211,7 +228,7 @@ public final class OrderService {
     }
     public Quote reviewQuote(long actor,long id) {
         return Sql.transaction(source,c->{var ctx=context(c,actor,id,true);var req=request(c,id);reviewer(ctx,actor,req);
-            if(!"PENDING_APPROVAL".equals(ctx.order.get("status")))throw FieldValidationException.field("form","Đơn không còn chờ duyệt.");
+            if(!"PENDING_APPROVAL".equals(ctx.order.get("status"))||"STAFF_CONFIRMATION".equals(ctx.order.get("pending_reason")))throw FieldValidationException.field("form","Đơn không chờ duyệt ngoại lệ.");
             var q=calculate(c,ctx.dealer,Sql.id(ctx.order.get("address_id")),LocalDate.parse(ctx.order.get("desired_delivery").toString()),inputs(c,id));
             return ticket(c,actor,id,Sql.id(ctx.order.get("version")),q,!q.digest.equals(req.get("request_digest")),"APPROVAL");});
     }
@@ -223,13 +240,13 @@ public final class OrderService {
                 if(desired.equals(req.get("status"))&&key.equals(req.get("decision_key"))&&Sql.id(req.get("decided_by"))==actor)return new Submission(approve,id,null,approve?"SUBMITTED":"REJECTED");
                 throw FieldValidationException.field("form","Đơn đã có quyết định. Hãy tải lại.");
             }
-            if(!"PENDING_APPROVAL".equals(ctx.order.get("status"))||Sql.id(ctx.order.get("version"))!=version)throw FieldValidationException.field("form","Đơn đã thay đổi. Hãy tải lại.");
+            if(!"PENDING_APPROVAL".equals(ctx.order.get("status"))||"STAFF_CONFIRMATION".equals(ctx.order.get("pending_reason"))||Sql.id(ctx.order.get("version"))!=version)throw FieldValidationException.field("form","Đơn đã thay đổi hoặc đang chờ NVKD xác nhận. Hãy tải lại.");
             var q=calculate(c,ctx.dealer,Sql.id(ctx.order.get("address_id")),LocalDate.parse(ctx.order.get("desired_delivery").toString()),inputs(c,id));
             var tickets=Sql.query(c,"SELECT * FROM order_quote_tickets WHERE token=? AND actor_id=? AND order_id=? AND order_version=? AND purpose='APPROVAL'",uuid(token,"quote"),actor,id,version);
             if(tickets.isEmpty()||!q.digest.equals(tickets.get(0).get("digest"))||!Sql.instant(tickets.get(0).get("expires_at")).isAfter(clock.instant())||DealerAddressService.isDefault(tickets.get(0).get("requires_confirmation"))&&!confirmed)
                 return new Submission(false,id,ticket(c,actor,id,version,q,true,"APPROVAL"));
             if(approve&&!q.valid())return new Submission(false,id,ticket(c,actor,id,version,q,false,"APPROVAL"));
-            if(approve){snapshot(c,actor,id,ctx,q,"SUBMITTED",Sql.text(ctx.order.get("submit_key")),true);AuditService.record(c,actor,"ORDER_SUBMITTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));}
+            if(approve){snapshot(c,actor,id,ctx,q,"SUBMITTED",Sql.text(ctx.order.get("submit_key")),true);StockService.reserve(c,actor,id,clock.instant());Sql.update(c,"UPDATE orders SET pending_reason=NULL WHERE id=?",id);AuditService.record(c,actor,"ORDER_SUBMITTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));}
             else Sql.update(c,"UPDATE orders SET status='REJECTED',version=version+1 WHERE id=?",id);
             try{Sql.update(c,"UPDATE order_approval_requests SET status=?,decision_key=?,decided_by=?,decision_reason=?,decision_snapshot=?,decided_at=? WHERE order_id=?",desired,key,actor,why,quoteSnapshot(q),Timestamp.from(clock.instant()),id);}
             catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("decisionKey","Mã quyết định đã dùng cho đơn khác.");throw e;}

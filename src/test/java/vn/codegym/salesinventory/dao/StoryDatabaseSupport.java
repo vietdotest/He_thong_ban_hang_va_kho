@@ -2,6 +2,7 @@ package vn.codegym.salesinventory.dao;
 
 import com.zaxxer.hikari.HikariDataSource;
 import java.math.BigDecimal;
+import java.time.*;
 import java.util.*;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
@@ -43,6 +44,14 @@ abstract class StoryDatabaseSupport {
     long category(long manager) { return new CategoryService(source).save(manager,0,"C-"+UUID.randomUUID(),"Nhóm thử",null,0); }
     long product(long manager) {
         return new ProductService(source).save(manager,0,new ProductService.Input("P-"+UUID.randomUUID(),"Sản phẩm thử",category(manager),"Lon","",BigDecimal.ONE,null,"ACTIVE",0));
+    }
+    /** An ordinary receipt establishes stock for order regression fixtures. */
+    void supply(long warehouse,long product,long unit,String quantity,Clock clock) {
+        long worker=user("WAREHOUSE");update("INSERT INTO user_warehouses(user_id,warehouse_id) VALUES(?,?)",worker,warehouse);
+        long supplier=insert("INSERT INTO suppliers(code,name,tax_code,contact_name,contact_phone,payment_terms,warehouse_id) VALUES(?,'Nguồn hàng','','Người giao','0912345678','',?)","S-"+UUID.randomUUID(),warehouse);
+        var stock=new StockService(source,clock);long receipt=stock.saveReceipt(worker,0,0,UUID.randomUUID().toString(),
+            new StockService.ReceiptInput(warehouse,supplier,"PN",LocalDate.now(clock),List.of(new StockService.ReceiptLine(product,unit,new BigDecimal(quantity),"L",null))));
+        stock.confirmReceipt(worker,receipt,1,UUID.randomUUID().toString());
     }
     void failAudit() { update("CREATE TRIGGER story_audit_fail BEFORE INSERT ON audit_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='audit rejected'"); }
     long count(String sql,Object... args) { return Sql.id(one(sql,args).get("n")); }

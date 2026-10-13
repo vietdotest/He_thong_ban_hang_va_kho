@@ -19,6 +19,8 @@ class OrderAcceptanceIT extends StoryDatabaseSupport {
         product=product(manager);unit=Sql.id(one("SELECT id FROM product_units WHERE product_id=? AND is_base=1",product).get("id"));
         var pricing=new PricingService(source);priceVersion=pricing.create(manager,group,"Giá QA",date,date.plusDays(1),null);pricing.saveItem(manager,priceVersion,product,new BigDecimal("100"),new BigDecimal("50"));
         service=new OrderService(source,Clock.fixed(Instant.parse("2029-12-31T18:00:00Z"),ZoneOffset.UTC));
+        update("UPDATE dealers SET credit_limit=1000000000,debt_days=30 WHERE id=?",dealer);
+        supply(warehouse,product,unit,"50000",Clock.fixed(Instant.parse("2029-12-31T18:00:00Z"),ZoneOffset.UTC));
     }
     OrderService.Input input(long version,OrderService.LineInput... lines){return new OrderService.Input(dealer,address,date.plusDays(2),version,UUID.randomUUID().toString(),List.of(lines));}
     OrderService.LineInput line(String quantity){return new OrderService.LineInput(product,unit,new BigDecimal(quantity));}

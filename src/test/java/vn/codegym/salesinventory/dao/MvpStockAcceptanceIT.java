@@ -31,9 +31,9 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     long receive(String qty) { long r=stock.saveReceipt(worker,0,0,key(),input(qty));return stock.confirmReceipt(worker,r,1,key()); }
     long order(String qty) {
         long id=orders.save(sales,0,new OrderService.Input(dealer,address,LocalDate.of(2027,1,2),0,key(),List.of(new OrderService.LineInput(product,unit,new BigDecimal(qty)))));
-        var q=orders.quote(sales,id);orders.submit(sales,id,1,q.token(),key(),false);return id;
+        return id;
     }
-    void reserve(long id) { Sql.transaction(source,c->{Sql.one(c,"SELECT id FROM dealers WHERE id=? FOR UPDATE",dealer);StockService.reserve(c,sales,id,now);return null;}); }
+    void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
     @Test void draftDoesNotAddStockAndConfirmationReplayAddsExactlyOnce() {
         long r=stock.saveReceipt(worker,0,0,key(),input("20"));assertThat(balance().onHand()).isEqualByComparingTo("0");
