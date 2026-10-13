@@ -3,8 +3,8 @@
 <c:choose><c:when test="${importStep == 1}"><jsp:include page="import.jsp"/></c:when><c:otherwise>
 <!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><c:out value="${title}"/> | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/import-jobs.css?v=s3-1">
-<script src="${pageContext.request.contextPath}/assets/js/import-jobs.js?v=s3-1" defer></script></head>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/import-jobs.css?v=uiux-20261013">
+<script src="${pageContext.request.contextPath}/assets/js/import-jobs.js?v=uiux-20261013" defer></script></head>
 <body class="app-page"><%@ include file="../fragments/sidebar.jspf" %><%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content import-page" data-import-job data-job-id="<c:out value='${job.id}'/>" data-job-status="<c:out value='${job.status}'/>">
 <c:set var="listPath" value="${userImportPage ? '/admin/users' : '/catalog/products'}"/>
