@@ -1,0 +1,70 @@
+package vn.codegym.salesinventory.dao;
+
+import java.math.*;
+import java.time.*;
+import java.util.*;
+import java.util.concurrent.*;
+import org.junit.jupiter.api.*;
+import static org.assertj.core.api.Assertions.*;
+import vn.codegym.salesinventory.service.*;
+
+class MvpStockAcceptanceIT extends StoryDatabaseSupport {
+    long manager,sales,worker,warehouse,supplier,product,unit,dealer,address;
+    final Instant now=Instant.parse("2027-01-01T03:00:00Z");final Clock clock=Clock.fixed(now,ZoneOffset.UTC);
+    StockService stock;OrderService orders;
+    @BeforeEach void setup() {
+        manager=user("SALES_MANAGER");sales=user("SALES");worker=user("WAREHOUSE");warehouse=warehouse(worker);
+        supplier=insert("INSERT INTO suppliers(code,name,tax_code,contact_name,contact_phone,payment_terms,warehouse_id) VALUES(?,'Nhà cung cấp','','Người giao','0912345678','',?)","S-"+UUID.randomUUID(),warehouse);
+        product=product(manager);unit=Sql.id(one("SELECT id FROM product_units WHERE product_id=? AND is_base=1",product).get("id"));
+        long group=insert("INSERT INTO customer_groups(code,name) VALUES(?,'Nhóm bán')","G-"+UUID.randomUUID().toString().substring(0,12));
+        long territory=insert("INSERT INTO territories(code,name,address) VALUES(?,'Khu vực','Địa chỉ')","T-"+UUID.randomUUID());
+        update("INSERT INTO user_territories(user_id,territory_id) VALUES(?,?)",sales,territory);
+        dealer=new DealerService(source).save(manager,0,new DealerService.Input("D-"+UUID.randomUUID(),"Đại lý","","0912345678",group,territory,sales,warehouse,"ACTIVE",0));
+        address=new DealerAddressService(source).save(manager,dealer,0,new DealerAddressService.Input("12 Đường giao","Người nhận","0912345678","",true,"ACTIVE",0,1));
+        update("UPDATE dealers SET credit_limit=1000,debt_days=30 WHERE id=?",dealer);
+        var pricing=new PricingService(source);long v=pricing.create(manager,group,"Giá",LocalDate.of(2027,1,1),LocalDate.of(2027,1,31),null);
+        pricing.saveItem(manager,v,product,new BigDecimal("100"),new BigDecimal("50"));
+        stock=new StockService(source,clock);orders=new OrderService(source,clock);
+    }
+    String key() { return UUID.randomUUID().toString(); }
+    StockService.ReceiptInput input(String qty) { return new StockService.ReceiptInput(warehouse,supplier,"PN-01",LocalDate.of(2027,1,1),List.of(new StockService.ReceiptLine(product,unit,new BigDecimal(qty),"L-01",null))); }
+    long receive(String qty) { long r=stock.saveReceipt(worker,0,0,key(),input(qty));return stock.confirmReceipt(worker,r,1,key()); }
+    long order(String qty) {
+        long id=orders.save(sales,0,new OrderService.Input(dealer,address,LocalDate.of(2027,1,2),0,key(),List.of(new OrderService.LineInput(product,unit,new BigDecimal(qty)))));
+        var q=orders.quote(sales,id);orders.submit(sales,id,1,q.token(),key(),false);return id;
+    }
+    void reserve(long id) { Sql.transaction(source,c->{Sql.one(c,"SELECT id FROM dealers WHERE id=? FOR UPDATE",dealer);StockService.reserve(c,sales,id,now);return null;}); }
+    StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void draftDoesNotAddStockAndConfirmationReplayAddsExactlyOnce() {
+        long r=stock.saveReceipt(worker,0,0,key(),input("20"));assertThat(balance().onHand()).isEqualByComparingTo("0");
+        String k=key();stock.confirmReceipt(worker,r,1,k);stock.confirmReceipt(worker,r,1,k);
+        assertThat(balance().onHand()).isEqualByComparingTo("20");assertThat(balance().available()).isEqualByComparingTo("20");
+        assertThat(count("SELECT COUNT(*) n FROM mvp_lots WHERE receipt_line_id IN(SELECT id FROM mvp_receipt_lines WHERE receipt_id=?)",r)).isEqualTo(1);
+        assertThatThrownBy(()->stock.saveReceipt(worker,r,2,key(),input("30"))).isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test void receiptFailureRollsBackLotsStockReferencesAndReplayRecord() {
+        long r=stock.saveReceipt(worker,0,0,key(),input("20"));String k=key();failAudit();
+        assertThatThrownBy(()->stock.confirmReceipt(worker,r,1,k)).isInstanceOf(IllegalStateException.class);
+        assertThat(balance().onHand()).isEqualByComparingTo("0");assertThat(stock.receipt(worker,r)).containsEntry("status","DRAFT");
+        assertThat(count("SELECT COUNT(*) n FROM mvp_commands WHERE actor_id=? AND operation='RECEIPT_CONFIRM' AND request_key=?",worker,k)).isZero();
+    }
+    @Test void usersCannotWriteOutsideAssignedWarehouseOrUseAnotherWarehouseSupplier() {
+        long otherWorker=user("WAREHOUSE"),otherWarehouse=warehouse(otherWorker);
+        assertThatThrownBy(()->stock.saveReceipt(otherWorker,0,0,key(),input("2"))).isInstanceOf(SecurityException.class);
+        var wrongSupplier=new StockService.ReceiptInput(otherWarehouse,supplier,"PN",LocalDate.of(2027,1,1),input("2").lines());
+        assertThatThrownBy(()->stock.saveReceipt(otherWorker,0,0,key(),wrongSupplier)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->stock.saveReceipt(manager,0,0,key(),input("2"))).isInstanceOf(SecurityException.class);
+    }
+    @Test void twoOrdersCannotReserveMoreThanRealStock() throws Exception {
+        receive("5");long first=order("4"),second=order("4");var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
+        try { var tasks=new ArrayList<Future<Boolean>>();for(long id:List.of(first,second)) tasks.add(pool.submit(()->{start.await();try{reserve(id);return true;}catch(IllegalArgumentException e){return false;}}));
+            start.countDown();int ok=0;for(var t:tasks) if(t.get(30,TimeUnit.SECONDS)) ok++;
+            assertThat(ok).isEqualTo(1);assertThat(balance().reserved()).isEqualByComparingTo("4");assertThat(balance().available()).isEqualByComparingTo("1");
+            var credit=Sql.snapshot(source,c->CreditService.snapshot(c,dealer,now));assertThat(credit.commitment()).isEqualByComparingTo("400");assertThat(credit.outstanding()).isEqualByComparingTo("0");
+        } finally {pool.shutdownNow();}
+    }
+    @Test void failedReservationAuditRollsBackAllHolds() {
+        receive("5");long id=order("4");failAudit();assertThatThrownBy(()->reserve(id)).isInstanceOf(IllegalStateException.class);
+        assertThat(balance().reserved()).isEqualByComparingTo("0");assertThat(balance().available()).isEqualByComparingTo("5");
+    }
+}

@@ -62,6 +62,10 @@ public final class AuditService {
     public static void record(Connection c,long actor,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
         Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",actor,event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
     }
+    /** Automatic maintenance has no human actor; retain its trigger in the ordinary snapshot. */
+    public static void recordSystem(Connection c,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
+        Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(NULL,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
+    }
     /** Overview intentionally excludes snapshots and all sensitive values. */
     public static List<Map<String,Object>> recent(Connection c,vn.codegym.salesinventory.security.Access access) throws SQLException {
         access.require("AUDIT_READ");
