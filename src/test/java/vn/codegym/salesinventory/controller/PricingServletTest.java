@@ -7,6 +7,22 @@ import vn.codegym.salesinventory.validation.FieldValidationException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class PricingServletTest extends CatalogControllerTestSupport {
+    @Test void defaultUsesActiveVersionEvenWhenFirstPageContainsOnlyFutureVersions()throws Exception{
+        params.clear();
+        var future=Map.<String,Object>of("id",99L,"effective_state","UPCOMING");
+        var active=Map.<String,Object>of("id",4L,"effective_state","ACTIVE");
+        when(service.searchVersions(anyLong(),anyString(),any())).thenReturn(new vn.codegym.salesinventory.dto.PageResult<>(java.util.List.of(future),21,1,20));
+        when(service.versions(12)).thenReturn(java.util.List.of(future,active));
+        when(service.searchItems(anyLong(),anyLong(),anyString(),any())).thenReturn(new vn.codegym.salesinventory.dto.PageResult<>(java.util.List.of(),0,1,20));
+        servlet.doGet(request,response);
+        assertThat(attributes.get("edit")).isEqualTo(active);
+        verify(service).searchItems(eq(12L),eq(4L),anyString(),any());
+    }
+    @Test void noActiveVersionDoesNotSilentlyShowFuturePrices()throws Exception{
+        params.clear();when(service.versions(12)).thenReturn(java.util.List.of(Map.of("id",99L,"effective_state","UPCOMING")));
+        servlet.doGet(request,response);assertThat(attributes).doesNotContainKey("edit");
+        verify(service,never()).searchItems(anyLong(),anyLong(),anyString(),any());
+    }
     PricingService service;ProductService products;PricingServlet servlet;
     @BeforeEach void controller()throws Exception{service=mock(PricingService.class);products=mock(ProductService.class);when(service.searchVersions(anyLong(),anyString(),any())).thenReturn(new vn.codegym.salesinventory.dto.PageResult<>(java.util.List.of(),0,1,20));servlet=new PricingServlet(service,products);init(servlet);params.putAll(Map.of("action","item","id","1","revision","4","product","2","selling","100","floor","90"));}
     @Test void savePreservesIndependentVersionAndItemFilters()throws Exception{params.putAll(Map.of("versionQuery","Giá & mới","itemQuery","SKU","versionPage","2","versionPageSize","50","itemPage","3","itemPageSize","100"));servlet.doPost(request,response);verify(response).setHeader("Location","/pricing/lists?id=1&q=&versionQuery=Gi%C3%A1+%26+m%E1%BB%9Bi&itemQuery=SKU&versionPage=2&versionPageSize=50&itemPage=3&itemPageSize=100&notice=saved");}
