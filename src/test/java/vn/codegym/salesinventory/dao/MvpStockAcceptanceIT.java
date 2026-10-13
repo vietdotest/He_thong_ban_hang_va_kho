@@ -35,6 +35,21 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void expirationReleasesOnlyUnprotectedRemainderAndAuditsSystemActor(){new StockService(source,Clock.fixed(now.plus(Duration.ofHours(24)),ZoneOffset.UTC)).expireHolds();receive("20");long first=order("4");reserve(first);long protectedOrder=order("4");reserve(protectedOrder);
+        update("UPDATE mvp_holds SET protected_at=? WHERE order_id=?",java.sql.Timestamp.from(now),protectedOrder);
+        var later=Clock.fixed(now.plus(Duration.ofHours(24)),ZoneOffset.UTC);var laterStock=new StockService(source,later);
+        assertThat(Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,later.instant())).reserved()).isEqualByComparingTo("4");
+        assertThat(laterStock.expireHolds()).isEqualTo(1);assertThat(laterStock.expireHolds()).isZero();
+        assertThat(one("SELECT fulfillment_state FROM orders WHERE id=?",first)).containsEntry("fulfillment_state","EXPIRED");
+        assertThat(count("SELECT COUNT(*) n FROM audit_logs WHERE event_type='STOCK_HOLDS_EXPIRED' AND object_id=? AND actor_user_id IS NULL",first)).isEqualTo(1);
+        assertThat(Sql.snapshot(source,c->CreditService.snapshot(c,dealer,later.instant())).commitment()).isEqualByComparingTo("400");
+    }
+    @Test void expirationAuditFailureRollsBackReleaseAndCanRetry(){var laterStock=new StockService(source,Clock.fixed(now.plus(Duration.ofHours(25)),ZoneOffset.UTC));laterStock.expireHolds();receive("10");long id=order("4");reserve(id);
+        update("CREATE TRIGGER fail_expiration BEFORE INSERT ON audit_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='audit failed'");
+        try{assertThatThrownBy(laterStock::expireHolds).isInstanceOf(IllegalStateException.class);}finally{update("DROP TRIGGER fail_expiration");}
+        assertThat((BigDecimal)one("SELECT released FROM mvp_holds WHERE order_id=?",id).get("released")).isEqualByComparingTo("0");
+        assertThat(laterStock.expireHolds()).isEqualTo(1);
+    }
     @Test void draftDoesNotAddStockAndConfirmationReplayAddsExactlyOnce() {
         long r=stock.saveReceipt(worker,0,0,key(),input("20"));assertThat(balance().onHand()).isEqualByComparingTo("0");
         String k=key();stock.confirmReceipt(worker,r,1,k);stock.confirmReceipt(worker,r,1,k);

@@ -130,6 +130,27 @@ public final class StockService {
             }return result;
         });
     }
+    /** Logical availability already excludes expired holds; this records their release and audit. */
+    public int expireHolds() {
+        var now=clock.instant();var candidates=Sql.snapshot(source,c->Sql.query(c,"SELECT DISTINCT order_id FROM mvp_holds WHERE protected_at IS NULL AND expires_at<=? AND consumed+released<quantity ORDER BY order_id",MvpCommands.timestamp(now)));
+        int released=0;
+        for(var candidate:candidates) {
+            long order=Sql.id(candidate.get("order_id"));
+            released+=Sql.transaction(source,c->{long dealer=Sql.id(Sql.one(c,"SELECT dealer_id FROM orders WHERE id=?",order).get("dealer_id"));
+                Sql.one(c,"SELECT id FROM dealers WHERE id=? FOR UPDATE",dealer);var header=Sql.one(c,"SELECT * FROM orders WHERE id=? FOR UPDATE",order);
+                Sql.query(c,"SELECT l.id FROM mvp_lots l WHERE l.id IN (SELECT h.lot_id FROM mvp_holds h WHERE h.order_id=?) ORDER BY l.product_id,l.received_date,l.id FOR UPDATE",order);
+                var holds=Sql.query(c,"SELECT * FROM mvp_holds WHERE order_id=? ORDER BY id FOR UPDATE",order);int count=0;
+                for(var hold:holds)if(hold.get("protected_at")==null&&!Sql.instant(hold.get("expires_at")).isAfter(now)&&MvpCommands.decimal(hold.get("quantity")).compareTo(MvpCommands.decimal(hold.get("consumed")).add(MvpCommands.decimal(hold.get("released"))))>0) {
+                    Sql.update(c,"UPDATE mvp_holds SET released=quantity-consumed WHERE id=?",hold.get("id"));count++;
+                }
+                if(count>0){
+                    BigDecimal active=CreditService.sum(c,"SELECT COALESCE(SUM(quantity-consumed-released),0) amount FROM mvp_holds WHERE order_id=? AND (protected_at IS NOT NULL OR expires_at>?)",order,MvpCommands.timestamp(now));
+                    Sql.update(c,"UPDATE orders SET version=version+1,fulfillment_state=CASE WHEN ?=0 THEN 'EXPIRED' ELSE fulfillment_state END WHERE id=?",active,order);
+                    AuditService.recordSystem(c,"STOCK_HOLDS_EXPIRED","ORDER",order,header,Sql.one(c,"SELECT * FROM orders WHERE id=?",order));
+                }return count;
+            });
+        }return released;
+    }
     public List<Map<String,Object>> warehouses(long actor,String permission) { return Sql.snapshot(source,c->{
         if("STOCK_RECEIPT_WRITE".equals(permission)) { MvpAccess.stockOperator(c,actor,permission);return Sql.query(c,"SELECT w.id,w.code,w.name,w.address FROM warehouses w JOIN user_warehouses uw ON uw.warehouse_id=w.id WHERE uw.user_id=? ORDER BY w.name,w.id",actor); }
         var a=MvpAccess.internal(c,actor,permission);var out=new ArrayList<Map<String,Object>>();for(var w:Sql.query(c,"SELECT id,code,name,address FROM warehouses ORDER BY name,id")) if(MvpAccess.canReadWarehouse(c,actor,a,Sql.id(w.get("id")))) out.add(w);return out;
