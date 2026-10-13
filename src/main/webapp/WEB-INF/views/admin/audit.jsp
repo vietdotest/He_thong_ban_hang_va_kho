@@ -6,7 +6,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Nhật ký thao tác</title>
+    <title>Nhật ký thao tác | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page audit-page">

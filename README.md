@@ -94,6 +94,17 @@ Tài khoản do quản trị viên tạo phải kích hoạt qua email trước 
 
 ## Phạm vi hiện tại
 
-Nhánh `develop` tích hợp Sprint 1 và Sprint 2: tài khoản, phân quyền, phân công kho/địa bàn, hồ sơ, nhập Excel, nhật ký, sản phẩm, nhóm hàng, quy đổi đơn vị, nhà cung cấp và bảng giá.
+Nhánh `develop` tích hợp Sprint 1, Sprint 2 và Sprint 3: tài khoản, phân quyền, phân công kho/địa bàn, hồ sơ, nhập Excel, nhật ký, sản phẩm, nhóm hàng, quy đổi đơn vị, nhà cung cấp và bảng giá.
 
-Các luồng tạo đơn bán hàng, phiếu nhập/xuất kho, hóa đơn, công nợ và duyệt đơn dưới giá sàn chưa có giao diện nghiệp vụ hoàn chỉnh trong phạm vi này. Danh mục đã có kiểm tra tham chiếu giao dịch, lưu hệ số quy đổi và phiên bản giá để các luồng đó tích hợp sau.
+Sprint 3 bổ sung đại lý, điểm giao, hạn mức, bàn giao, khóa giao dịch, chiết khấu, lịch sử giá, đơn bán hàng và cổng đại lý. Phiếu nhập/xuất kho, hóa đơn và công nợ chưa có giao diện nghiệp vụ hoàn chỉnh trong phạm vi này.
+
+
+## Quy tắc chiết khấu và duyệt đơn
+
+- Cộng số lượng của cùng một SKU trên mọi dòng và đơn vị, sau khi quy đổi về đơn vị cơ sở. Chính sách nhóm hàng được xét riêng cho từng SKU; không cộng lượng của các SKU khác nhau để đạt bậc.
+- So sánh lợi ích bằng tiền của các chính sách SKU và nhóm hàng còn hiệu lực cho nhóm khách hàng trong ngày tính giá tại Việt Nam. Chọn mức giảm có lợi nhất, không cộng dồn. Nếu bằng nhau, chọn chính sách có ID nhỏ hơn để kết quả ổn định.
+- Tính toán dùng `BigDecimal`; số tiền dòng và tổng giữ bốn chữ số thập phân với `HALF_UP` như dữ liệu lưu. Giao diện đơn và cổng hiển thị đồng nguyên, `HALF_UP`, dùng chuỗi định dạng từ server. Việc làm tròn hiển thị không thay đổi phép xét giá sàn.
+- Giá sau chiết khấu dưới sàn vẫn báo giá được nhưng gửi đơn chuyển thành `PENDING_APPROVAL`. Đơn trên hoặc bằng sàn chuyển thẳng `SUBMITTED`. Đơn chờ duyệt chưa được coi là đã tiếp nhận và không sửa trực tiếp.
+- Quản lý kinh doanh hoặc Ban giám đốc có `ORDER_APPROVE` được chấp thuận/từ chối. Người tạo, người yêu cầu và người tiếp quản không được tự duyệt, kể cả có nhiều vai trò. Ban giám đốc không được cấp thêm quyền sửa đơn hoặc xem giá vốn.
+- Người duyệt xem báo giá lúc yêu cầu và báo giá hiện tại. Khi giá, chiết khấu, nhóm hoặc ngày giá thay đổi, phải xác nhận báo giá mới; server kiểm lại trong giao dịch quyết định. Thiếu giá, SKU không hợp lệ hoặc sai phạm vi vẫn chặn chấp thuận.
+- Chấp thuận lưu snapshot cuối cùng và nhật ký trong cùng giao dịch. Từ chối bắt buộc lý do, chuyển `REJECTED`, chỉ đọc; muốn tiếp tục phải tạo đơn mới. Khóa phiên bản và mã gửi/quyết định bảo vệ việc gửi lại hoặc thao tác đồng thời.

@@ -7,7 +7,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Danh mục sản phẩm</title>
+    <title>Danh mục sản phẩm | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
 </head>
 <body class="app-page">
