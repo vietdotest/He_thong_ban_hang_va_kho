@@ -15,7 +15,7 @@ public final class AuthorizationFilter implements Filter {
         HttpServletRequest r=(HttpServletRequest)req; HttpServletResponse s=(HttpServletResponse)res;
         String path=r.getRequestURI().substring(r.getContextPath().length());
         if(RoutePermissions.publicPath(path)) { chain.doFilter(req,res); return; }
-        String required=RoutePermissions.required(path,r.getMethod());
+        String required=RoutePermissions.required(path,r.getMethod(),path.equals("/orders")&&r.getMethod().equals("POST")?r.getParameter("action"):null);
         if(required==null) { s.sendError(404); return; }
         Object principal=r.getSession(false)==null ? null : r.getSession(false).getAttribute(SessionKeys.CURRENT_USER);
         if(!(principal instanceof CurrentUser user)) { s.sendError(403); return; }
