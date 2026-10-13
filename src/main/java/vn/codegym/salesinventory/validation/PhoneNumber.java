@@ -1,6 +1,13 @@
 package vn.codegym.salesinventory.validation;
 public final class PhoneNumber {
     private PhoneNumber() { }
+    public static String searchDigits(String phone) {
+        String n=phone==null?"":phone.trim();
+        if(!n.matches("[+0-9() .\\s-]+"))return "";
+        n=n.replaceAll("[\\s().-]","");
+        if(n.startsWith("+84"))n="0"+n.substring(3);
+        return n.matches("[0-9]{5,}")?n:"";
+    }
     public static String normalize(String phone) {
         String n=phone==null ? "" : phone.trim().replaceAll("[\\s().-]","");
         if(n.startsWith("+84")) n="0"+n.substring(3);

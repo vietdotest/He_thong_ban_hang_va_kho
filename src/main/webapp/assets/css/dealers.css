@@ -1,0 +1,9 @@
+.dealer-table{width:100%;min-width:1100px;table-layout:fixed}
+.dealer-table tbody tr{height:68px}
+.dealer-table th,.dealer-table td{padding:10px 12px;vertical-align:top}
+.dealer-cell-code,.dealer-cell-name,.dealer-cell-value{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:21px}
+.dealer-actions{display:flex;align-items:center;gap:6px;white-space:nowrap;min-height:42px}
+.dealer-actions form{display:inline-flex!important;align-items:center;margin:0!important;padding:0!important;gap:0!important;min-width:0!important;border:0!important;background:transparent!important}
+.dealer-actions .button,.dealer-action-link{display:inline-flex;align-items:center;justify-content:center;min-height:32px;padding:4px 6px;white-space:nowrap;font-size:13px;line-height:21px}
+.dealer-related-links{display:flex;flex-wrap:wrap;gap:8px}.dealer-readonly dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px}.dealer-readonly dd{margin:0;overflow-wrap:anywhere}
+@media(max-width:600px){.dealer-actions .button,.dealer-action-link{min-height:44px}.dealer-readonly dl{grid-template-columns:1fr}.dealer-readonly dd{margin-bottom:12px}}

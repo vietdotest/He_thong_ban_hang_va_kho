@@ -36,6 +36,8 @@ public class OrderServlet extends PortalServlet {
         if(r.getAttribute("lineForms")==null)r.setAttribute("lineForms",id==0?List.of(Map.of("product_id","","unit_id","","quantity","1")):order.get("lines"));
         r.setAttribute("products",portalMode()?new PortalCatalogService(source()).search(actor,"",new PageRequest(1,20)).items():products().search(actor,"",null,"ACTIVE",new PageRequest(1,20)).items());
         r.setAttribute("submitKey",UUID.randomUUID().toString());r.setAttribute("editing",id==0||Boolean.TRUE.equals(order.get("can_edit")));
+        if(Boolean.TRUE.equals(order.get("can_review"))&&r.getAttribute("approvalQuote")==null)r.setAttribute("approvalQuote",service().reviewQuote(actor,id).reviewDisplay());
+        r.setAttribute("decisionKey",UUID.randomUUID().toString());
         if(quote&&Boolean.TRUE.equals(order.get("can_edit")))r.setAttribute("quote",service().quote(actor,id).display());
         else if(quote&&"DRAFT".equals(order.get("status")))r.setAttribute("readQuote",service().estimate(actor,id).display());
     }
@@ -44,11 +46,13 @@ public class OrderServlet extends PortalServlet {
         if("/portal".equals(r.getServletPath())){r.setAttribute("dealer",new PortalAccountService(source(),null).profile(actor(r).id()));var offers=new PortalCatalogService(source()).search(actor(r).id(),value(r,"q"),PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("products",offers.items());r.setAttribute("pagination",offers);view(r,s,"portal/home");return;}
         long id=optional(r,"id");if(id>0||"new".equals(value(r,"action"))){access(r).require(permission(id==0));editor(r,id,true);view(r,s,"orders/editor");return;}
         Long dealer=optional(r,"dealer")==0?null:optional(r,"dealer");var p=service().search(actor(r).id(),value(r,"q"),value(r,"status"),dealer,PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("orders",p.items());r.setAttribute("pagination",p);view(r,s,"orders/list");}
-    protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{layout(r);access(r).require(permission(true));String action=value(r,"action");long id=optional(r,"id");
+    protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{layout(r);String action=value(r,"action");long id=optional(r,"id");
+        if("approve".equals(action)||"reject".equals(action)){if(portalMode())throw new SecurityException();access(r).require("ORDER_APPROVE");try{var result=service().decide(actor(r).id(),id,number(r,"version"),value(r,"quoteToken"),value(r,"decisionKey"),"approve".equals(action),value(r,"reason"),"true".equals(value(r,"confirmed")));if(result.accepted())redirect(r,s,path()+"?id="+id+"&notice="+(result.submitted()?"approved":"rejected"));else{r.setAttribute("approvalQuote",result.quote().reviewDisplay());editor(r,id,false);view(r,s,"orders/editor");}}catch(IllegalArgumentException e){s.setStatus(400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
+        access(r).require(permission(true));
         if("preview".equals(action)){try{json(s,service().preview(actor(r).id(),input(r)).display());}catch(IllegalArgumentException e){s.setStatus(400);json(s,Map.of("errors",fieldErrors(e)));}return;}
         try{switch(action){case "save"->{long saved=service().save(actor(r).id(),id,input(r));redirect(r,s,path()+"?id="+saved+"&notice=saved"+filters(r));}
                 case "takeover"->{if(portalMode())throw new SecurityException();service().takeover(actor(r).id(),id,number(r,"version"),value(r,"reason"));redirect(r,s,path()+"?id="+id+"&notice=taken-over"+filters(r));}
-                case "submit"->{var result=service().submit(actor(r).id(),id,number(r,"version"),value(r,"quoteToken"),value(r,"submitKey"),"true".equals(value(r,"confirmed")));if(result.submitted())redirect(r,s,path()+"?id="+id+"&notice=submitted"+filters(r));else{editor(r,id,false);r.setAttribute("quote",result.quote().display());view(r,s,"orders/editor");}}
+                case "submit"->{var result=service().submit(actor(r).id(),id,number(r,"version"),value(r,"quoteToken"),value(r,"submitKey"),"true".equals(value(r,"confirmed")));if(result.accepted())redirect(r,s,path()+"?id="+id+"&notice="+(result.submitted()?"submitted":"pending")+filters(r));else{editor(r,id,false);r.setAttribute("quote",result.quote().display());view(r,s,"orders/editor");}}
                 default->s.sendError(400);}}
         catch(IllegalArgumentException e){s.setStatus(400);r.setAttribute("errors",fieldErrors(e));if("save".equals(action)){r.setAttribute("form",formValues(r,"id","dealer","address","delivery","version","creationKey"));r.setAttribute("lineForms",lineValues(r));r.setAttribute("unsaved",true);}editor(r,id,false);view(r,s,"orders/editor");}
     }
