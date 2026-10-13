@@ -20,6 +20,10 @@ class PortalAcceptanceIT extends StoryDatabaseSupport {
     OrderService.Input input(long version){return new OrderService.Input(dealer,address,LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE).plusDays(2),version,UUID.randomUUID().toString(),List.of(new OrderService.LineInput(product,unit,BigDecimal.ONE)));}
     long pending(OrderService orders,long portal){long id=orders.save(portal,0,input(0));var q=orders.quote(portal,id);orders.submit(portal,id,1,q.token(),UUID.randomUUID().toString(),false);return id;}
     BigDecimal held(){return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,clock.instant())).reserved();}
+    @Test void salesCanReturnOrdinaryPortalToOriginalDealerForEditing(){long portal=active();var orders=new OrderService(source,clock);long id=pending(orders,portal);String key=UUID.randomUUID().toString();orders.returnForEdit(sales,id,2,key,"Sửa điểm giao",true);orders.returnForEdit(sales,id,2,key,"Sửa điểm giao",true);
+        assertThat(orders.find(portal,id)).containsEntry("status","DRAFT").containsEntry("can_edit",true);assertThat(held()).isEqualByComparingTo("0");orders.save(portal,id,input(3));var q=orders.quote(portal,id);assertThat(orders.submit(portal,id,4,q.token(),UUID.randomUUID().toString(),false).status()).isEqualTo("PENDING_APPROVAL");
+        assertThat(count("SELECT COUNT(*) n FROM mvp_order_history WHERE order_id=? AND event_type='RETURNED'",id)).isEqualTo(1);
+    }
     @Test void currentSalesConfirmsPortalWithoutChangingOwnerAndReplayCannotDoubleHold(){long portal=active();var orders=new OrderService(source,clock);long id=pending(orders,portal);
         assertThat(held()).isEqualByComparingTo("0");assertThat(orders.find(sales,id)).containsEntry("can_confirm_portal",true);
         assertThatThrownBy(()->orders.confirmationQuote(manager,id)).isInstanceOf(SecurityException.class);

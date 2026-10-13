@@ -25,6 +25,17 @@ class OrderAcceptanceIT extends StoryDatabaseSupport {
     OrderService.Input input(long version,OrderService.LineInput... lines){return new OrderService.Input(dealer,address,date.plusDays(2),version,UUID.randomUUID().toString(),List.of(lines));}
     OrderService.LineInput line(String quantity){return new OrderService.LineInput(product,unit,new BigDecimal(quantity));}
     long draft(){return service.save(sales,0,input(0,line("2")));}
+    @Test void returnForEditRequiresReasonPreservesHistoryAndCanResubmit(){long id=queued();String key=UUID.randomUUID().toString();
+        assertThatThrownBy(()->service.returnForEdit(manager,id,2,key,"",false)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()->service.returnForEdit(sales,id,2,key,"Tự trả lại",false)).isInstanceOf(SecurityException.class);
+        service.returnForEdit(manager,id,2,key,"Sửa số lượng",false);service.returnForEdit(manager,id,2,key,"Sửa số lượng",false);
+        assertThat(service.find(sales,id)).containsEntry("status","DRAFT").containsEntry("can_edit",true);
+        assertThat(count("SELECT COUNT(*) n FROM mvp_order_history WHERE order_id=? AND event_type='RETURNED'",id)).isEqualTo(1);
+        service.save(sales,id,input(3,line("3")));var q=service.quote(sales,id);assertThat(service.submit(sales,id,4,q.token(),UUID.randomUUID().toString(),false).status()).isEqualTo("PENDING_APPROVAL");
+        var review=service.reviewQuote(manager,id);assertThat(service.decide(manager,id,5,review.token(),UUID.randomUUID().toString(),true,"Duyệt đơn đã sửa",review.confirmation()).submitted()).isTrue();
+        assertThat(query("SELECT event_type FROM mvp_order_history WHERE order_id=? ORDER BY id",id)).extracting(r->r.get("event_type")).containsExactly("REQUESTED","RETURNED","REQUESTED","APPROVED");
+        assertThat(one("SELECT JSON_UNQUOTE(JSON_EXTRACT(snapshot,'$.decision_reason')) reason FROM mvp_order_history WHERE order_id=? AND event_type='RETURNED'",id)).containsEntry("reason","Sửa số lượng");
+    }
     void price(String selling,String floor){new PricingService(source).saveItem(manager,priceVersion,product,new BigDecimal(selling),new BigDecimal(floor));}
     @Test void draftReopensAndSubmitSnapshotsEverythingAtomically(){long id=draft();assertThat(service.find(sales,id)).containsEntry("status","DRAFT");var q=service.quote(sales,id);assertThat(q.date()).isEqualTo(date);assertThat(q.net()).isEqualByComparingTo("200");assertThat(q.display().toString()).doesNotContain("floorPrice","cost_price","owner_id");
         assertThat(service.submit(sales,id,1,q.token(),UUID.randomUUID().toString(),false).submitted()).isTrue();var order=service.find(sales,id);assertThat(order).containsEntry("status","SUBMITTED").containsEntry("address_snapshot","123 Đường QA");assertThat(count("SELECT COUNT(*) n FROM conversion_snapshots WHERE reference_id LIKE ?","ORDER:"+id+":%")).isEqualTo(1);assertThat(count("SELECT COUNT(*) n FROM price_order_references WHERE order_reference=?","ORDER:"+id)).isEqualTo(1);
