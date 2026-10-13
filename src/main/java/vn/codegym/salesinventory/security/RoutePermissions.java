@@ -6,6 +6,7 @@ public final class RoutePermissions {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
     public static String required(String path,String method,String action) {
+        if(path.equals("/fulfillment/shipments")&&method.equals("POST")&&"recover".equals(action))return "STOCK_RETURN_RECEIVE";
         if(path.equals("/orders")&&method.equals("POST")&&"cancel".equals(action))return "ORDER_CANCEL";
         if(path.equals("/orders")&&method.equals("POST")&&("confirmPortal".equals(action)||"returnPortal".equals(action)))return "ORDER_CONFIRM_PORTAL";
         if(path.equals("/orders")&&method.equals("POST")&&"returnEdit".equals(action))return "ORDER_APPROVE";
@@ -13,7 +14,7 @@ public final class RoutePermissions {
         return required(path,method);
     }
     public static String required(String path,String method) {
-        if(path.equals("/fulfillment/shipments"))return "FULFILLMENT_WRITE";
+        if(path.equals("/fulfillment/shipments"))return method.equals("GET")?"FULFILLMENT_READ":"FULFILLMENT_WRITE";
         if(path.equals("/inventory/receipts"))return "STOCK_RECEIPT_WRITE";
         if(path.equals("/dealers/accounts"))return "PORTAL_ACCOUNT_MANAGE";
         if(path.equals("/portal")||path.equals("/api/portal/products")||path.equals("/api/portal/options"))return method.equals("GET")?"PORTAL_ORDER_READ":null;

@@ -19,6 +19,13 @@ public final class FulfillmentServlet extends PortalServlet {
         load(r,value(r,"order").isEmpty()?0:number(r,"order"));view(r,s,"fulfillment/shipments");
     }
     @Override protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception {
+        if("recover".equals(value(r,"action"))){access(r).require("STOCK_RETURN_RECEIVE");long id=number(r,"id");
+            try{String[] ids=r.getParameterValues("recoveryLine"),good=r.getParameterValues("sellable"),damaged=r.getParameterValues("damaged");if(ids==null||good==null||damaged==null||ids.length!=good.length||ids.length!=damaged.length)throw new IllegalArgumentException("Dòng nhận lại không hợp lệ.");
+                var lines=new ArrayList<FulfillmentService.RecoveryLine>();var values=new LinkedHashMap<String,Map<String,String>>();for(int i=0;i<ids.length;i++)values.put(ids[i],Map.of("sellable",good[i],"damaged",damaged[i]));r.setAttribute("recoveryValues",values);r.setAttribute("recoveryReason",value(r,"reason"));
+                for(int i=0;i<ids.length;i++){if(good[i].length()>128||damaged[i].length()>128)throw new IllegalArgumentException("Số lượng không hợp lệ.");long line=Long.parseLong(ids[i]);BigDecimal sellable=new BigDecimal(good[i]),broken=new BigDecimal(damaged[i]);if(sellable.signum()!=0)lines.add(new FulfillmentService.RecoveryLine(line,sellable,"SELLABLE"));if(broken.signum()!=0)lines.add(new FulfillmentService.RecoveryLine(line,broken,"DAMAGED"));}
+                service().recover(actor(r).id(),id,number(r,"version"),value(r,"requestKey"),lines,value(r,"reason"));redirect(r,s,"/fulfillment/shipments?id="+id+"&notice=saved");
+            }catch(IllegalArgumentException e){s.setStatus(e instanceof CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));r.setAttribute("shipment",service().shipment(actor(r).id(),id));load(r,0);view(r,s,"fulfillment/shipments");}return;
+        }
         access(r).require("FULFILLMENT_WRITE");
         if("deliver".equals(value(r,"action"))){long id=number(r,"id");
             try{String[] ids=r.getParameterValues("shipmentLine"),quantities=r.getParameterValues("received");if(ids==null||quantities==null||ids.length!=quantities.length)throw new IllegalArgumentException("Dòng giao không hợp lệ.");
