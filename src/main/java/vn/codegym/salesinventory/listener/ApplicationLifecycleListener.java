@@ -101,6 +101,9 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             var worker=new vn.codegym.salesinventory.service.ImportWorker(dataSource,userManagementService,imports.workers(),config.database().maximumPoolSize(),clock,reportAge);
             servletContext.setAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE,jobs);
             servletContext.setAttribute(ApplicationContextKeys.IMPORT_WORKER,worker);
+            var stockMaintenance=new vn.codegym.salesinventory.service.StockMaintenance(dataSource,clock);
+            stockMaintenance.start();
+            servletContext.setAttribute("app.stockMaintenance",stockMaintenance);
             if(config.importWorkerEnabled())worker.start();
             LOGGER.info("Application initialized and database migrations completed");
         } catch (RuntimeException exception) {
@@ -111,6 +114,8 @@ public final class ApplicationLifecycleListener implements ServletContextListene
 
     @Override
     public void contextDestroyed(ServletContextEvent event) {
+        Object maintenance=event.getServletContext().getAttribute("app.stockMaintenance");
+        if(maintenance instanceof vn.codegym.salesinventory.service.StockMaintenance stock)stock.close();
         Object worker=event.getServletContext().getAttribute(ApplicationContextKeys.IMPORT_WORKER);
         if(worker instanceof vn.codegym.salesinventory.service.ImportWorker imports)imports.close();
         Object dataSource = event.getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
