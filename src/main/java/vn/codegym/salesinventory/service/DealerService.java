@@ -45,8 +45,8 @@ public final class DealerService {
         if(rows.isEmpty())throw new SecurityException("Đại lý không thuộc phạm vi được phép.");
         return rows.get(0);
     }
-    private static final String JOIN=" FROM dealers d JOIN customer_groups g ON g.id=d.group_id JOIN territories t ON t.id=d.territory_id JOIN users u ON u.id=d.primary_staff_id LEFT JOIN warehouses w ON w.id=d.warehouse_id";
-    private static final String COLUMNS="d.*,g.name group_name,t.name territory_name,u.full_name staff_name,w.name warehouse_name";
+    private static final String JOIN=" FROM dealers d JOIN customer_groups g ON g.id=d.group_id JOIN territories t ON t.id=d.territory_id JOIN users u ON u.id=d.primary_staff_id LEFT JOIN warehouses w ON w.id=d.warehouse_id LEFT JOIN (SELECT dealer_id,COUNT(*) total_addresses,SUM(status='ACTIVE') active_addresses FROM dealer_addresses GROUP BY dealer_id) adr ON adr.dealer_id=d.id";
+    private static final String COLUMNS="d.*,g.name group_name,t.name territory_name,u.full_name staff_name,w.name warehouse_name,COALESCE(adr.total_addresses,0) total_addresses,COALESCE(adr.active_addresses,0) active_addresses";
     public record Filter(String query,Long territory,Long group,Long staff,String status){}
     public PageResult<Map<String,Object>> search(long actor,String query,PageRequest requested) {
         return search(actor,new Filter(query,null,null,null,""),requested);
