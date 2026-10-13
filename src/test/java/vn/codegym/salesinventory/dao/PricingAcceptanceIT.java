@@ -8,6 +8,18 @@ import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.validation.FieldValidationException;
 import static org.assertj.core.api.Assertions.*;
 class PricingAcceptanceIT extends StoryDatabaseSupport {
+    @Test void groupFilterUsesSamePredicateForCountAndPageRows(){
+        String marker="GROUP-"+UUID.randomUUID();long other=Sql.id(pricing.groups().get(1).get("id"));
+        pricing.create(manager,group,marker+"-1",from,to,null);
+        pricing.create(manager,group,marker+"-2",from,to,null);
+        pricing.create(manager,other,marker+"-3",from,to,null);
+        var first=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(1,1),group);
+        var last=pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(999,1),group);
+        assertThat(first.totalItems()).isEqualTo(2);assertThat(first.items()).hasSize(1);assertThat(last.items()).hasSize(1);
+        assertThat(first.items()).allSatisfy(v->assertThat(Sql.id(v.get("group_id"))).isEqualTo(group));
+        assertThat(last.items()).allSatisfy(v->assertThat(Sql.id(v.get("group_id"))).isEqualTo(group));
+        assertThat(pricing.searchVersions(manager,marker,new vn.codegym.salesinventory.dto.PageRequest(1,20),other).totalItems()).isEqualTo(1);
+    }
     long manager,product,group;PricingService pricing;final LocalDate from=LocalDate.of(2027,1,1),to=from.plusDays(30);
     @BeforeEach void fixture(){manager=user("SALES_MANAGER");product=product(manager);pricing=new PricingService(source);group=Sql.id(pricing.groups().get(0).get("id"));}
     long version(){return pricing.create(manager,group," Giá thử ",from,to,null);}
