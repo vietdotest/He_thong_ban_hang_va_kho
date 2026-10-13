@@ -35,6 +35,20 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void cancellationRequiresScopeAndReasonReleasesStockCreditAndReplaysOnce(){receive("10");long id=order("4");reserve(id);String k=key();
+        assertThatThrownBy(()->orders.cancel(worker,id,2,k,"Hủy")).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->orders.cancel(sales,id,2,k,"")).isInstanceOf(IllegalArgumentException.class);
+        orders.cancel(sales,id,2,k,"Đại lý đổi nhu cầu");orders.cancel(sales,id,2,k,"Đại lý đổi nhu cầu");assertThat(balance().reserved()).isEqualByComparingTo("0");assertThat(balance().onHand()).isEqualByComparingTo("10");
+        assertThat(Sql.snapshot(source,c->CreditService.snapshot(c,dealer,now)).commitment()).isEqualByComparingTo("0");assertThat(orders.find(sales,id)).containsEntry("status","CANCELLED").containsEntry("can_cancel",false);
+        assertThat(count("SELECT COUNT(*) n FROM audit_logs WHERE event_type='ORDER_CANCELLED' AND object_id=?",id)).isEqualTo(1);
+        assertThatThrownBy(()->orders.cancel(sales,id,2,k,"Lý do khác")).isInstanceOf(vn.codegym.salesinventory.validation.CommandConflictException.class);
+        long replacement=user("SALES");update("UPDATE dealers SET primary_staff_id=? WHERE id=?",replacement,dealer);assertThatThrownBy(()->orders.cancel(sales,id,2,k,"Đại lý đổi nhu cầu")).isInstanceOf(SecurityException.class);
+    }
+    @Test void cancellationAuditFailureRollsBackHoldsAndOrder(){receive("10");long id=order("4");reserve(id);
+        update("CREATE TRIGGER fail_cancel BEFORE INSERT ON audit_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='audit failed'");
+        try{assertThatThrownBy(()->orders.cancel(sales,id,2,key(),"Hủy theo yêu cầu")).isInstanceOf(IllegalStateException.class);}finally{update("DROP TRIGGER fail_cancel");}
+        assertThat(balance().reserved()).isEqualByComparingTo("4");assertThat(orders.find(sales,id)).containsEntry("status","SUBMITTED");
+    }
     @Test void expirationReleasesOnlyUnprotectedRemainderAndAuditsSystemActor(){new StockService(source,Clock.fixed(now.plus(Duration.ofHours(24)),ZoneOffset.UTC)).expireHolds();receive("20");long first=order("4");reserve(first);long protectedOrder=order("4");reserve(protectedOrder);
         update("UPDATE mvp_holds SET protected_at=? WHERE order_id=?",java.sql.Timestamp.from(now),protectedOrder);
         var later=Clock.fixed(now.plus(Duration.ofHours(24)),ZoneOffset.UTC);var laterStock=new StockService(source,later);

@@ -48,6 +48,9 @@ public class OrderServlet extends PortalServlet {
         long id=optional(r,"id");if(id>0||"new".equals(value(r,"action"))){access(r).require(permission(id==0));editor(r,id,true);view(r,s,"orders/editor");return;}
         Long dealer=optional(r,"dealer")==0?null:optional(r,"dealer");var p=service().search(actor(r).id(),value(r,"q"),value(r,"status"),dealer,PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("orders",p.items());r.setAttribute("pagination",p);view(r,s,"orders/list");}
     protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{layout(r);String action=value(r,"action");long id=optional(r,"id");
+        if("cancel".equals(action)){if(portalMode())throw new SecurityException();access(r).require("ORDER_CANCEL");
+            try{service().cancel(actor(r).id(),id,number(r,"version"),value(r,"decisionKey"),value(r,"reason"));redirect(r,s,path()+"?id="+id+"&notice=cancelled");}
+            catch(IllegalArgumentException e){s.setStatus(e instanceof vn.codegym.salesinventory.validation.CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
         if("returnEdit".equals(action)||"returnPortal".equals(action)){if(portalMode())throw new SecurityException();boolean staff="returnPortal".equals(action);access(r).require(staff?"ORDER_CONFIRM_PORTAL":"ORDER_APPROVE");
             try{service().returnForEdit(actor(r).id(),id,number(r,"version"),value(r,"decisionKey"),value(r,"reason"),staff);redirect(r,s,path()+"?id="+id+"&notice=returned");}
             catch(IllegalArgumentException e){s.setStatus(e instanceof vn.codegym.salesinventory.validation.CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}

@@ -7,6 +7,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RoutePermissionsTest {
     @Test void approvalActionsHaveTheirOwnInternalPermission() {
         assertThat(RoutePermissions.required("/orders","POST","confirmPortal")).isEqualTo("ORDER_CONFIRM_PORTAL");
+        assertThat(RoutePermissions.required("/orders","POST","cancel")).isEqualTo("ORDER_CANCEL");
+        assertThat(RoutePermissions.required("/orders","POST","returnPortal")).isEqualTo("ORDER_CONFIRM_PORTAL");
+        assertThat(RoutePermissions.required("/orders","POST","returnEdit")).isEqualTo("ORDER_APPROVE");
         assertThat(RoutePermissions.required("/orders","POST","approve")).isEqualTo("ORDER_APPROVE");
         assertThat(RoutePermissions.required("/orders","POST","reject")).isEqualTo("ORDER_APPROVE");
         assertThat(RoutePermissions.required("/orders","POST","save")).isEqualTo("ORDER_WRITE");
