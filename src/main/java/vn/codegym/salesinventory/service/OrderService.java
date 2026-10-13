@@ -123,6 +123,8 @@ public final class OrderService {
         row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&!"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canReview(ctx,actor,request(c,id)));}
         row.put("can_confirm_portal","PENDING_APPROVAL".equals(row.get("status"))&&"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canConfirmPortal(ctx,actor));
         row.put("can_cancel",canCancel(ctx)&&!"CANCELLED".equals(row.get("status"))&&Sql.query(c,"SELECT id FROM mvp_shipments WHERE order_id=? LIMIT 1",id).isEmpty());
+        row.put("can_renew_holds","SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canRenew(ctx,actor));
+        row.put("can_approve_renewal","SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canReview(ctx,actor,Map.of("requested_by",ctx.order.get("owner_id"))));
         row.put("history",Sql.query(c,"SELECT event_type,reason,occurred_at FROM mvp_order_history WHERE order_id=? ORDER BY id",id));
         @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "CANCELLED","LEGACY_CANCELLED"->"Hủy đơn";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
         if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
@@ -237,6 +239,28 @@ public final class OrderService {
     }
     private static boolean canCancel(Context ctx) {
         return !portal(ctx.access)&&ctx.access.allows("ORDER_CANCEL")&&ctx.access.roles().stream().anyMatch(Set.of("SALES","SALES_MANAGER")::contains);
+    }
+    private static boolean canRenew(Context ctx,long actor) {
+        return "PORTAL".equals(ctx.order.get("source"))?canConfirmPortal(ctx,actor):!portal(ctx.access)&&ctx.access.allows("ORDER_WRITE")&&ctx.access.roles().stream().anyMatch(Set.of("SALES","SALES_MANAGER")::contains);
+    }
+    public long renewReservation(long actor,long id,long version,String requestKey,boolean approveException,String reason) {
+        String why=approveException?MvpCommands.text(reason,1000,"Lý do duyệt giữ hàng lại"):"Giữ lại phần đơn chưa giao.";
+        return Sql.transaction(source,c->{var ctx=context(c,actor,id,true);
+            if(approveException)reviewer(ctx,actor,Map.of("requested_by",ctx.order.get("owner_id")));
+            else{if(!canRenew(ctx,actor))throw new SecurityException("Không được giữ hàng lại cho đơn ngoài quyền.");if("PORTAL".equals(ctx.order.get("source")))portalConfirmer(c,ctx,actor);}
+            var command=MvpCommands.begin(c,actor,"ORDER_RENEW_HOLDS",requestKey,id+":"+version+":"+approveException+":"+why);if(command.replayId()!=null)return command.replayId();MvpCommands.version(ctx.order,version);
+            if(!"SUBMITTED".equals(ctx.order.get("status")))throw new IllegalArgumentException("Chỉ giữ lại hàng cho đơn đã tiếp nhận.");
+            BigDecimal amount=BigDecimal.ZERO,quantity=BigDecimal.ZERO;var now=clock.instant();
+            for(var line:Sql.query(c,"SELECT id,base_quantity,net FROM order_lines WHERE order_id=? ORDER BY product_id,position",id)) {
+                long lineId=Sql.id(line.get("id"));BigDecimal shipped=CreditService.sum(c,"SELECT COALESCE(SUM(quantity-returned_quantity),0) amount FROM mvp_shipment_lines WHERE order_line_id=?",lineId);
+                BigDecimal held=CreditService.sum(c,"SELECT COALESCE(SUM(quantity-consumed-released),0) amount FROM mvp_holds WHERE order_line_id=? AND (protected_at IS NOT NULL OR expires_at>?)",lineId,Timestamp.from(now));
+                BigDecimal remaining=MvpCommands.decimal(line.get("base_quantity")).subtract(shipped).subtract(held);if(remaining.signum()<0)throw new IllegalStateException("Lượng xử lý vượt đơn.");quantity=quantity.add(remaining);amount=amount.add(MvpCommands.share(MvpCommands.decimal(line.get("net")),remaining,MvpCommands.decimal(line.get("base_quantity"))));
+            }
+            if(quantity.signum()==0)throw new IllegalArgumentException("Phần đơn chưa giao đã được giữ đủ.");var credit=CreditService.snapshot(c,Sql.id(ctx.dealer.get("id")),now);if(credit.overdue())throw new IllegalArgumentException("Đại lý có nợ quá hạn; không giữ hàng lại.");
+            if(!approveException&&credit.netReceivable().add(credit.commitment()).add(amount).compareTo(credit.limit())>0)throw new IllegalArgumentException("Giữ hàng lại vượt hạn mức; cần quản lý duyệt ngoại lệ.");
+            StockService.reserve(c,actor,id,now);Sql.update(c,"UPDATE orders SET fulfillment_state='RESERVED',version=version+1 WHERE id=?",id);
+            AuditService.record(c,actor,approveException?"ORDER_HOLDS_RENEWAL_APPROVED":"ORDER_HOLDS_RENEWED","ORDER",id,ctx.order,Map.of("reason",why,"quantity",quantity,"commitment",amount));return MvpCommands.finish(c,command,id);
+        });
     }
     public void cancel(long actor,long id,long version,String requestKey,String reason) {
         String why=MvpCommands.text(reason,1000,"Lý do hủy");

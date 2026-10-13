@@ -118,7 +118,7 @@ public final class StockService {
                 lotAvailable.put(lotId,lotAvailable.get(lotId).subtract(take));qty=qty.subtract(take);if(qty.signum()==0) break;
             }
         }
-        Sql.update(c,"UPDATE orders SET fulfillment_state='RESERVED' WHERE id=? AND fulfillment_state IN ('NONE','RESERVED')",order);
+        Sql.update(c,"UPDATE orders SET fulfillment_state='RESERVED' WHERE id=? AND fulfillment_state IN ('NONE','RESERVED','EXPIRED')",order);
         AuditService.record(c,actor,"STOCK_RESERVED","ORDER",order,null,Map.of("expires_at",now.plus(Duration.ofHours(24)).toString()));
     }
     public List<Map<String,Object>> stock(long actor,Long warehouse,String query) {

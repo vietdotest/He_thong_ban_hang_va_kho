@@ -48,6 +48,9 @@ public class OrderServlet extends PortalServlet {
         long id=optional(r,"id");if(id>0||"new".equals(value(r,"action"))){access(r).require(permission(id==0));editor(r,id,true);view(r,s,"orders/editor");return;}
         Long dealer=optional(r,"dealer")==0?null:optional(r,"dealer");var p=service().search(actor(r).id(),value(r,"q"),value(r,"status"),dealer,PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("orders",p.items());r.setAttribute("pagination",p);view(r,s,"orders/list");}
     protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{layout(r);String action=value(r,"action");long id=optional(r,"id");
+        if(Set.of("renew","renewPortal","approveRenewal").contains(action)){if(portalMode())throw new SecurityException();boolean approve="approveRenewal".equals(action);access(r).require(approve?"ORDER_APPROVE":"renewPortal".equals(action)?"ORDER_CONFIRM_PORTAL":"ORDER_WRITE");
+            try{service().renewReservation(actor(r).id(),id,number(r,"version"),value(r,"decisionKey"),approve,value(r,"reason"));redirect(r,s,path()+"?id="+id+"&notice=renewed");}
+            catch(IllegalArgumentException e){s.setStatus(e instanceof vn.codegym.salesinventory.validation.CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
         if("cancel".equals(action)){if(portalMode())throw new SecurityException();access(r).require("ORDER_CANCEL");
             try{service().cancel(actor(r).id(),id,number(r,"version"),value(r,"decisionKey"),value(r,"reason"));redirect(r,s,path()+"?id="+id+"&notice=cancelled");}
             catch(IllegalArgumentException e){s.setStatus(e instanceof vn.codegym.salesinventory.validation.CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
