@@ -38,6 +38,7 @@ public class OrderServlet extends PortalServlet {
         r.setAttribute("submitKey",UUID.randomUUID().toString());r.setAttribute("editing",id==0||Boolean.TRUE.equals(order.get("can_edit")));
         if(Boolean.TRUE.equals(order.get("can_review"))&&r.getAttribute("approvalQuote")==null)r.setAttribute("approvalQuote",service().reviewQuote(actor,id).reviewDisplay());
         r.setAttribute("decisionKey",UUID.randomUUID().toString());
+        if(Boolean.TRUE.equals(order.get("can_confirm_portal"))&&r.getAttribute("confirmationQuote")==null)r.setAttribute("confirmationQuote",service().confirmationQuote(actor,id).display());
         if(quote&&Boolean.TRUE.equals(order.get("can_edit")))r.setAttribute("quote",service().quote(actor,id).display());
         else if(quote&&"DRAFT".equals(order.get("status")))r.setAttribute("readQuote",service().estimate(actor,id).display());
     }
@@ -47,6 +48,11 @@ public class OrderServlet extends PortalServlet {
         long id=optional(r,"id");if(id>0||"new".equals(value(r,"action"))){access(r).require(permission(id==0));editor(r,id,true);view(r,s,"orders/editor");return;}
         Long dealer=optional(r,"dealer")==0?null:optional(r,"dealer");var p=service().search(actor(r).id(),value(r,"q"),value(r,"status"),dealer,PageRequest.parse(value(r,"page"),value(r,"pageSize")));r.setAttribute("orders",p.items());r.setAttribute("pagination",p);view(r,s,"orders/list");}
     protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception{layout(r);String action=value(r,"action");long id=optional(r,"id");
+        if("confirmPortal".equals(action)){if(portalMode())throw new SecurityException();access(r).require("ORDER_CONFIRM_PORTAL");
+            try{var result=service().confirmPortalOrder(actor(r).id(),id,number(r,"version"),value(r,"quoteToken"),value(r,"decisionKey"),"true".equals(value(r,"confirmed")));
+                if(result.accepted())redirect(r,s,path()+"?id="+id+"&notice="+(result.submitted()?"submitted":"pending"));
+                else{r.setAttribute("confirmationQuote",result.quote().display());editor(r,id,false);view(r,s,"orders/editor");}
+            }catch(IllegalArgumentException e){s.setStatus(e instanceof vn.codegym.salesinventory.validation.CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
         if("approve".equals(action)||"reject".equals(action)){if(portalMode())throw new SecurityException();access(r).require("ORDER_APPROVE");try{var result=service().decide(actor(r).id(),id,number(r,"version"),value(r,"quoteToken"),value(r,"decisionKey"),"approve".equals(action),value(r,"reason"),"true".equals(value(r,"confirmed")));if(result.accepted())redirect(r,s,path()+"?id="+id+"&notice="+(result.submitted()?"approved":"rejected"));else{r.setAttribute("approvalQuote",result.quote().reviewDisplay());editor(r,id,false);view(r,s,"orders/editor");}}catch(IllegalArgumentException e){s.setStatus(400);r.setAttribute("errors",fieldErrors(e));editor(r,id,false);view(r,s,"orders/editor");}return;}
         access(r).require(permission(true));
         if("preview".equals(action)){try{json(s,service().preview(actor(r).id(),input(r)).display());}catch(IllegalArgumentException e){s.setStatus(400);json(s,Map.of("errors",fieldErrors(e)));}return;}
