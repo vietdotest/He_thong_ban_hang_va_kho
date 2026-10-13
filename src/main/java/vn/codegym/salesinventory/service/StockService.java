@@ -56,8 +56,8 @@ public final class StockService {
             int position=0;
             for(var l:clean) {
                 var conversion=UnitService.orderConversion(c,l.product,l.unit,l.quantity,input.warehouse);
-                Sql.insert(c,"INSERT INTO mvp_receipt_lines(receipt_id,position,product_id,unit_id,quantity,factor,unit_version,base_quantity,lot_code,expires_on) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                        saved,position++,l.product,l.unit,l.quantity,conversion.factor(),conversion.version(),conversion.baseQuantity(),l.lot,l.expiry);
+                Sql.insert(c,"INSERT INTO mvp_receipt_lines(receipt_id,position,product_id,unit_id,quantity,unit_name_snapshot,factor,unit_version,base_quantity,lot_code,expires_on) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                        saved,position++,l.product,l.unit,l.quantity,conversion.unitName(),conversion.factor(),conversion.version(),conversion.baseQuantity(),l.lot,l.expiry);
             }
             AuditService.record(c,actor,"STOCK_RECEIPT_SAVED","STOCK_RECEIPT",saved,null,Map.of("warehouse",input.warehouse,"lines",clean.size()));
             return MvpCommands.finish(c,ticket,saved);
@@ -76,8 +76,7 @@ public final class StockService {
                 long lot=Sql.insert(c,"INSERT INTO mvp_lots(warehouse_id,product_id,receipt_line_id,lot_code,received_date,expires_on,on_hand) VALUES(?,?,?,?,?,?,?)",
                         row.get("warehouse_id"),line.get("product_id"),lineId,line.get("lot_code"),row.get("receipt_date"),line.get("expires_on"),qty);
                 movement(c,actor,lot,"RECEIPT","RECEIPT_LINE",lineId,qty,qty,clock.instant());
-                var unit=Sql.one(c,"SELECT name FROM product_units WHERE id=?",line.get("unit_id"));
-                UnitService.snapshot(c,"RECEIPT:"+lineId,new UnitService.Conversion(Sql.id(line.get("product_id")),Sql.id(line.get("unit_id")),Sql.text(unit.get("name")),MvpCommands.decimal(line.get("quantity")),MvpCommands.decimal(line.get("factor")),Sql.id(line.get("unit_version")),qty,Sql.id(row.get("warehouse_id"))));
+                UnitService.snapshot(c,"RECEIPT:"+lineId,new UnitService.Conversion(Sql.id(line.get("product_id")),Sql.id(line.get("unit_id")),Sql.text(line.get("unit_name_snapshot")),MvpCommands.decimal(line.get("quantity")),MvpCommands.decimal(line.get("factor")),Sql.id(line.get("unit_version")),qty,Sql.id(row.get("warehouse_id"))));
                 Sql.update(c,"INSERT IGNORE INTO product_transaction_references(product_id,reference_type,reference_id) VALUES(?,'RECEIPT',?)",line.get("product_id"),Long.toString(id));
             }
             Sql.update(c,"UPDATE mvp_receipts SET status='CONFIRMED',version=version+1,confirmed_by=?,confirmed_at=? WHERE id=?",actor,MvpCommands.timestamp(clock.instant()),id);
@@ -131,8 +130,11 @@ public final class StockService {
             }return result;
         });
     }
-    public List<Map<String,Object>> warehouses(long actor,String permission) { return Sql.snapshot(source,c->{var a=MvpAccess.internal(c,actor,permission);var out=new ArrayList<Map<String,Object>>();for(var w:Sql.query(c,"SELECT id,code,name,address FROM warehouses ORDER BY name,id")) if(MvpAccess.canReadWarehouse(c,actor,a,Sql.id(w.get("id")))) out.add(w);return out;}); }
-    public List<Map<String,Object>> receipts(long actor) { return Sql.snapshot(source,c->{MvpAccess.internal(c,actor,"STOCK_RECEIPT_WRITE");return Sql.query(c,"SELECT r.*,w.name warehouse_name,s.name supplier_name FROM mvp_receipts r JOIN warehouses w ON w.id=r.warehouse_id JOIN suppliers s ON s.id=r.supplier_id JOIN user_warehouses uw ON uw.warehouse_id=r.warehouse_id AND uw.user_id=? ORDER BY r.id DESC LIMIT 100",actor);}); }
+    public List<Map<String,Object>> warehouses(long actor,String permission) { return Sql.snapshot(source,c->{
+        if("STOCK_RECEIPT_WRITE".equals(permission)) { MvpAccess.stockOperator(c,actor,permission);return Sql.query(c,"SELECT w.id,w.code,w.name,w.address FROM warehouses w JOIN user_warehouses uw ON uw.warehouse_id=w.id WHERE uw.user_id=? ORDER BY w.name,w.id",actor); }
+        var a=MvpAccess.internal(c,actor,permission);var out=new ArrayList<Map<String,Object>>();for(var w:Sql.query(c,"SELECT id,code,name,address FROM warehouses ORDER BY name,id")) if(MvpAccess.canReadWarehouse(c,actor,a,Sql.id(w.get("id")))) out.add(w);return out;
+    }); }
+    public List<Map<String,Object>> receipts(long actor) { return Sql.snapshot(source,c->{MvpAccess.stockOperator(c,actor,"STOCK_RECEIPT_WRITE");return Sql.query(c,"SELECT r.*,w.name warehouse_name,s.name supplier_name FROM mvp_receipts r JOIN warehouses w ON w.id=r.warehouse_id JOIN suppliers s ON s.id=r.supplier_id JOIN user_warehouses uw ON uw.warehouse_id=r.warehouse_id AND uw.user_id=? ORDER BY r.id DESC LIMIT 100",actor);}); }
     public Map<String,Object> receipt(long actor,long id) { return Sql.snapshot(source,c->{var row=new LinkedHashMap<>(Sql.one(c,"SELECT r.*,w.name warehouse_name,w.address warehouse_address,s.name supplier_name FROM mvp_receipts r JOIN warehouses w ON w.id=r.warehouse_id JOIN suppliers s ON s.id=r.supplier_id WHERE r.id=?",id));MvpAccess.warehouse(c,actor,"STOCK_RECEIPT_WRITE",Sql.id(row.get("warehouse_id")));row.put("lines",Sql.query(c,"SELECT l.*,p.sku,p.name,u.name unit_name FROM mvp_receipt_lines l JOIN products p ON p.id=l.product_id JOIN product_units u ON u.id=l.unit_id WHERE l.receipt_id=? ORDER BY l.position",id));return row;}); }
     public List<Map<String,Object>> card(long actor,long warehouse,long product) { return Sql.snapshot(source,c->{var a=MvpAccess.internal(c,actor,"STOCK_READ");if(!MvpAccess.canReadWarehouse(c,actor,a,warehouse)) throw new SecurityException();return Sql.query(c,"SELECT e.*,l.lot_code,l.product_id FROM mvp_stock_events e JOIN mvp_lots l ON l.id=e.lot_id WHERE l.warehouse_id=? AND l.product_id=? ORDER BY e.occurred_at,e.id",warehouse,product);}); }
 }

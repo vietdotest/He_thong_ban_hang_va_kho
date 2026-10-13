@@ -67,4 +67,15 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
         receive("5");long id=order("4");failAudit();assertThatThrownBy(()->reserve(id)).isInstanceOf(IllegalStateException.class);
         assertThat(balance().reserved()).isEqualByComparingTo("0");assertThat(balance().available()).isEqualByComparingTo("5");
     }
+    @Test void receiptKeepsUnitNameAndFactorAndMultipleRolesDoNotWidenWriteWarehouseScope() {
+        long r=stock.saveReceipt(worker,0,0,key(),input("2"));
+        var old=one("SELECT name,factor FROM product_units WHERE id=?",unit);
+        update("UPDATE product_units SET name='Tên mới',version=version+1 WHERE id=?",unit);
+        stock.confirmReceipt(worker,r,1,key());
+        assertThat(one("SELECT unit_name,factor FROM conversion_snapshots WHERE reference_id=?","RECEIPT:"+Sql.id(one("SELECT id FROM mvp_receipt_lines WHERE receipt_id=?",r).get("id")))).containsEntry("unit_name",old.get("name")).containsEntry("factor",old.get("factor"));
+        update("INSERT INTO user_roles(user_id,role_id) SELECT ?,id FROM roles WHERE code='SALES_MANAGER'",worker);
+        long other=warehouse(user("WAREHOUSE"));
+        assertThat(stock.warehouses(worker,"STOCK_RECEIPT_WRITE")).extracting(w->Sql.id(w.get("id"))).containsExactly(warehouse);
+        assertThatThrownBy(()->stock.saveReceipt(worker,0,0,key(),new StockService.ReceiptInput(other,supplier,"PN",LocalDate.of(2027,1,1),input("1").lines()))).isInstanceOf(SecurityException.class);
+    }
 }
