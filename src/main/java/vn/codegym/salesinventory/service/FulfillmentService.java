@@ -14,6 +14,11 @@ public final class FulfillmentService {
     public FulfillmentService(DataSource source){this(source,Clock.systemUTC());}
     public FulfillmentService(DataSource source,Clock clock){this.source=source;this.clock=clock;}
     public record DispatchLine(long orderLine,BigDecimal quantity){}
+    public record DeliveryLine(long shipmentLine,BigDecimal received){}
+    static Map<String,Object> warehouseShipment(Connection c,long actor,long id,String permission)throws SQLException {
+        var known=Sql.one(c,"SELECT order_id FROM mvp_shipments WHERE id=?",id);warehouseOrder(c,actor,Sql.id(known.get("order_id")),permission);
+        return Sql.one(c,"SELECT * FROM mvp_shipments WHERE id=? FOR UPDATE",id);
+    }
     static Map<String,Object> warehouseOrder(Connection c,long actor,long id,String permission)throws SQLException {
         var known=Sql.one(c,"SELECT dealer_id,warehouse_id FROM orders WHERE id=?",id);
         if(known.get("warehouse_id")==null)throw new IllegalArgumentException("Đơn chưa có kho phục vụ.");
@@ -80,6 +85,28 @@ public final class FulfillmentService {
         });
     }
     public List<Map<String,Object>> orders(long actor) {return Sql.snapshot(source,c->{MvpAccess.stockOperator(c,actor,"FULFILLMENT_WRITE");return Sql.query(c,"SELECT o.id,o.version,o.fulfillment_state,o.dealer_name_snapshot,o.warehouse_name_snapshot,o.desired_delivery FROM orders o JOIN user_warehouses uw ON uw.warehouse_id=o.warehouse_id AND uw.user_id=? WHERE o.status='SUBMITTED' ORDER BY o.id DESC LIMIT 100",actor);});}
+    public long deliver(long actor,long shipment,long version,String requestKey,String recipient,List<DeliveryLine> lines,String reason) {
+        String who=MvpCommands.text(recipient,200,"Người nhận");String why=reason==null?"":reason.trim();if(why.length()>1000)throw new IllegalArgumentException("Lý do tối đa 1000 ký tự.");
+        if(lines==null||lines.isEmpty()||lines.size()>1000)throw new IllegalArgumentException("Nhập đủ dòng giao hàng.");
+        var received=new TreeMap<Long,BigDecimal>();for(var line:lines){if(line==null||line.shipmentLine<=0||line.received==null||line.received.signum()<0)throw new IllegalArgumentException("Lượng giao không hợp lệ.");BigDecimal quantity=line.received.signum()==0?BigDecimal.ZERO.setScale(12):MvpCommands.quantity(line.received);if(received.putIfAbsent(line.shipmentLine,quantity)!=null)throw new IllegalArgumentException("Dòng giao bị lặp.");}
+        return Sql.transaction(source,c->{var header=warehouseShipment(c,actor,shipment,"FULFILLMENT_WRITE");
+            var command=MvpCommands.begin(c,actor,"SHIPMENT_DELIVER",requestKey,shipment+":"+version+":"+who+":"+received+":"+why);if(command.replayId()!=null)return command.replayId();MvpCommands.version(header,version);
+            if(!"DISPATCHED".equals(header.get("status")))throw new IllegalArgumentException("Phiếu đã xác nhận giao chỉ được xem.");
+            var sourceLines=Sql.query(c,"SELECT * FROM mvp_shipment_lines WHERE shipment_id=? ORDER BY id FOR UPDATE",shipment);var valid=new HashSet<Long>();var now=clock.instant();
+            for(var line:sourceLines){long id=Sql.id(line.get("id"));valid.add(id);BigDecimal quantity=received.get(id);if(quantity==null)throw new IllegalArgumentException("Nhập lượng nhận cho từng dòng, kể cả 0.");BigDecimal dispatched=MvpCommands.decimal(line.get("quantity"));if(quantity.compareTo(dispatched)>0)throw new IllegalArgumentException("Lượng nhận vượt lượng xuất.");if(quantity.compareTo(dispatched)<0&&why.isEmpty())throw new IllegalArgumentException("Giao thiếu hoặc thất bại phải có lý do.");}
+            if(!valid.equals(received.keySet()))throw new SecurityException("Dòng giao không thuộc phiếu.");
+            for(var line:sourceLines){long id=Sql.id(line.get("id"));BigDecimal amount=MvpCommands.share(MvpCommands.decimal(line.get("net_amount")),received.get(id),MvpCommands.decimal(line.get("quantity")));
+                Sql.update(c,"UPDATE mvp_shipment_lines SET received_quantity=?,received_amount=?,delivery_reason=? WHERE id=?",received.get(id),amount,why,id);
+            }
+            Sql.update(c,"UPDATE mvp_shipments SET status='DELIVERED',version=version+1,delivered_by=?,recipient=?,delivered_at=? WHERE id=?",actor,who,MvpCommands.timestamp(now),shipment);
+            long order=Sql.id(header.get("order_id"));long unfinished=Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM order_lines ol WHERE ol.order_id=? AND ol.base_quantity>COALESCE((SELECT SUM(sl.received_quantity) FROM mvp_shipment_lines sl WHERE sl.order_line_id=ol.id),0)",order).get("n"));
+            Sql.update(c,"UPDATE orders SET version=version+1,fulfillment_state=CASE WHEN ?=0 THEN 'COMPLETE' ELSE fulfillment_state END WHERE id=?",unfinished,order);
+            AuditService.record(c,actor,"SHIPMENT_DELIVERED","SHIPMENT",shipment,header,Sql.one(c,"SELECT * FROM mvp_shipments WHERE id=?",shipment));return MvpCommands.finish(c,command,shipment);
+        });
+    }
+    public List<Map<String,Object>> shipments(long actor) {return Sql.snapshot(source,c->{MvpAccess.stockOperator(c,actor,"FULFILLMENT_WRITE");return Sql.query(c,"SELECT s.*,o.dealer_name_snapshot,o.warehouse_name_snapshot FROM mvp_shipments s JOIN orders o ON o.id=s.order_id JOIN user_warehouses uw ON uw.warehouse_id=s.warehouse_id AND uw.user_id=? ORDER BY s.id DESC LIMIT 100",actor);});}
+    public Map<String,Object> shipment(long actor,long id) {return Sql.transaction(source,c->{var header=new LinkedHashMap<>(warehouseShipment(c,actor,id,"FULFILLMENT_WRITE"));header.put("order",Sql.one(c,"SELECT id,dealer_name_snapshot,warehouse_name_snapshot,address_snapshot,recipient_snapshot,phone_snapshot FROM orders WHERE id=?",header.get("order_id")));
+        header.put("lines",Sql.query(c,"SELECT sl.*,ol.sku_snapshot,ol.name_snapshot,l.lot_code FROM mvp_shipment_lines sl JOIN order_lines ol ON ol.id=sl.order_line_id JOIN mvp_lots l ON l.id=sl.lot_id WHERE sl.shipment_id=? ORDER BY sl.id",id));return header;});}
     public Map<String,Object> order(long actor,long id) {return Sql.transaction(source,c->{var header=new LinkedHashMap<>(warehouseOrder(c,actor,id,"FULFILLMENT_WRITE"));var lines=Sql.query(c,"SELECT id,sku_snapshot,name_snapshot,unit_name_snapshot,base_quantity FROM order_lines WHERE order_id=? ORDER BY position",id);
         for(var line:lines)line.put("held",CreditService.sum(c,"SELECT COALESCE(SUM(quantity-consumed-released),0) amount FROM mvp_holds WHERE order_line_id=? AND (protected_at IS NOT NULL OR expires_at>?)",line.get("id"),MvpCommands.timestamp(clock.instant())));
         header.put("lines",lines);header.put("shipments",Sql.query(c,"SELECT * FROM mvp_shipments WHERE order_id=? ORDER BY id",id));return header;});}

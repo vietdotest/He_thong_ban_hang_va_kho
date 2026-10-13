@@ -10,14 +10,24 @@ public final class FulfillmentServlet extends PortalServlet {
     private FulfillmentService service(){return new FulfillmentService(source());}
     private void load(HttpServletRequest r,long order){
         r.setAttribute("orders",service().orders(actor(r).id()));
+        r.setAttribute("shipments",service().shipments(actor(r).id()));
         if(order>0)r.setAttribute("order",service().order(actor(r).id(),order));
         r.setAttribute("requestKey",UUID.randomUUID().toString());
     }
     @Override protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception {
+        if(!value(r,"id").isEmpty())r.setAttribute("shipment",service().shipment(actor(r).id(),number(r,"id")));
         load(r,value(r,"order").isEmpty()?0:number(r,"order"));view(r,s,"fulfillment/shipments");
     }
     @Override protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception {
-        access(r).require("FULFILLMENT_WRITE");long order=number(r,"order");
+        access(r).require("FULFILLMENT_WRITE");
+        if("deliver".equals(value(r,"action"))){long id=number(r,"id");
+            try{String[] ids=r.getParameterValues("shipmentLine"),quantities=r.getParameterValues("received");if(ids==null||quantities==null||ids.length!=quantities.length)throw new IllegalArgumentException("Dòng giao không hợp lệ.");
+                var lines=new ArrayList<FulfillmentService.DeliveryLine>();var values=new LinkedHashMap<String,String>();for(int i=0;i<ids.length;i++)values.put(ids[i],quantities[i]);r.setAttribute("receivedValues",values);r.setAttribute("recipient",value(r,"recipient"));r.setAttribute("deliveryReason",value(r,"reason"));
+                for(int i=0;i<ids.length;i++){if(quantities[i].length()>128)throw new IllegalArgumentException("Số lượng không hợp lệ.");lines.add(new FulfillmentService.DeliveryLine(Long.parseLong(ids[i]),new BigDecimal(quantities[i])));}
+                service().deliver(actor(r).id(),id,number(r,"version"),value(r,"requestKey"),value(r,"recipient"),lines,value(r,"reason"));redirect(r,s,"/fulfillment/shipments?id="+id+"&notice=saved");
+            }catch(IllegalArgumentException e){s.setStatus(e instanceof CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));r.setAttribute("shipment",service().shipment(actor(r).id(),id));load(r,0);view(r,s,"fulfillment/shipments");}return;
+        }
+        long order=number(r,"order");
         try{
             switch(value(r,"action")) {
                 case "pick"->service().startPicking(actor(r).id(),order,number(r,"version"),value(r,"requestKey"));
