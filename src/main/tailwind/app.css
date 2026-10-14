@@ -36,4 +36,8 @@
   .badge-warning { @apply bg-warning-bg text-warning; }
   .depth-0 { padding-left: 0; } .depth-1 { @apply pl-4; } .depth-2 { @apply pl-8; } .depth-3 { @apply pl-12; }
   .is-submitting { cursor: wait; }
+  @media (width < 64rem) {
+    .mobile-account .account-menu > summary { font-size: 0; padding: 0; border: 0; background: transparent; }
+    .mobile-account .account-menu > summary .icon { display: none; }
+  }
 }
