@@ -6,7 +6,7 @@ public final class RoutePermissions {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
     public static String required(String path,String method,String action) {
-        if(path.equals("/accounting/returns")&&method.equals("POST"))return "receive".equals(action)?"STOCK_RETURN_RECEIVE":"RETURN_WRITE";
+        if(path.equals("/accounting/returns")&&method.equals("POST"))return "credit".equals(action)?"CREDIT_ISSUE":"receive".equals(action)?"STOCK_RETURN_RECEIVE":"RETURN_WRITE";
         if(path.equals("/orders")&&method.equals("POST")&&"renewPortal".equals(action))return "ORDER_CONFIRM_PORTAL";
         if(path.equals("/orders")&&method.equals("POST")&&"approveRenewal".equals(action))return "ORDER_APPROVE";
         if(path.equals("/fulfillment/shipments")&&method.equals("POST")&&"recover".equals(action))return "STOCK_RETURN_RECEIVE";
