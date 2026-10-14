@@ -1,9 +1,9 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nhóm hàng | Quản lý bán hàng</title><%@ include file="../fragments/assets.jspf" %></head>
-<body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<body class="app-page" data-view="catalog/categories" data-ui-css=""><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
-<main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhóm hàng</h1><p>Sắp xếp nhóm hàng nhiều cấp và quản lý danh mục.</p></div><c:if test="${access.allows('PRODUCT_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}<c:out value='${categoryReturn}'/>&amp;new=1#editor" data-editor="editor">＋ Thêm mới</a></c:if></div>
+<main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhóm hàng</h1><p>Sắp xếp nhóm hàng nhiều cấp và quản lý danh mục.</p></div><c:if test="${access.allows('PRODUCT_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}<c:out value='${categoryReturn}'/>&amp;new=1#editor" data-editor="editor"><ui:icon name="plus"/> Thêm mới</a></c:if></div>
 <form method="get" class="filter-form"><label>Tìm mã hoặc tên nhóm <input name="q" data-lookup="categories" value="<c:out value='${param.q}'/>"></label><button class="button button-primary">Tìm nhánh</button><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/categories">Toàn bộ cây</a></form><p class="muted"><c:out value="${categoryCount}"/> nhóm hiển thị. Khi tìm kiếm, giữ nhóm cha và toàn bộ nhánh khớp.</p>
 <c:if test="${param.notice == 'saved'}"><p class="alert" role="status">Đã lưu thay đổi nhóm hàng.</p></c:if>
 <c:if test="${access.allows('PRODUCT_MANAGE')}">

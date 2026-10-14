@@ -1,5 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Phân công người dùng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page"><%@ include file="../fragments/sidebar.jspf" %>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Phân công người dùng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page" data-view="admin/assignments" data-ui-css=""><%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %><main class="page-body app-content assignments-page">
 <div class="page-heading"><div><h1>Phân công người dùng</h1><p><c:out value="${target.full_name}"/> — <c:out value="${target.username}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/scopes">Danh mục kho và địa bàn</a></div>
 <c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu phân công.</div></c:if><c:if test="${not empty formError}"><div class="alert alert-error" role="alert"><c:out value="${formError}"/></div></c:if>

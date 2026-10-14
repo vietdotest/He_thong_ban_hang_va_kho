@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd" version="6.0">
     <display-name>Hệ thống bán hàng và kho</display-name>
+    <listener><listener-class>vn.codegym.salesinventory.listener.UiAssetsListener</listener-class></listener>
     <listener>
         <listener-class>vn.codegym.salesinventory.listener.ApplicationLifecycleListener</listener-class>
     </listener>
@@ -340,4 +341,5 @@
     <servlet-mapping><servlet-name>StockServlet</servlet-name><url-pattern>/inventory/stock</url-pattern></servlet-mapping>
     <servlet><servlet-name>StockCardServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.StockCardServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>StockCardServlet</servlet-name><url-pattern>/inventory/card</url-pattern></servlet-mapping>
+    <jsp-config><jsp-property-group><url-pattern>*.jsp</url-pattern><include-prelude>/WEB-INF/jspf/ui-taglibs.jspf</include-prelude></jsp-property-group></jsp-config>
 </web-app>

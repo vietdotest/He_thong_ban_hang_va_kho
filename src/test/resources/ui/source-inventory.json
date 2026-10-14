@@ -1,0 +1,278 @@
+[
+  {
+    "view": "account/change-password",
+    "css": [],
+    "scripts": [
+      "login.js"
+    ]
+  },
+  {
+    "view": "account/profile",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "accounting/debt",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "accounting/invoices",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": [
+      "mvp-receipts.js"
+    ]
+  },
+  {
+    "view": "accounting/payments",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": [
+      "mvp-receipts.js"
+    ]
+  },
+  {
+    "view": "accounting/returns",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "admin/assignments",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/audit",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/roles",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/scopes",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/users/form",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/users/list",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "admin/users/status",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "auth/activate",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "auth/forgot-password",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "auth/login",
+    "css": [],
+    "scripts": [
+      "login.js"
+    ]
+  },
+  {
+    "view": "auth/reset-password",
+    "css": [],
+    "scripts": [
+      "login.js"
+    ]
+  },
+  {
+    "view": "catalog/categories",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "catalog/products",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "catalog/suppliers",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "catalog/units",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "dashboard",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "dealers/addresses",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "dealers/credit",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "dealers/handover",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "dealers/list",
+    "css": [
+      "dealers.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "dealers/status",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "error/403",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "error/404",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "error/500",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "fulfillment/shipments",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "imports/import",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "imports/job",
+    "css": [
+      "import-jobs.css"
+    ],
+    "scripts": [
+      "import-jobs.js"
+    ]
+  },
+  {
+    "view": "inventory/card",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "inventory/receipts",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": [
+      "mvp-receipts.js"
+    ]
+  },
+  {
+    "view": "inventory/stock",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  },
+  {
+    "view": "message",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "orders/editor",
+    "css": [
+      "orders.css"
+    ],
+    "scripts": [
+      "orders.js"
+    ]
+  },
+  {
+    "view": "orders/list",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "orders/print",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": [
+      "mvp-receipts.js"
+    ]
+  },
+  {
+    "view": "portal/accounts",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "portal/home",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "pricing/discounts",
+    "css": [],
+    "scripts": [
+      "discounts.js"
+    ]
+  },
+  {
+    "view": "pricing/history",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "pricing/prices",
+    "css": [],
+    "scripts": []
+  },
+  {
+    "view": "reports/sales",
+    "css": [
+      "mvp.css"
+    ],
+    "scripts": []
+  }
+]

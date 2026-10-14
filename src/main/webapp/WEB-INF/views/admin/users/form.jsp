@@ -8,7 +8,7 @@
     <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
     <%@ include file="../../fragments/assets.jspf" %>
 </head>
-<body class="app-page">
+<body class="app-page" data-view="admin/users/form" data-ui-css="">
 <%@ include file="../../fragments/sidebar.jspf" %>
 <%@ include file="../../fragments/topbar.jspf" %>
 

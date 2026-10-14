@@ -9,7 +9,7 @@
     <title>Nhật ký thao tác | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
 </head>
-<body class="app-page audit-page">
+<body class="app-page audit-page" data-view="admin/audit" data-ui-css="">
 <%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <div class="app-content">

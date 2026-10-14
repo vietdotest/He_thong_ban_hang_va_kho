@@ -14,6 +14,9 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>17</maven.compiler.release>
+        <tailwind.version>4.3.3</tailwind.version>
+        <fontawesome.version>7.3.1</fontawesome.version>
+        <tailwind.binary>${project.basedir}/.tools/tailwind/${tailwind.version}/${tailwind.filename}</tailwind.binary>
         <jakarta.servlet.version>6.0.0</jakarta.servlet.version>
         <jakarta.jstl.api.version>3.0.2</jakarta.jstl.api.version>
         <jakarta.jstl.impl.version>3.0.1</jakarta.jstl.impl.version>
@@ -146,6 +149,28 @@
         <finalName>ROOT</finalName>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId><artifactId>maven-antrun-plugin</artifactId><version>3.1.0</version>
+                <executions><execution><id>kiem-tra-tailwind</id><phase>validate</phase><goals><goal>run</goal></goals>
+                    <configuration><target>
+                        <available file="${tailwind.binary}" property="tailwind.available"/>
+                        <fail unless="tailwind.available" message="Thiếu Tailwind đã ghim. Chạy scripts/setup-tailwind.ps1 trên Windows hoặc scripts/setup-tailwind.sh trên Linux."/>
+                        <checksum file="${tailwind.binary}" algorithm="SHA-256" property="tailwind.actual.sha256"/>
+                        <condition property="tailwind.valid"><equals arg1="${tailwind.actual.sha256}" arg2="${tailwind.sha256}" casesensitive="false"/></condition>
+                        <fail unless="tailwind.valid" message="SHA-256 Tailwind không đúng. Chạy lại script setup; không dùng binary này."/>
+                        <mkdir dir="${project.build.directory}/generated-webapp/assets/css"/>
+                    </target></configuration>
+                </execution></executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version>
+                <executions><execution><id>build-ui</id><phase>generate-resources</phase><goals><goal>exec</goal></goals>
+                    <configuration><executable>${tailwind.binary}</executable><workingDirectory>${project.basedir}</workingDirectory><arguments>
+                        <argument>-i</argument><argument>src/main/tailwind/app.css</argument>
+                        <argument>-o</argument><argument>target/generated-webapp/assets/css/ui.css</argument><argument>--minify</argument>
+                    </arguments></configuration>
+                </execution></executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.14.1</version>
@@ -159,6 +184,7 @@
                 <version>3.4.0</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                    <webResources><resource><directory>${project.build.directory}/generated-webapp</directory></resource></webResources>
                 </configuration>
             </plugin>
             <plugin>
@@ -184,4 +210,12 @@
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile><id>tailwind-windows</id><activation><os><family>Windows</family></os></activation><properties>
+            <tailwind.filename>tailwindcss-windows-x64.exe</tailwind.filename><tailwind.sha256>e0e260ce048014e9268f6237ff18f8ccf02cef521cbd0ae04e82c2cdf7aa3955</tailwind.sha256>
+        </properties></profile>
+        <profile><id>tailwind-linux</id><activation><os><name>Linux</name></os></activation><properties>
+            <tailwind.filename>tailwindcss-linux-x64</tailwind.filename><tailwind.sha256>dc61b3ac6b8c9ca874c0cc4c57b2409791a64c5540404ca5f5367360babc313a</tailwind.sha256>
+        </properties></profile>
+    </profiles>
 </project>

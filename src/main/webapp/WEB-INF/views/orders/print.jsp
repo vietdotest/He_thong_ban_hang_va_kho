@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %><%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %><fmt:setLocale value="vi_VN"/>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>In đơn hàng | NVDO</title><%@ include file="../fragments/assets.jspf" %><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/mvp.css?v=mvp-20261014"><script defer src="${pageContext.request.contextPath}/assets/js/mvp-receipts.js?v=mvp-20261014"></script></head>
-<body class="document-print"><main class="content-panel padded-panel"><h1>Đơn hàng <c:out value="${order.number}"/></h1>
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>In đơn hàng | NVDO</title><%@ include file="../fragments/assets.jspf" %><script defer src="${pageContext.request.contextPath}/assets/js/mvp-receipts.js?v=mvp-20261014"></script></head>
+<body class="document-print" data-view="orders/print" data-ui-css="mvp"><main class="content-panel padded-panel"><h1>Đơn hàng <c:out value="${order.number}"/></h1>
 <p>Ngày lập: <c:out value="${order.created_at}"/> · Ngày giá: <c:out value="${order.pricing_date}"/> · Ngày giao mong muốn: <c:out value="${order.desired_delivery}"/></p>
 <p>Đại lý: <c:out value="${order.dealer_code_snapshot}"/> — <c:out value="${order.dealer_name_snapshot}"/></p>
 <p>Địa chỉ giao: <c:out value="${order.address_snapshot}"/></p><p>Người nhận: <c:out value="${order.recipient_snapshot}"/> · Điện thoại: <c:out value="${order.phone_snapshot}"/></p>

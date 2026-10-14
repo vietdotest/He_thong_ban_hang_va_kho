@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %><%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %><fmt:setLocale value="vi_VN"/>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soạn và xuất kho</title><%@ include file="../fragments/assets.jspf" %><link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/mvp.css"></head>
-<body class="app-page"><%@ include file="../fragments/sidebar.jspf" %><%@ include file="../fragments/topbar.jspf" %><main class="page-body app-content catalog-page">
+<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Soạn và xuất kho</title><%@ include file="../fragments/assets.jspf" %></head>
+<body class="app-page" data-view="fulfillment/shipments" data-ui-css="mvp"><%@ include file="../fragments/sidebar.jspf" %><%@ include file="../fragments/topbar.jspf" %><main class="page-body app-content catalog-page">
 <div class="page-heading"><div><h1>Soạn và xuất kho</h1><p>Chỉ đơn đã tiếp nhận thuộc kho được giao. Xuất theo lượng cơ sở đã giữ; lô được chọn từ ngày nhập cũ nhất.</p></div></div>
 <c:if test="${param.notice=='saved'}"><p class="alert alert-success" role="status">Đã ghi nhận chứng từ.</p></c:if>
 <c:forEach items="${errors}" var="error"><p class="alert alert-error" role="alert"><c:out value="${error.value}"/></p></c:forEach>

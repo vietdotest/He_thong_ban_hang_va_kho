@@ -10,7 +10,7 @@
     <%@ include file="../fragments/assets.jspf" %>
     <script src="${pageContext.request.contextPath}/assets/js/login.js?v=uiux-20261013" defer></script>
 </head>
-<body class="auth-page">
+<body class="auth-page" data-view="auth/login" data-ui-css="">
 <header class="auth-topbar">
     <a class="wordmark" href="${pageContext.request.contextPath}/login">
         <span class="wordmark-symbol" aria-hidden="true">BH</span>

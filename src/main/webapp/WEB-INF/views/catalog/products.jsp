@@ -2,20 +2,11 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <fmt:setLocale value="vi_VN"/>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Danh mục sản phẩm | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-</head>
-<body class="app-page">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="Danh mục sản phẩm" view="catalog/products" bodyClass="app-page" css="">
+<jsp:body>
 <main class="page-body app-content products-page">
     <div class="page-heading"><div><h1>${access.allows('PRODUCT_MANAGE') ? 'Sản phẩm' : 'Tra cứu sản phẩm'}</h1><p>Quản lý mã hàng, quy cách đóng gói và trạng thái kinh doanh.</p></div>
-        <c:if test="${access.allows('PRODUCT_MANAGE')}"><div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products/import"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Nhập Excel</a><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${productReturn}'/>${productReturn.contains('?') ? '&amp;' : '?'}new=1#editor" data-editor="editor">＋ Thêm sản phẩm</a></div></c:if>
+        <c:if test="${access.allows('PRODUCT_MANAGE')}"><div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products/import"><ui:icon name="file-arrow-up"/>Nhập Excel</a><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${productReturn}'/>${productReturn.contains('?') ? '&amp;' : '?'}new=1#editor" data-editor="editor"><ui:icon name="plus"/> Thêm sản phẩm</a></div></c:if>
     </div>
     <c:if test="${not empty successMessage}"><div class="alert alert-success" role="status"><c:out value="${successMessage}"/></div></c:if>
     <c:if test="${access.allows('PRODUCT_MANAGE')}"><details class="content-panel disclosure editor" id="editor" ${editing or not empty edit.id or not empty errors or param['new'] == '1' ? 'open' : ''}>
@@ -43,7 +34,7 @@
         <label class="filter-search"><span class="sr-only">Tìm sản phẩm</span><input type="search" name="q" data-lookup="products" maxlength="150" placeholder="Tìm SKU hoặc tên sản phẩm" value="<c:out value='${productFilter.q}'/>"></label>
         <label class="mobile-category-filter"><span class="sr-only">Nhóm hàng</span><select name="category"><option value="">Tất cả nhóm hàng</option><c:forEach var="cat" items="${categories}"><option value="${cat.id}" ${productFilter.category == cat.id.toString() ? 'selected' : ''}><c:out value="${cat.label}"/></option></c:forEach></select></label>
         <label><span class="sr-only">Trạng thái</span><select name="status"><option value="">Tất cả trạng thái</option><option value="ACTIVE" ${productFilter.status == 'ACTIVE' ? 'selected' : ''}>Đang bán</option><option value="DISCONTINUED" ${productFilter.status == 'DISCONTINUED' ? 'selected' : ''}>Ngừng bán</option></select></label>
-        <div class="filter-actions"><button class="button button-secondary"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/filter.svg">Áp dụng</button><c:if test="${not empty productFilter.q or not empty productFilter.category or not empty productFilter.status}"><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products">Bỏ bộ lọc</a></c:if></div>
+        <div class="filter-actions"><button class="button button-secondary"><ui:icon name="filter"/>Áp dụng</button><c:if test="${not empty productFilter.q or not empty productFilter.category or not empty productFilter.status}"><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products">Bỏ bộ lọc</a></c:if></div>
     </form>
     <div class="product-layout">
         <aside class="content-panel category-tree" aria-label="Lọc theo nhóm hàng"><h2>Nhóm hàng</h2>
@@ -73,6 +64,8 @@
             <c:if test="${empty products}"><div class="content-panel empty-state"><h2>Không có sản phẩm phù hợp</h2><p>Thử thay đổi từ khóa, nhóm hàng hoặc trạng thái.</p><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/products">Bỏ bộ lọc</a></div></c:if>
         </div>
     </div>
-    <%@ include file="../fragments/pagination.jspf" %>
+    <ui:pagination page="${pagination}" path="${paginationPath}" pageParameter="${paginationPageParameter}" sizeParameter="${paginationSizeParameter}" filterValues="${paginationFilterValues}" extraParameters="${paginationExtraParameters}"/>
     <c:if test="${canCost}"><div class="alert"><strong>Giá vốn theo đơn vị cơ sở</strong>Giá vốn được tính trên một đơn vị cơ sở của từng sản phẩm. Quy cách đóng gói được hiển thị để đối chiếu.</div></c:if>
-</main></body></html>
+</main>
+</jsp:body>
+</layout:page>

@@ -3,9 +3,15 @@
     [string]$RuntimeRoot = '',
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
     [switch]$PreflightOnly,
-    [switch]$InjectHealthFailure
+    [switch]$InjectHealthFailure,
+    [switch]$UiOnly,
+    [string]$RollbackWar = ''
 )
 $ErrorActionPreference = 'Stop'
+if ($UiOnly -or $RollbackWar) {
+    & (Join-Path $PSScriptRoot 'deploy-ui.ps1') -ConfigPath $ConfigPath -RuntimeRoot $RuntimeRoot -Target $Target -PreflightOnly:$PreflightOnly -InjectHealthFailure:$InjectHealthFailure -RollbackWar $RollbackWar
+    return
+}
 $deployRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $deployRoot
 if (!$RuntimeRoot) { $RuntimeRoot=Join-Path (Split-Path -Parent $deployRoot) 'He_thong_ban_hang_va_kho-work' }

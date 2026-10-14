@@ -9,7 +9,7 @@
     <%@ include file="../fragments/assets.jspf" %>
     <script src="${pageContext.request.contextPath}/assets/js/login.js?v=uiux-20261013" defer></script>
 </head>
-<body class="auth-page">
+<body class="auth-page" data-view="auth/reset-password" data-ui-css="">
 <header class="auth-topbar"><a class="wordmark" href="${pageContext.request.contextPath}/login"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a></header>
 <main class="auth-main">
     <section class="auth-card" aria-labelledby="page-title">

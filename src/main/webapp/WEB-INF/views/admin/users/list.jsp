@@ -1,23 +1,13 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Quản lý tài khoản | Quản lý bán hàng</title>
-    <%@ include file="../../fragments/assets.jspf" %>
-</head>
-<body class="app-page">
-<%@ include file="../../fragments/sidebar.jspf" %>
-<%@ include file="../../fragments/topbar.jspf" %>
-
+<layout:page title="Quản lý tài khoản" view="admin/users/list" bodyClass="app-page" css="">
+<jsp:body>
 <div class="app-content">
 
 
     <main class="page-body users-page">
 <div class="page-heading"><div><h1>Người dùng</h1><p>Tìm tài khoản và xem vai trò được phân công.</p></div>
-<div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/import"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Nhập Excel</a><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new">＋ Thêm người dùng</a></div></div>
+<div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/import"><ui:icon name="file-arrow-up"/>Nhập Excel</a><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new"><ui:icon name="plus"/> Thêm người dùng</a></div></div>
 
         <c:if test="${not empty successMessage}"><div class="alert alert-success"><c:out value="${successMessage}"/></div></c:if>
 
@@ -69,9 +59,9 @@
                 </table>
             </div>
 
-            <%@ include file="../../fragments/pagination.jspf" %>
+            <ui:pagination page="${pagination}" path="${paginationPath}" pageParameter="${paginationPageParameter}" sizeParameter="${paginationSizeParameter}" filterValues="${paginationFilterValues}" extraParameters="${paginationExtraParameters}"/>
         </section>
     </main>
 </div>
-</body>
-</html>
+</jsp:body>
+</layout:page>

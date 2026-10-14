@@ -5,7 +5,7 @@
     <title><c:out value="${title}"/> | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
 </head>
-<body class="app-page">
+<body class="app-page" data-view="imports/import" data-ui-css="">
 <%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <main class="page-body app-content import-page">
@@ -13,7 +13,7 @@
     <div class="page-heading"><div>
         <h1><c:choose><c:when test="${importStep == 2}">${userImportPage ? 'Kiểm tra dữ liệu trước khi nhập' : 'Kiểm tra danh mục sản phẩm'}</c:when><c:when test="${importStep == 3}">${userImportPage ? 'Kết quả nhập người dùng' : 'Kết quả nhập sản phẩm'}</c:when><c:otherwise>${userImportPage ? 'Nhập người dùng từ Excel' : 'Nhập sản phẩm từ Excel'}</c:otherwise></c:choose></h1>
         <p><c:choose><c:when test="${importStep > 1}"><c:out value="${filename}"/><c:if test="${importStep == 2}"> · <c:out value="${rowCount}"/> dòng dữ liệu</c:if></c:when><c:otherwise>Chọn tệp dữ liệu, kiểm tra từng dòng trước khi nhập.</c:otherwise></c:choose></p>
-    </div><c:if test="${importStep == 2}"><a class="button button-secondary" href="?new=1"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Chọn tệp khác</a></c:if></div>
+    </div><c:if test="${importStep == 2}"><a class="button button-secondary" href="?new=1"><ui:icon name="file-arrow-up"/>Chọn tệp khác</a></c:if></div>
     <ol class="import-steps" aria-label="Tiến trình nhập Excel">
         <li class="${importStep == 1 ? 'current' : 'complete'}" aria-current="${importStep == 1 ? 'step' : 'false'}"><span class="step-number">1</span><div><strong>Chọn tệp</strong><small>${importStep == 1 ? 'Đang thực hiện' : 'Đã xong'}</small></div></li>
         <li class="${importStep == 2 ? 'current' : importStep == 3 ? 'complete' : ''}" aria-current="${importStep == 2 ? 'step' : 'false'}"><span class="step-number">2</span><div><strong>Kiểm tra dữ liệu</strong><small>${importStep == 2 ? 'Đang thực hiện' : importStep == 3 ? 'Đã xong' : 'Chưa thực hiện'}</small></div></li>
@@ -25,17 +25,17 @@
             <input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
             <div class="import-upload-layout">
                 <section class="content-panel import-upload">
-                    <img class="icon upload-mark" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">
+                    <ui:icon name="file-arrow-up" cssClass="upload-mark"/>
                     <h2>Chọn tệp danh sách ${userImportPage ? 'người dùng' : 'sản phẩm'}</h2>
                     <p class="muted">Tệp XLSX, tối đa 10 MB và 10.000 dòng. Dùng đúng các cột trong tệp mẫu.</p>
-                    <label class="button button-primary file-button" for="import-file"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload.svg">Chọn tệp XLSX
+                    <label class="button button-primary file-button" for="import-file"><ui:icon name="file-arrow-up"/>Chọn tệp XLSX
                         <input class="file-input" id="import-file" type="file" name="file" accept=".xlsx" required data-import-file aria-invalid="${not empty errors.file}" aria-describedby="import-file-name import-file-error">
                     </label>
                     <p id="import-file-name" class="muted" data-file-name>Sau khi chọn tệp, bạn có thể kiểm tra từng dòng trước khi nhập.</p>
                     <p id="import-file-error" class="field-error" role="alert"><c:out value="${errors.file}"/></p>
                 </section>
                 <aside class="content-panel import-guide"><h2>Trước khi nhập</h2><ol><li>Tải tệp mẫu và giữ nguyên tên cột.</li><li>Điền dữ liệu theo từng dòng.</li><li>Kiểm tra các dòng lỗi ở bước tiếp theo.</li></ol>
-                    <a class="button button-secondary" href="?template=1" download><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/download.svg">Tải tệp mẫu</a>
+                    <a class="button button-secondary" href="?template=1" download><ui:icon name="download"/>Tải tệp mẫu</a>
                     <p class="muted"><c:choose><c:when test="${userImportPage}">Dòng hợp lệ được tạo tài khoản và gửi email kích hoạt. Dòng lỗi được bỏ qua và ghi vào báo cáo.</c:when><c:otherwise>SKU hiện có được cập nhật, SKU mới được tạo. Mã nhóm phải tồn tại. Giá vốn để trống giữ giá cũ; cột giá vốn chỉ có khi được cấp quyền.</c:otherwise></c:choose></p>
                 </aside>
             </div>
@@ -51,7 +51,7 @@
         <section class="content-panel import-result-summary" aria-label="Kết quả nhập">
             <h2>Đã ${userImportPage ? 'nhập' : 'xử lý'} <c:out value="${successCount}"/> ${userImportPage ? 'người dùng' : 'dòng hợp lệ'}</h2>
             <p class="muted"><c:out value="${createdCount}"/> tạo mới<c:if test="${not userImportPage}"> · <c:out value="${updatedCount}"/> cập nhật</c:if> · <c:out value="${failureCount}"/> bỏ qua.</p>
-            <div class="page-actions"><a class="button button-secondary" href="?report=1" download><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/download.svg">Tải báo cáo tổng kết</a><a class="button button-primary" href="${pageContext.request.contextPath}${listPath}">Xem danh sách ${userImportPage ? 'người dùng' : 'sản phẩm'}</a></div>
+            <div class="page-actions"><a class="button button-secondary" href="?report=1" download><ui:icon name="download"/>Tải báo cáo tổng kết</a><a class="button button-primary" href="${pageContext.request.contextPath}${listPath}">Xem danh sách ${userImportPage ? 'người dùng' : 'sản phẩm'}</a></div>
         </section>
     </c:if>
     <c:if test="${importStep > 1}">
@@ -77,5 +77,5 @@
             <div class="page-actions"><a class="button button-secondary" href="?new=1">Quay lại</a><button class="button button-primary" ${validCount == 0 ? 'disabled' : ''}>Nhập <c:out value="${validCount}"/> dòng hợp lệ</button></div>
         </form>
     </c:if>
-    <c:if test="${importStep == 3}"><a class="button button-plain" href="?new=1"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Nhập thêm tệp khác</a></c:if>
+    <c:if test="${importStep == 3}"><a class="button button-plain" href="?new=1"><ui:icon name="file-arrow-up"/>Nhập thêm tệp khác</a></c:if>
 </main></body></html>

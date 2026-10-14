@@ -8,7 +8,7 @@
     <title>Quên mật khẩu | Quản lý bán hàng</title>
     <%@ include file="../fragments/assets.jspf" %>
 </head>
-<body class="auth-page">
+<body class="auth-page" data-view="auth/forgot-password" data-ui-css="">
 <header class="auth-topbar"><a class="wordmark" href="${pageContext.request.contextPath}/login"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a></header>
 <main class="auth-main">
     <section class="auth-card" aria-labelledby="page-title">

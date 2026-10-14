@@ -9,7 +9,7 @@
     <%@ include file="../fragments/assets.jspf" %>
     <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
 </head>
-<body class="app-page">
+<body class="app-page" data-view="account/change-password" data-ui-css="">
 <%@ include file="../fragments/sidebar.jspf" %>
 <%@ include file="../fragments/topbar.jspf" %>
 <div class="app-content">
