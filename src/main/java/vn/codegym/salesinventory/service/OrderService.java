@@ -138,7 +138,7 @@ public final class OrderService {
     public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED","CANCELLED").contains(status==null?"":status)?status:"";
         return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
             var args=new ArrayList<Object>();if(portal)args.add(PortalAccountService.linked(c,actor));else{args.add(all(a));args.add(actor);}args.addAll(Arrays.asList(state,state,dealer,dealer,term,term,term));long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+filter,args.toArray()).get("total"));var p=request.clamp(total);var params=new ArrayList<Object>(args);params.add(p.pageSize());params.add(p.offset());
-            var rows=Sql.query(c,"SELECT o.id,o.status,o.source,o.pending_reason,o.fulfillment_state,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",params.toArray());for(var row:rows)row.put("net_formatted",MoneyDisplay.format(row.get("net_total")));return new PageResult<>(rows,total,p.page(),p.pageSize());});}
+            var rows=Sql.query(c,"SELECT o.id,o.number,o.status,o.source,o.pending_reason,o.fulfillment_state,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",params.toArray());for(var row:rows)row.put("net_formatted",MoneyDisplay.format(row.get("net_total")));return new PageResult<>(rows,total,p.page(),p.pageSize());});}
     public List<Map<String,Object>> addresses(long actor,long dealer){return Sql.transaction(source,c->{var a=reader(c,actor);scoped(c,actor,a,dealer,false);return Sql.query(c,"SELECT id,address,recipient,phone,is_default FROM dealer_addresses WHERE dealer_id=? AND status='ACTIVE' ORDER BY is_default DESC,id",dealer);});}
     public List<Map<String,Object>> units(long actor,long dealer,long product){return Sql.transaction(source,c->{var a=reader(c,actor);var d=scoped(c,actor,a,dealer,false);if(portal(a))PortalCatalogService.requireOffer(c,actor,product);var rows=Sql.query(c,"SELECT id,name,factor,is_base FROM product_units WHERE product_id=? AND (warehouse_id IS NULL OR warehouse_id=?) ORDER BY is_base DESC,name,id",product,d.get("warehouse_id"));for(var row:rows)row.put("factor",((BigDecimal)row.get("factor")).toPlainString());return rows;});}
     public void takeover(long actor,long id,long version,String reason){String why=CatalogValidation.text(reason,1000,"Lý do tiếp quản");Sql.transaction(source,c->{var ctx=context(c,actor,id,true);writer(ctx.access);if(!ctx.access.roles().contains("SALES_MANAGER"))throw new SecurityException();editable(ctx.order,version);
@@ -200,11 +200,13 @@ public final class OrderService {
                     Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()));
                 else Sql.update(c,"UPDATE order_approval_requests SET requested_by=?,request_key=?,request_digest=?,request_snapshot=?,request_reason=?,requested_at=?,status='PENDING',decision_key=NULL,decided_by=NULL,decision_reason=NULL,decision_snapshot=NULL,decided_at=NULL WHERE order_id=?",actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()),id);
                 history(c,actor,id,"REQUESTED",Sql.text(request(c,id).get("request_reason")));
+                documentNumber(c,id);
                 AuditService.record(c,actor,"ORDER_APPROVAL_REQUESTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));
                 Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);MvpCommands.finish(c,command,id,"PENDING_APPROVAL");return new Submission(false,id,null,"PENDING_APPROVAL");
             }
             snapshot(c,actor,id,ctx,q,"SUBMITTED",key,true);
             StockService.reserve(c,actor,id,clock.instant());
+            documentNumber(c,id);
             AuditService.record(c,actor,"ORDER_SUBMITTED","ORDER",id,ctx.order,Sql.one(c,"SELECT * FROM orders WHERE id=?",id));Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);MvpCommands.finish(c,command,id,"SUBMITTED");return new Submission(true,id,null);
         });
     }
@@ -331,8 +333,9 @@ public final class OrderService {
     }
     private void accept(Connection c,long actor,long id,Context ctx,Quote q)throws SQLException {
         snapshot(c,actor,id,ctx,q,"SUBMITTED",Sql.text(ctx.order.get("submit_key")),true);
-        StockService.reserve(c,actor,id,clock.instant());Sql.update(c,"UPDATE orders SET pending_reason=NULL WHERE id=?",id);
+        StockService.reserve(c,actor,id,clock.instant());Sql.update(c,"UPDATE orders SET pending_reason=NULL WHERE id=?",id);documentNumber(c,id);
     }
+    private void documentNumber(Connection c,long id)throws SQLException{if(Sql.one(c,"SELECT number FROM orders WHERE id=?",id).get("number")==null)Sql.update(c,"UPDATE orders SET number=? WHERE id=?",MvpCommands.nextNumber(c,"DH",MvpCommands.date(clock.instant())),id);}
     private static String quoteSnapshot(Quote q) {
         var result=new LinkedHashMap<>(q.reviewDisplay());result.remove("token");result.remove("confirmation");
         return AuditService.snapshot(result,false);
