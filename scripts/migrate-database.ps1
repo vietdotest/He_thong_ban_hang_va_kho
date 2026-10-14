@@ -1,4 +1,4 @@
-param([switch]$Run,[string]$JavaHomePath=$env:JAVA_HOME)
+﻿param([switch]$Run,[string]$JavaHomePath=$env:JAVA_HOME)
 $ErrorActionPreference='Stop'
 if(!$Run){Write-Output 'Không thay đổi database. Sau khi backup/kiểm tra đích, đặt DB_URL, DB_USERNAME, DB_PASSWORD, MIGRATION_USERNAME, MIGRATION_PASSWORD và chạy lại với -Run.';return}
 foreach($key in @('DB_URL','DB_USERNAME','MIGRATION_USERNAME','MIGRATION_PASSWORD')){
