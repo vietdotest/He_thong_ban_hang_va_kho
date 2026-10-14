@@ -155,3 +155,11 @@ Chạy `mvnw.cmd -B -ntp clean verify` bằng JDK17. MySQL Testcontainers dùng 
 `scripts/deploy-mvp.ps1` phát hành **develop**, kiểm evidence/WAR cùng cây code, cổng8081, container/volume hiện tại và đúng tiến trình Tomcat. Cấu hình và credentials giữ local dưới `.tools`; tài khoản migration riêng với runtime. Trước nâng cấp dừng đúng Tomcat, sao lưu DB/uploads/WAR/cấu hình, rồi `scripts/verify-mvp-backup.ps1` phục hồi SQL trên container tạm, thử nâng cấp và đối chiếu lịch sử/tổng tiền. Runtime chỉ validate schema. Nếu migration/health lỗi, phục hồi DB và WAR/cấu hình cũ trước khi bật lại. Mô phỏng lỗi chỉ dùng Preview với container tạm; không dùng public để diễn tập.
 
 Phần hoãn: mã vạch, PDF, FEFO/cảnh báo HSD, chuyển kho, kiểm kê, ảnh chứng từ, gộp soạn/giao/hóa đơn, đối trừ thủ công, Excel/biểu đồ/báo cáo nâng cao và cổng tải hóa đơn. Trang in MVP dùng HTML.
+
+## Kiểm thử và phát hành nền UI
+
+`scripts/run-ui-regression.cjs` chạy các test trình duyệt Sprint 3 trên Preview `18087`, sau khi kiểm database có nhãn tạm, dùng tmpfs và chỉ bind loopback `13318`. `--prepare` chuẩn bị quyền mặc định và dữ liệu synthetic cho kiểm thử; chỉ dùng trên fixture cô lập. `scripts/test-ui-common.cjs` kiểm lưu phân quyền, CSRF, ảnh đại diện, bàn phím, form không JavaScript và bộ lọc phân trang.
+
+Bộ ảnh ở `scripts/visual` dùng Playwright Linux đã ghim, năm cỡ màn hình và ngưỡng khác biệt 1%. Đặt `UI_REVIEW_CANDIDATE=1` để lưu ảnh ứng viên riêng trong `.tools/ui-evidence/candidate`; chỉ cập nhật ảnh chuẩn trong `__screenshots__` sau khi người dùng duyệt.
+
+Phát hành giao diện dùng `scripts/deploy-mvp.ps1 -UiOnly`. Preview nhận nhánh UI hoặc nhánh tích hợp; Public yêu cầu `main` đã nghiệm thu. Script kiểm migration giữa hai SHA, validate checksum và migration chờ, giữ `MIGRATION_ENABLED=false`. Cả phục hồi tự động khi health lỗi và `-RollbackWar` chỉ thay WAR, giữ database, uploads và cấu hình. Luồng phát hành có thay đổi schema tiếp tục dùng quy trình MVP riêng ở trên.

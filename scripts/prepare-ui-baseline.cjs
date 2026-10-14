@@ -10,6 +10,7 @@ fs.writeFileSync(path.join(assets,'__ui_preview_500.jsp'),'<%@ page contentType=
 const query=sql=>execFileSync('docker',['exec','-i',container,'sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 -N -B sales_inventory'],{input:sql,encoding:'utf8'}).trim();
 let id=query("SELECT id FROM import_jobs WHERE kind='USER' AND actor_id=1 AND filename='UI-baseline-expired.xlsx' LIMIT 1;");
 if(!id){query("INSERT INTO import_jobs(id,kind,actor_id,filename,has_cost,status,confirm_key,total_rows,valid_rows,preview_expires_at,reason) VALUES(UUID(),'USER',1,'UI-baseline-expired.xlsx',0,'EXPIRED',UUID(),1,0,'2026-01-01 00:00:00','Tác vụ thử đã hết hạn.');");id=query("SELECT id FROM import_jobs WHERE kind='USER' AND actor_id=1 AND filename='UI-baseline-expired.xlsx' LIMIT 1;");}
+query("UPDATE import_jobs SET reason='Tác vụ thử đã hết hạn.' WHERE kind='USER' AND actor_id=1 AND filename='UI-baseline-expired.xlsx' AND status='EXPIRED';");
 fs.writeFileSync(path.join(root,'.tools/ui-preview-data.json'),JSON.stringify({userImportJob:id},null,2));
 const credentialsFile=path.join(root,'.tools/ui-preview-accounts.json');const credentials=JSON.parse(fs.readFileSync(credentialsFile,'utf8').replace(/^\uFEFF/,''));credentials.accounts.legacyAdmin='admin';fs.writeFileSync(credentialsFile,JSON.stringify(credentials,null,2));
 console.log(`Baseline Preview: ${inventory.length} JSP có data-view; endpoint lỗi chỉ trong runtime tạm.`);
