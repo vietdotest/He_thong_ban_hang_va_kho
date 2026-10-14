@@ -35,6 +35,30 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void confirmedReceiptSnapshotsAndNumberRemainImmutableAfterMasterChanges(){
+        long id=receive("2");var original=stock.receipt(worker,id);String number=original.get("number").toString();assertThat(number).matches("PN-2027-[0-9]{6}");
+        var line=((List<Map<String,Object>>)original.get("lines")).get(0);
+        update("UPDATE warehouses SET name='Kho đổi tên',address='Địa chỉ mới' WHERE id=?",warehouse);
+        update("UPDATE suppliers SET name='Nhà cung cấp mới' WHERE id=?",supplier);
+        update("UPDATE products SET sku=?,name='Sản phẩm đổi tên' WHERE id=?","NEW-"+UUID.randomUUID(),product);
+        var actual=stock.receipt(worker,id);assertThat(actual).containsEntry("number",number).containsEntry("warehouse_name",original.get("warehouse_name")).containsEntry("warehouse_address",original.get("warehouse_address")).containsEntry("supplier_name",original.get("supplier_name"));
+        var actualLine=((List<Map<String,Object>>)actual.get("lines")).get(0);assertThat(actualLine).containsEntry("sku",line.get("sku")).containsEntry("name",line.get("name"));
+    }
+    @Test void confirmationRechecksSupplierAndFutureDatesAreRejected(){
+        long id=stock.saveReceipt(worker,0,0,key(),input("2"));update("UPDATE suppliers SET status='DISCONTINUED' WHERE id=?",supplier);
+        assertThatThrownBy(()->stock.confirmReceipt(worker,id,1,key())).isInstanceOf(IllegalArgumentException.class);assertThat(balance().onHand()).isEqualByComparingTo("0");
+        long other=warehouse(user("WAREHOUSE"));update("UPDATE suppliers SET status='ACTIVE',warehouse_id=? WHERE id=?",other,supplier);
+        assertThatThrownBy(()->stock.confirmReceipt(worker,id,1,key())).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(()->stock.saveReceipt(worker,0,0,key(),new StockService.ReceiptInput(warehouse,supplier,"PN",LocalDate.of(2027,1,2),input("1").lines()))).isInstanceOf(IllegalArgumentException.class).hasMessageContaining("tương lai");
+    }
+    @Test void receiptNumberRollsBackWithAuditAndReplayDoesNotConsumeAnotherNumber(){
+        long id=stock.saveReceipt(worker,0,0,key(),input("2"));String k=key();var before=Sql.snapshot(source,c->Sql.query(c,"SELECT next_value FROM mvp_sequences WHERE kind='PN' AND document_year=2027"));
+        update("CREATE TRIGGER fail_receipt_number BEFORE INSERT ON audit_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='audit failed'");
+        try{assertThatThrownBy(()->stock.confirmReceipt(worker,id,1,k)).isInstanceOf(IllegalStateException.class);}finally{update("DROP TRIGGER fail_receipt_number");}
+        var rolledBack=Sql.snapshot(source,c->Sql.query(c,"SELECT next_value FROM mvp_sequences WHERE kind='PN' AND document_year=2027"));assertThat(rolledBack).isEqualTo(before);assertThat(stock.receipt(worker,id).get("number")).isNull();
+        stock.confirmReceipt(worker,id,1,k);var after=one("SELECT next_value FROM mvp_sequences WHERE kind='PN' AND document_year=2027");stock.confirmReceipt(worker,id,1,k);
+        assertThat(one("SELECT next_value FROM mvp_sequences WHERE kind='PN' AND document_year=2027")).isEqualTo(after);assertThat(balance().onHand()).isEqualByComparingTo("2");
+    }
     @Test void stockCardTracksRunningSkuBalanceAndSourceReceiptIdsWithoutRequiringWritePrivilege(){long first=receive("10"),second=receive("10");var card=stock.card(worker,warehouse,product);assertThat(card).hasSize(2);assertThat((BigDecimal)card.get(0).get("warehouse_balance")).isEqualByComparingTo("10");assertThat((BigDecimal)card.get(1).get("warehouse_balance")).isEqualByComparingTo("20");assertThat(Sql.id(card.get(0).get("receipt_id"))).isEqualTo(first);assertThat(Sql.id(card.get(1).get("receipt_id"))).isEqualTo(second);
         update("DELETE rp FROM role_permissions rp JOIN roles r ON r.id=rp.role_id JOIN permissions p ON p.id=rp.permission_id WHERE r.code='WAREHOUSE' AND p.code='STOCK_RECEIPT_WRITE'");
         try{assertThat(stock.receipt(worker,first)).containsEntry("status","CONFIRMED");assertThat(stock.card(worker,warehouse,product)).hasSize(2);assertThatThrownBy(()->stock.saveReceipt(worker,0,0,key(),input("1"))).isInstanceOf(SecurityException.class);}finally{update("INSERT INTO role_permissions(role_id,permission_id) SELECT r.id,p.id FROM roles r CROSS JOIN permissions p WHERE r.code='WAREHOUSE' AND p.code='STOCK_RECEIPT_WRITE'");}

@@ -46,8 +46,8 @@ public final class StockReceiptServlet extends PortalServlet {
                 default -> throw new IllegalArgumentException("Thao tác không hợp lệ.");
             }
             redirect(r,s,"/inventory/receipts?id="+id+"&notice=saved");
-        } catch(IllegalArgumentException e) {
-            s.setStatus(e instanceof CommandConflictException?409:400);r.setAttribute("errors",fieldErrors(e));
+        } catch(IllegalArgumentException|java.time.format.DateTimeParseException e) {
+            s.setStatus(e instanceof CommandConflictException?409:400);r.setAttribute("errors",e instanceof IllegalArgumentException argument?fieldErrors(argument):Map.of("date","Ngày nhập hoặc hạn sử dụng không hợp lệ."));
             var f=new LinkedHashMap<String,Object>();f.put("id",id);f.put("version",value(r,"version"));f.put("warehouse_id",safeId(value(r,"warehouse")));f.put("supplier_id",safeId(value(r,"supplier")));f.put("document_ref",value(r,"reference"));f.put("receipt_date",value(r,"date"));r.setAttribute("form",f);
             String[] p=r.getParameterValues("product"),u=r.getParameterValues("unit"),q=r.getParameterValues("quantity"),l=r.getParameterValues("lot"),x=r.getParameterValues("expiry");
             if(p!=null) { var forms=new ArrayList<Map<String,Object>>();for(int i=0;i<Math.min(p.length,100);i++) forms.add(Map.of("product_id",safeId(p[i]),"unit_id",safeId(cell(u,i)),"quantity",cell(q,i),"lot_code",cell(l,i),"expires_on",cell(x,i)));r.setAttribute("lineForms",forms); }
