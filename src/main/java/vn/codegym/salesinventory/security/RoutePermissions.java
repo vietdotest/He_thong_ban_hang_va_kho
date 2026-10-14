@@ -6,6 +6,7 @@ public final class RoutePermissions {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
     public static String required(String path,String method,String action) {
+        if(path.equals("/accounting/returns")&&method.equals("POST"))return "receive".equals(action)?"STOCK_RETURN_RECEIVE":"RETURN_WRITE";
         if(path.equals("/orders")&&method.equals("POST")&&"renewPortal".equals(action))return "ORDER_CONFIRM_PORTAL";
         if(path.equals("/orders")&&method.equals("POST")&&"approveRenewal".equals(action))return "ORDER_APPROVE";
         if(path.equals("/fulfillment/shipments")&&method.equals("POST")&&"recover".equals(action))return "STOCK_RETURN_RECEIVE";
@@ -16,6 +17,7 @@ public final class RoutePermissions {
         return required(path,method);
     }
     public static String required(String path,String method) {
+        if(path.equals("/accounting/returns"))return method.equals("GET")?"RETURN_READ":"RETURN_WRITE";
         if(path.equals("/accounting/payments"))return method.equals("GET")?"INVOICE_READ":"PAYMENT_WRITE";
         if(path.equals("/accounting/invoices"))return method.equals("GET")?"INVOICE_READ":"INVOICE_ISSUE";
         if(path.equals("/fulfillment/shipments"))return method.equals("GET")?"FULFILLMENT_READ":"FULFILLMENT_WRITE";
