@@ -336,4 +336,6 @@
     <servlet-mapping><servlet-name>DebtServlet</servlet-name><url-pattern>/accounting/debt</url-pattern></servlet-mapping>
     <servlet><servlet-name>SalesReportServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.SalesReportServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>SalesReportServlet</servlet-name><url-pattern>/reports/sales</url-pattern></servlet-mapping>
+    <servlet><servlet-name>StockServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.StockServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>StockServlet</servlet-name><url-pattern>/inventory/stock</url-pattern></servlet-mapping>
 </web-app>
