@@ -1,6 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tổng quan công việc | Quản lý bán hàng</title><%@ include file="fragments/assets.jspf" %></head>
-<body class="app-page" data-view="dashboard" data-ui-css=""><%@ include file="fragments/sidebar.jspf" %><%@ include file="fragments/topbar.jspf" %>
+<layout:page title="Tổng quan công việc" view="dashboard" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <main class="page-body app-content dashboard-page"><div class="page-heading"><div><h1>Tổng quan</h1><p>Xin chào <c:out value="${currentUser.fullName()}"/>. Chọn phần việc để bắt đầu.</p></div></div>
 <div class="dashboard-work"><section class="content-panel dashboard-tasks"><h2>Phần việc thường dùng</h2>
 <c:forEach var="area" items="${taskAreas}"><c:set var="areaIcon" value="${area.path() == '/admin/users' ? 'users' : area.path() == '/pricing/lists' ? 'tag' : area.path() == '/catalog/units' ? 'ruler-combined' : area.path() == '/catalog/suppliers' ? 'truck' : 'box'}"/>
@@ -14,4 +14,6 @@
 </section></c:if></div>
 <c:if test="${access.allows('AUDIT_READ')}"><div class="section-heading"><h2>Hoạt động gần đây</h2><a class="button button-plain" href="${pageContext.request.contextPath}/admin/audit"><ui:icon name="clock"/>Xem nhật ký</a></div>
 <c:choose><c:when test="${empty recentOperations}"><div class="alert">Chưa có thao tác được ghi nhận.</div></c:when><c:otherwise><div class="table-wrap"><table><thead><tr><th scope="col">Thao tác</th><th scope="col">Đối tượng</th><th scope="col">Người thực hiện</th><th scope="col">Thời điểm</th></tr></thead><tbody><c:forEach var="entry" items="${recentOperations}"><tr><td><c:out value="${entry.event_label}"/></td><td><c:out value="${entry.object_label}"/><c:if test="${not empty entry.object_id}"> #<c:out value="${entry.object_id}"/></c:if></td><td><c:out value="${entry.full_name}"/></td><td><c:out value="${entry.display_time}"/></td></tr></c:forEach></tbody></table></div></c:otherwise></c:choose>
-</c:if></main></body></html>
+</c:if></main>
+</jsp:body>
+</layout:page>
