@@ -35,6 +35,14 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void quoteShowsAvailabilityInChosenUnitsAndDebtWithoutFloorOrPhysicalStock(){
+        receive("5");long box=insert("INSERT INTO product_units(product_id,name,factor,warehouse_id) VALUES(?,'Gói ba',3,?)",product,warehouse);
+        long id=orders.save(sales,0,new OrderService.Input(dealer,address,LocalDate.of(2027,1,2),0,key(),List.of(new OrderService.LineInput(product,box,BigDecimal.ONE))));
+        var q=orders.quote(sales,id);assertThat(q.valid()).isTrue();var display=q.display();var line=((List<Map<String,Object>>)display.get("lines")).get(0);
+        assertThat(line).containsEntry("availableBase","5").containsEntry("availableUnits","1.666666").doesNotContainKeys("floorExact","floorFormatted","cost_price","onHand","reserved");
+        var credit=(Map<String,Object>)q.controls().get("credit");assertThat(new BigDecimal(credit.get("outstanding").toString())).isEqualByComparingTo("0");assertThat(new BigDecimal(credit.get("limit").toString())).isEqualByComparingTo("1000");
+        reserve(id);long another=order("3");assertThat(orders.quote(sales,another).errors().values()).anyMatch(s->s.contains("tồn khả dụng"));
+    }
     @Test void fifoUsesReceiptDateBeforeIdAndSameLotNameKeepsSeparateSources(){
         long newer=receive("10");var oldInput=new StockService.ReceiptInput(warehouse,supplier,"Lô nhập cũ",LocalDate.of(2026,12,31),input("10").lines());
         long older=stock.saveReceipt(worker,0,0,key(),oldInput);stock.confirmReceipt(worker,older,1,key());long id=order("12");update("UPDATE dealers SET credit_limit=2000 WHERE id=?",dealer);reserve(id);

@@ -1,6 +1,7 @@
 package vn.codegym.salesinventory.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.*;
@@ -41,6 +42,7 @@ public final class OrderService {
             var rows=new ArrayList<Map<String,Object>>();
             for(var l:lines){var row=new LinkedHashMap<String,Object>();row.put("position",l.position);row.put("sku",l.sku);row.put("name",l.name);
                 row.put("unit",l.conversion.unitName());row.put("factor",l.conversion.factor().toPlainString());row.put("baseQuantity",l.conversion.baseQuantity().toPlainString());
+                if(controls.get("available") instanceof Map<?,?> available&&available.get(Long.toString(l.product))!=null){BigDecimal quantity=new BigDecimal(available.get(Long.toString(l.product)).toString());row.put("availableBase",quantity.stripTrailingZeros().toPlainString());row.put("availableUnits",quantity.max(BigDecimal.ZERO).divide(l.conversion.factor(),6,RoundingMode.DOWN).stripTrailingZeros().toPlainString());}
                 row.put("selling",l.price.sellingPrice().toPlainString());row.put("gross",l.gross.toPlainString());row.put("discount",l.discount.toPlainString());row.put("net",l.net.toPlainString());
                 row.put("formatted",Map.of("selling",MoneyDisplay.format(l.price.sellingPrice()),"gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
                 row.put("needsApproval",belowFloor(l));row.put("policy",l.policy.applied()?l.policy.tier().name():"");rows.add(row);}
