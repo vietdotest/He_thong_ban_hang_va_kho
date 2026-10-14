@@ -1,0 +1,69 @@
+package vn.codegym.salesinventory.service;
+
+import java.math.BigDecimal;
+import java.sql.*;
+import java.time.*;
+import java.util.*;
+import javax.sql.DataSource;
+import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.security.Access;
+import vn.codegym.salesinventory.validation.CommandConflictException;
+
+public final class ReturnService {
+    private final DataSource source;private final Clock clock;
+    public ReturnService(DataSource source){this(source,Clock.systemUTC());}
+    public ReturnService(DataSource source,Clock clock){this.source=source;this.clock=clock;}
+    public record Line(long invoiceLine,BigDecimal quantity,String condition){}
+    public record Input(long invoice,String reason,List<Line> lines){}
+    static Map<String,Object> invoiceHeader(Connection c,long invoice)throws SQLException {
+        return Sql.one(c,"SELECT i.*,s.warehouse_id,o.dealer_name_snapshot,o.address_snapshot FROM mvp_invoices i JOIN mvp_shipments s ON s.id=i.shipment_id JOIN orders o ON o.id=s.order_id WHERE i.id=?",invoice);
+    }
+    private static Access writer(Connection c,long actor)throws SQLException {
+        var a=MvpAccess.internal(c,actor,"RETURN_WRITE");if(Collections.disjoint(a.roles(),Set.of("SALES","SALES_MANAGER")))throw new SecurityException();return a;
+    }
+    private static List<Line> normalize(Input input) {
+        if(input==null||input.invoice<=0||input.lines==null||input.lines.isEmpty()||input.lines.size()>1000)throw new IllegalArgumentException("Chọn hóa đơn gốc và lượng trả.");
+        var result=new TreeMap<String,Line>();for(var line:input.lines){if(line==null||line.invoiceLine<=0||!Set.of("SELLABLE","DAMAGED").contains(line.condition==null?"":line.condition))throw new IllegalArgumentException("Dòng hoặc tình trạng trả không hợp lệ.");var normalized=new Line(line.invoiceLine,MvpCommands.quantity(line.quantity),line.condition);if(result.putIfAbsent(line.invoiceLine+":"+line.condition,normalized)!=null)throw new IllegalArgumentException("Dòng trả bị lặp.");}return List.copyOf(result.values());
+    }
+    private static void quantityCap(Connection c,long invoice,long excludedReturn,List<Line> requested)throws SQLException {
+        var available=new HashMap<Long,BigDecimal>();for(var line:Sql.query(c,"SELECT id,quantity FROM mvp_invoice_lines WHERE invoice_id=? ORDER BY id FOR UPDATE",invoice))available.put(Sql.id(line.get("id")),MvpCommands.decimal(line.get("quantity")));
+        var totals=new HashMap<Long,BigDecimal>();for(var line:requested){if(!available.containsKey(line.invoiceLine))throw new SecurityException("Dòng trả không thuộc hóa đơn gốc.");totals.merge(line.invoiceLine,line.quantity,BigDecimal::add);}
+        for(var entry:totals.entrySet()){BigDecimal other=CreditService.sum(c,"SELECT COALESCE(SUM(rl.quantity),0) amount FROM mvp_return_lines rl JOIN mvp_returns r ON r.id=rl.return_id WHERE rl.invoice_line_id=? AND r.id<>? AND r.status<>'CANCELLED'",entry.getKey(),excludedReturn);if(other.add(entry.getValue()).compareTo(available.get(entry.getKey()))>0)throw new CommandConflictException("Tổng hàng tốt, hỏng và phiếu đang chờ vượt lượng hóa đơn chưa trả.");}
+    }
+    public long save(long actor,long id,long version,String requestKey,Input input) {
+        var lines=normalize(input);String why=MvpCommands.text(input.reason,1000,"Lý do trả");
+        return Sql.transaction(source,c->{writer(c,actor);var known=invoiceHeader(c,input.invoice);MvpAccess.dealer(c,actor,"RETURN_WRITE",Sql.id(known.get("dealer_id")),true);Sql.one(c,"SELECT id FROM mvp_invoices WHERE id=? FOR UPDATE",input.invoice);
+            Map<String,Object> before=id==0?null:Sql.one(c,"SELECT * FROM mvp_returns WHERE id=? FOR UPDATE",id);if(before!=null&&Sql.id(before.get("invoice_id"))!=input.invoice)throw new SecurityException("Không được đổi hóa đơn gốc của phiếu trả.");
+            var command=MvpCommands.begin(c,actor,"RETURN_SAVE",requestKey,id+":"+version+":"+input.invoice+":"+why+":"+lines);if(command.replayId()!=null)return command.replayId();
+            if(before==null){if(version!=0)throw new CommandConflictException("Phiếu trả mới phải có phiên bản 0.");}else{MvpCommands.version(before,version);if(!"DRAFT".equals(before.get("status")))throw new IllegalArgumentException("Phiếu đã nhận chỉ đọc.");}
+            quantityCap(c,input.invoice,id,lines);var now=clock.instant();long saved=id;
+            if(id==0){String number=MvpCommands.nextNumber(c,"TH",MvpCommands.date(now));saved=Sql.insert(c,"INSERT INTO mvp_returns(invoice_id,warehouse_id,reason,created_by,created_at,number) VALUES(?,?,?,?,?,?)",input.invoice,known.get("warehouse_id"),why,actor,MvpCommands.timestamp(now),number);}
+            else{Sql.update(c,"DELETE FROM mvp_return_lines WHERE return_id=?",id);Sql.update(c,"UPDATE mvp_returns SET reason=?,version=version+1 WHERE id=?",why,id);}
+            for(var line:lines)Sql.insert(c,"INSERT INTO mvp_return_lines(return_id,invoice_line_id,condition_code,quantity) VALUES(?,?,?,?)",saved,line.invoiceLine,line.condition,line.quantity);
+            AuditService.record(c,actor,"RETURN_DRAFT_SAVED","RETURN",saved,before,Map.of("invoice",input.invoice,"reason",why,"lines",lines));return MvpCommands.finish(c,command,saved);
+        });
+    }
+    public long receive(long actor,long id,long version,String requestKey,boolean physicallyConfirmed) {
+        return Sql.transaction(source,c->{var known=Sql.one(c,"SELECT r.invoice_id,r.warehouse_id,i.dealer_id FROM mvp_returns r JOIN mvp_invoices i ON i.id=r.invoice_id WHERE r.id=?",id);MvpAccess.warehouseManager(c,actor,"STOCK_RETURN_RECEIVE",Sql.id(known.get("warehouse_id")));
+            Sql.one(c,"SELECT id FROM dealers WHERE id=? FOR UPDATE",known.get("dealer_id"));Sql.one(c,"SELECT id FROM mvp_invoices WHERE id=? FOR UPDATE",known.get("invoice_id"));var header=Sql.one(c,"SELECT * FROM mvp_returns WHERE id=? FOR UPDATE",id);
+            var command=MvpCommands.begin(c,actor,"RETURN_RECEIVE",requestKey,id+":"+version+":"+physicallyConfirmed);if(command.replayId()!=null)return command.replayId();MvpCommands.version(header,version);if(!"DRAFT".equals(header.get("status")))throw new IllegalArgumentException("Phiếu không còn chờ nhận hàng.");if(!physicallyConfirmed)throw new IllegalArgumentException("Xác nhận đã thực nhận đúng lượng và tình trạng. Nếu khác, NVKD cần sửa phiếu nháp trước.");
+            Sql.query(c,"SELECT l.id FROM mvp_lots l WHERE l.id IN (SELECT il.lot_id FROM mvp_return_lines rl JOIN mvp_invoice_lines il ON il.id=rl.invoice_line_id WHERE rl.return_id=?) ORDER BY l.product_id,l.received_date,l.id FOR UPDATE",id);
+            var lines=Sql.query(c,"SELECT rl.*,il.lot_id FROM mvp_return_lines rl JOIN mvp_invoice_lines il ON il.id=rl.invoice_line_id WHERE rl.return_id=? ORDER BY rl.id FOR UPDATE",id);if(lines.isEmpty())throw new IllegalArgumentException("Phiếu thiếu dòng hàng trả.");var now=clock.instant();
+            for(var line:lines)if("SELLABLE".equals(line.get("condition_code"))){long lot=Sql.id(line.get("lot_id"));BigDecimal quantity=MvpCommands.decimal(line.get("quantity")),onHand=MvpCommands.decimal(Sql.one(c,"SELECT on_hand FROM mvp_lots WHERE id=?",lot).get("on_hand"));Sql.update(c,"UPDATE mvp_lots SET on_hand=on_hand+? WHERE id=?",quantity,lot);StockService.movement(c,actor,lot,"COMMERCIAL_RETURN","RETURN_LINE",Sql.id(line.get("id")),quantity,onHand.add(quantity),now);}
+            Sql.update(c,"UPDATE mvp_returns SET status='RECEIVED',version=version+1,received_by=?,received_at=? WHERE id=?",actor,MvpCommands.timestamp(now),id);AuditService.record(c,actor,"RETURN_RECEIVED","RETURN",id,header,Sql.one(c,"SELECT * FROM mvp_returns WHERE id=?",id));return MvpCommands.finish(c,command,id);
+        });
+    }
+    public void cancel(long actor,long id,long version,String requestKey,String reason) {
+        String why=MvpCommands.text(reason,1000,"Lý do hủy phiếu trả");Sql.transaction(source,c->{writer(c,actor);var known=Sql.one(c,"SELECT r.invoice_id,i.dealer_id FROM mvp_returns r JOIN mvp_invoices i ON i.id=r.invoice_id WHERE r.id=?",id);MvpAccess.dealer(c,actor,"RETURN_WRITE",Sql.id(known.get("dealer_id")),true);Sql.one(c,"SELECT id FROM mvp_invoices WHERE id=? FOR UPDATE",known.get("invoice_id"));var header=Sql.one(c,"SELECT * FROM mvp_returns WHERE id=? FOR UPDATE",id);
+            var command=MvpCommands.begin(c,actor,"RETURN_CANCEL",requestKey,id+":"+version+":"+why);if(command.replayId()!=null)return null;MvpCommands.version(header,version);if(!"DRAFT".equals(header.get("status")))throw new IllegalArgumentException("Chỉ hủy phiếu trả chưa nhận.");Sql.update(c,"UPDATE mvp_returns SET status='CANCELLED',version=version+1 WHERE id=?",id);AuditService.record(c,actor,"RETURN_CANCELLED","RETURN",id,header,Map.of("reason",why));MvpCommands.finish(c,command,id);return null;
+        });
+    }
+    private static String readScope(){return " ((? OR d.primary_staff_id=?) OR (? AND EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=r.warehouse_id))) ";}
+    private static Object[] scope(Access a,long actor){return new Object[]{MvpAccess.allDealers(a),actor,!Collections.disjoint(a.roles(),Set.of("WAREHOUSE","WAREHOUSE_MANAGER")),actor};}
+    public List<Map<String,Object>> invoicesForReturn(long actor){return Sql.snapshot(source,c->{var a=writer(c,actor);return Sql.query(c,"SELECT i.id,i.number,i.invoice_date,d.code dealer_code,d.name dealer_name FROM mvp_invoices i JOIN dealers d ON d.id=i.dealer_id WHERE (? OR d.primary_staff_id=?) AND EXISTS(SELECT 1 FROM mvp_invoice_lines il WHERE il.invoice_id=i.id AND il.quantity>COALESCE((SELECT SUM(rl.quantity) FROM mvp_return_lines rl JOIN mvp_returns r ON r.id=rl.return_id WHERE rl.invoice_line_id=il.id AND r.status<>'CANCELLED'),0)) ORDER BY i.id DESC LIMIT 100",MvpAccess.allDealers(a),actor);});}
+    public Map<String,Object> invoiceForReturn(long actor,long invoice,long excludedReturn){return Sql.snapshot(source,c->{writer(c,actor);var sourceInvoice=invoiceHeader(c,invoice);MvpAccess.dealer(c,actor,"RETURN_WRITE",Sql.id(sourceInvoice.get("dealer_id")),false);
+        var row=new LinkedHashMap<String,Object>();for(String key:List.of("id","number","invoice_date","dealer_name_snapshot","address_snapshot","warehouse_id"))row.put(key,sourceInvoice.get(key));
+        row.put("lines",Sql.query(c,"SELECT il.id,il.sku_snapshot,il.name_snapshot,il.unit_snapshot,il.quantity,il.quantity-COALESCE((SELECT SUM(rl.quantity) FROM mvp_return_lines rl JOIN mvp_returns r ON r.id=rl.return_id WHERE rl.invoice_line_id=il.id AND r.id<>? AND r.status<>'CANCELLED'),0) remaining FROM mvp_invoice_lines il WHERE il.invoice_id=? ORDER BY il.id",excludedReturn,invoice));return row;});}
+    public List<Map<String,Object>> returns(long actor){return Sql.snapshot(source,c->{var a=MvpAccess.internal(c,actor,"RETURN_READ");return Sql.query(c,"SELECT r.*,i.number invoice_number,d.name dealer_name,w.name warehouse_name FROM mvp_returns r JOIN mvp_invoices i ON i.id=r.invoice_id JOIN dealers d ON d.id=i.dealer_id JOIN warehouses w ON w.id=r.warehouse_id WHERE "+readScope()+" ORDER BY r.id DESC LIMIT 100",scope(a,actor));});}
+    public Map<String,Object> document(long actor,long id){return Sql.snapshot(source,c->{var a=MvpAccess.internal(c,actor,"RETURN_READ");var parameters=new ArrayList<Object>(Arrays.asList(scope(a,actor)));parameters.add(id);var rows=Sql.query(c,"SELECT r.*,i.number invoice_number,o.dealer_name_snapshot dealer_name,o.address_snapshot,d.primary_staff_id,w.name warehouse_name FROM mvp_returns r JOIN mvp_invoices i ON i.id=r.invoice_id JOIN mvp_shipments s ON s.id=i.shipment_id JOIN orders o ON o.id=s.order_id JOIN dealers d ON d.id=i.dealer_id JOIN warehouses w ON w.id=r.warehouse_id WHERE "+readScope()+" AND r.id=?",parameters.toArray());if(rows.isEmpty())throw new SecurityException("Phiếu trả không thuộc phạm vi.");var row=new LinkedHashMap<>(rows.get(0));boolean businessScope=MvpAccess.allDealers(a)||Sql.id(row.get("primary_staff_id"))==actor;row.remove("primary_staff_id");row.put("can_edit","DRAFT".equals(row.get("status"))&&businessScope&&a.allows("RETURN_WRITE")&&!Collections.disjoint(a.roles(),Set.of("SALES","SALES_MANAGER")));row.put("can_receive","DRAFT".equals(row.get("status"))&&a.allows("STOCK_RETURN_RECEIVE")&&a.roles().contains("WAREHOUSE_MANAGER")&&!Sql.query(c,"SELECT warehouse_id FROM user_warehouses WHERE user_id=? AND warehouse_id=?",actor,row.get("warehouse_id")).isEmpty());row.put("lines",Sql.query(c,"SELECT rl.*,il.sku_snapshot,il.name_snapshot,il.unit_snapshot,l.lot_code FROM mvp_return_lines rl JOIN mvp_invoice_lines il ON il.id=rl.invoice_line_id JOIN mvp_lots l ON l.id=il.lot_id WHERE rl.return_id=? ORDER BY rl.id",id));row.put("credited",!Sql.query(c,"SELECT id FROM mvp_credits WHERE return_id=?",id).isEmpty());return row;});}
+}
