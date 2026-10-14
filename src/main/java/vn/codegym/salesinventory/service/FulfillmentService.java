@@ -82,6 +82,7 @@ public final class FulfillmentService {
                 if(remaining.signum()!=0)throw new CommandConflictException("Giữ hàng đã thay đổi. Hãy tải lại.");
             }
             Sql.update(c,"UPDATE orders SET version=version+1 WHERE id=?",order);
+            Sql.update(c,"UPDATE mvp_shipments SET number=? WHERE id=?",MvpCommands.nextNumber(c,"PX",MvpCommands.date(now)),shipment);
             AuditService.record(c,actor,"SHIPMENT_DISPATCHED","SHIPMENT",shipment,null,Sql.one(c,"SELECT * FROM mvp_shipments WHERE id=?",shipment));return MvpCommands.finish(c,command,shipment);
         });
     }
