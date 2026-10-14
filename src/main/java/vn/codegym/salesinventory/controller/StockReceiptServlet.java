@@ -17,6 +17,7 @@ public final class StockReceiptServlet extends PortalServlet {
         long actor=actor(r).id(),id=optional(r,"id");
         r.setAttribute("receipts",service().receipts(actor));r.setAttribute("requestKey",UUID.randomUUID().toString());
         if(id>0) r.setAttribute("receipt",service().receipt(actor,id));
+        if(!access(r).allows("STOCK_RECEIPT_WRITE")){if("new".equals(value(r,"action")))throw new SecurityException();view(r,s,"inventory/receipts");return;}
         r.setAttribute("warehouses",service().warehouses(actor,"STOCK_RECEIPT_WRITE"));
         Sql.snapshot(source(),c->{MvpAccess.internal(c,actor,"STOCK_RECEIPT_WRITE");
             r.setAttribute("suppliers",Sql.query(c,"SELECT s.id,s.code,s.name,s.warehouse_id FROM suppliers s WHERE s.status='ACTIVE' AND EXISTS(SELECT 1 FROM user_warehouses uw WHERE uw.user_id=? AND uw.warehouse_id=s.warehouse_id) ORDER BY s.name,s.id",actor));
