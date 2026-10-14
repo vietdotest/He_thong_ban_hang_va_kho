@@ -24,7 +24,8 @@ public final class RoutePermissions {
         if(path.equals("/accounting/payments"))return method.equals("GET")?"INVOICE_READ":"PAYMENT_WRITE";
         if(path.equals("/accounting/invoices"))return method.equals("GET")?"INVOICE_READ":"INVOICE_ISSUE";
         if(path.equals("/fulfillment/shipments"))return method.equals("GET")?"FULFILLMENT_READ":"FULFILLMENT_WRITE";
-        if(path.equals("/inventory/receipts"))return "STOCK_RECEIPT_WRITE";
+        if(path.equals("/inventory/receipts"))return method.equals("GET")?"STOCK_READ":"STOCK_RECEIPT_WRITE";
+        if(path.equals("/inventory/card"))return method.equals("GET")?"STOCK_READ":null;
         if(path.equals("/dealers/accounts"))return "PORTAL_ACCOUNT_MANAGE";
         if(path.equals("/portal")||path.equals("/api/portal/products")||path.equals("/api/portal/options"))return method.equals("GET")?"PORTAL_ORDER_READ":null;
         if(path.equals("/portal/orders"))return method.equals("GET")?"PORTAL_ORDER_READ":"PORTAL_ORDER_WRITE";
