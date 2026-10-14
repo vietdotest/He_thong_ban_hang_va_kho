@@ -29,6 +29,13 @@ public final class MvpCommands {
     public static void version(Map<String,Object> row,long expected) {
         if(Sql.id(row.get("version"))!=expected) throw new CommandConflictException("Chứng từ đã thay đổi. Hãy tải lại trước khi xác nhận.");
     }
+    public static String resultStatus(Connection c,Ticket ticket)throws SQLException {
+        String result=Sql.text(Sql.one(c,"SELECT result_status FROM mvp_commands WHERE actor_id=? AND operation=? AND request_key=?",ticket.actor,ticket.operation,ticket.key).get("result_status"));
+        if(result.isEmpty())throw new CommandConflictException("Yêu cầu cũ chưa có kết quả lưu; hãy tải lại chứng từ.");return result;
+    }
+    public static long finish(Connection c,Ticket ticket,long id,String status)throws SQLException {
+        Sql.update(c,"UPDATE mvp_commands SET result_status=? WHERE actor_id=? AND operation=? AND request_key=?",status,ticket.actor,ticket.operation,ticket.key);return finish(c,ticket,id);
+    }
     public static BigDecimal quantity(BigDecimal value) {
         if(value==null||value.signum()<=0||value.stripTrailingZeros().scale()>12||value.precision()-value.scale()>26)
             throw new IllegalArgumentException("Số lượng phải dương, tối đa 12 chữ số thập phân.");

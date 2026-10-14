@@ -12,6 +12,7 @@ import vn.codegym.salesinventory.validation.FieldValidationException;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 class OrderServletTest extends CatalogControllerTestSupport {
+    @Test void staleVersionReturns409AndRetainsDraftInput()throws Exception{doThrow(new vn.codegym.salesinventory.validation.CommandConflictException("Đã thay đổi")).when(service).save(anyLong(),anyLong(),any());servlet.doPost(request,response);verify(response).setStatus(409);assertThat(attributes.get("unsaved")).isEqualTo(true);}
     OrderService service;OrderServlet servlet;
     @BeforeEach void controller()throws Exception{service=mock(OrderService.class);var dealers=mock(DealerService.class);var products=mock(ProductService.class);when(products.search(anyLong(),anyString(),any(),anyString(),any())).thenReturn(new PageResult<>(List.of(),0,1,20));when(dealers.find(anyLong(),anyLong())).thenReturn(Map.of("id",3,"code","QA","name","Đại lý QA"));servlet=new OrderServlet(service,dealers,products);init(servlet);
         attributes.put("access",new Access(Set.of("SALES_MANAGER"),Set.of("ORDER_READ","ORDER_WRITE"),List.of(),List.of(),List.of()));params.putAll(Map.of("action","save","dealer","3","address","4","delivery","2030-01-03","version","0","creationKey",UUID.randomUUID().toString()));when(request.getParameterValues("product")).thenReturn(new String[]{"5","5"});when(request.getParameterValues("unit")).thenReturn(new String[]{"6","7"});when(request.getParameterValues("quantity")).thenReturn(new String[]{"12","1.500001"});}
