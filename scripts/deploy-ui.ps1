@@ -127,6 +127,7 @@ try {
         $envName='MAIL_'+([regex]::Replace($field,'([a-z])([A-Z])','$1_$2')).ToUpper()
         [Environment]::SetEnvironmentVariable($envName,[string]$config.('mail'+$field.Substring(0,1).ToUpper()+$field.Substring(1)))
     }
+    $env:MAIL_PASSWORD=([string]$config.mailPassword) -replace '\s',''
     $classes=Join-Path $root 'target/ROOT/WEB-INF/classes'; $libraries=Join-Path $root 'target/ROOT/WEB-INF/lib/*'
     & $java '-Dfile.encoding=UTF-8' '-cp' "$classes;$libraries" 'vn.codegym.salesinventory.config.SchemaValidation'
     if ($LASTEXITCODE -ne 0) { throw 'Validate schema không đạt; chưa dừng web.' }
