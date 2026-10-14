@@ -35,6 +35,17 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void fifoUsesReceiptDateBeforeIdAndSameLotNameKeepsSeparateSources(){
+        long newer=receive("10");var oldInput=new StockService.ReceiptInput(warehouse,supplier,"Lô nhập cũ",LocalDate.of(2026,12,31),input("10").lines());
+        long older=stock.saveReceipt(worker,0,0,key(),oldInput);stock.confirmReceipt(worker,older,1,key());long id=order("12");update("UPDATE dealers SET credit_limit=2000 WHERE id=?",dealer);reserve(id);
+        var held=query("SELECT h.quantity,r.receipt_id FROM mvp_holds h JOIN mvp_lots l ON l.id=h.lot_id JOIN mvp_receipt_lines r ON r.id=l.receipt_line_id WHERE h.order_id=? ORDER BY l.received_date,l.id",id);
+        assertThat(held).hasSize(2);assertThat(Sql.id(held.get(0).get("receipt_id"))).isEqualTo(older);assertThat((BigDecimal)held.get(0).get("quantity")).isEqualByComparingTo("10");assertThat(Sql.id(held.get(1).get("receipt_id"))).isEqualTo(newer);assertThat((BigDecimal)held.get(1).get("quantity")).isEqualByComparingTo("2");
+    }
+    @Test void fifoUsesLotIdToBreakEqualReceiptDateAndNeverMergesSameName(){
+        long first=receive("10"),second=receive("10");long id=order("12");update("UPDATE dealers SET credit_limit=2000 WHERE id=?",dealer);reserve(id);
+        var held=query("SELECT h.quantity,r.receipt_id FROM mvp_holds h JOIN mvp_lots l ON l.id=h.lot_id JOIN mvp_receipt_lines r ON r.id=l.receipt_line_id WHERE h.order_id=? ORDER BY l.id",id);
+        assertThat(held).hasSize(2);assertThat(Sql.id(held.get(0).get("receipt_id"))).isEqualTo(first);assertThat((BigDecimal)held.get(0).get("quantity")).isEqualByComparingTo("10");assertThat(Sql.id(held.get(1).get("receipt_id"))).isEqualTo(second);assertThat((BigDecimal)held.get(1).get("quantity")).isEqualByComparingTo("2");
+    }
     @Test void confirmedReceiptSnapshotsAndNumberRemainImmutableAfterMasterChanges(){
         long id=receive("2");var original=stock.receipt(worker,id);String number=original.get("number").toString();assertThat(number).matches("PN-2027-[0-9]{6}");
         var line=((List<Map<String,Object>>)original.get("lines")).get(0);
