@@ -328,4 +328,6 @@
     <servlet-mapping><servlet-name>FulfillmentServlet</servlet-name><url-pattern>/fulfillment/shipments</url-pattern></servlet-mapping>
     <servlet><servlet-name>InvoiceServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.InvoiceServlet</servlet-class></servlet>
     <servlet-mapping><servlet-name>InvoiceServlet</servlet-name><url-pattern>/accounting/invoices</url-pattern></servlet-mapping>
+    <servlet><servlet-name>PaymentServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.PaymentServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>PaymentServlet</servlet-name><url-pattern>/accounting/payments</url-pattern></servlet-mapping>
 </web-app>

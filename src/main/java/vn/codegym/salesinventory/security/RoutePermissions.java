@@ -16,6 +16,7 @@ public final class RoutePermissions {
         return required(path,method);
     }
     public static String required(String path,String method) {
+        if(path.equals("/accounting/payments"))return method.equals("GET")?"INVOICE_READ":"PAYMENT_WRITE";
         if(path.equals("/accounting/invoices"))return method.equals("GET")?"INVOICE_READ":"INVOICE_ISSUE";
         if(path.equals("/fulfillment/shipments"))return method.equals("GET")?"FULFILLMENT_READ":"FULFILLMENT_WRITE";
         if(path.equals("/inventory/receipts"))return "STOCK_RECEIPT_WRITE";
