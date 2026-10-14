@@ -25,6 +25,10 @@ for(const row of matrix){
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(csp).toEqual([]);expect(errors).toEqual([]);
     if(!process.env.UI_SKIP_SCREENSHOTS)await expect(page).toHaveScreenshot(row.id+'.png',{fullPage:true,mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'});
+    if(process.env.UI_CAPTURE_REVIEW){
+      const folder=path.join(root,'.tools/ui-evidence/latest',test.info().project.name);fs.mkdirSync(folder,{recursive:true});
+      await page.screenshot({path:path.join(folder,row.id+'.png'),fullPage:true,animations:'disabled',mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'});
+    }
   });
   if(row.axe)test(`${row.id} accessibility @axe`,async({page})=>{
     await login(page,row.actor);await page.goto(routeOf(row));

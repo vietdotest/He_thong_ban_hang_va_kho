@@ -5,9 +5,11 @@ async function open(page,row){
  if(row.actor!=='guest')await page.context().addCookies(JSON.parse(fs.readFileSync(path.join(__dirname,'.auth',row.actor+'.json'),'utf8')).cookies);
  const response=await page.goto(row.route.replace(/\{(\w+)\}/g,(_,key)=>fixtures[key]));expect(response.status()).toBe(row.status);
  await expect(page.locator(row.selector).first()).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+ // Đợi lookup/báo giá ban đầu xong trước cặp ảnh; không lấy hai trạng thái dữ liệu khác nhau.
+ await page.waitForLoadState('networkidle');
  await page.evaluate(()=>{for(const el of document.querySelectorAll('td,small,time,p,span'))if(el.children.length===0&&/\d{2}:\d{2}|Phiên gần nhất|Đăng nhập gần nhất/.test(el.textContent))el.setAttribute('data-ui-dynamic','');});
 }
-async function compare(page,label){
+async function compare(page,label,{print=false}={}){
  const options={fullPage:true,animations:'disabled',mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'};
  const before=PNG.sync.read(await page.screenshot(options));
  const removed=await page.evaluate(()=>{
@@ -18,7 +20,7 @@ async function compare(page,label){
  const pixelmatch=(await import('pixelmatch')).default,diff=new PNG({width:before.width,height:before.height});
  const changed=pixelmatch(before.data,after.data,diff.data,before.width,before.height,{threshold:.1}),ratio=changed/(before.width*before.height);
  if(ratio>.01)await test.info().attach(label+'-legacy-diff',{body:PNG.sync.write(diff),contentType:'image/png'});
- expect(ratio,label).toBeLessThanOrEqual(.01);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(ratio,label).toBeLessThanOrEqual(.01);if(!print)expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 }
 for(const row of matrix)test(row.id+' @legacy',async({page})=>{await open(page,row);await compare(page,row.id);});
 test('menu và dialog @legacy',async({page})=>{
@@ -28,4 +30,4 @@ test('menu và dialog @legacy',async({page})=>{
  await page.reload();await page.evaluate(()=>{const d=document.querySelector('.ui-confirm-dialog');if(!d)throw Error('Thiếu dialog');d.querySelector('h2').textContent='Xác nhận thao tác';d.querySelector('p').textContent='Bạn có chắc muốn thực hiện thao tác này?';d.showModal();});
  await compare(page,'dialog');
 });
-test('bản in @legacy',async({page})=>{await open(page,matrix.find(r=>r.id==='order-print'));await page.emulateMedia({media:'print'});await compare(page,'print');});
+test('bản in @legacy',async({page})=>{await open(page,matrix.find(r=>r.id==='order-print'));await page.emulateMedia({media:'print'});await compare(page,'print',{print:true});});

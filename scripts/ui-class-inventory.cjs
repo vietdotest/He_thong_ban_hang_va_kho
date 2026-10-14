@@ -13,13 +13,13 @@ for (const file of js) {
   }
   for (const match of source.matchAll(/classList\.(?:add|remove|toggle|contains)\(\s*['"]([\w-]+)['"]/g)) hooks.add(match[1]);
 }
-const css = files(path.join(root,'src/main/webapp/assets/css')).filter(f=>/\.css$/.test(f));
+const css = files(path.join(root,'src/main/tailwind')).filter(f=>/\.css$/.test(f));
 const cssText = css.map(f=>fs.readFileSync(f,'utf8')).join('\n');
 const styled = [...hooks].filter(c=>new RegExp('\\.'+c+'(?![\\w-])').test(cssText)).sort();
 const inventory = views.sort().map(file=>{
   const source = fs.readFileSync(file,'utf8');
   return {view:path.relative(path.join(root,'src/main/webapp/WEB-INF/views'),file).replaceAll('\\','/').replace(/\.jsp$/,''),
-    css:[...source.matchAll(/assets\/css\/([\w-]+\.css)/g)].map(m=>m[1]),
+    css:(source.match(/\bcss="([^"]*)"/)?.[1]||'').split(/\s+/).filter(Boolean).map(name=>name+'.css'),
     scripts:[...source.matchAll(/assets\/js\/([\w-]+\.js)/g)].map(m=>m[1])};
 });
 const target = path.join(root,'src/test/resources/ui'); fs.mkdirSync(target,{recursive:true});

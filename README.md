@@ -10,6 +10,19 @@
 
 Không cần cài Maven toàn hệ thống. `mvnw.cmd` tự tải Maven 3.9.16 và kiểm tra SHA-512 ở lần chạy đầu tiên.
 
+Giao diện dùng Tailwind CLI 4.3.3 và Font Awesome Free 7.3.1 tự host. Chuẩn bị CLI một lần trước build; script kiểm SHA-256 trên Windows/Linux:
+
+```powershell
+.\scripts\setup-tailwind.ps1
+```
+
+```sh
+sh scripts/setup-tailwind.sh
+./mvnw clean verify
+```
+
+Maven biên dịch `src/main/tailwind/app.css` thành `assets/css/ui.css` trong WAR. Nguồn utility chỉ gồm JSP/tag và JS đã khai báo; token, component và biến thể riêng trang nằm cùng thư mục Tailwind. Trình duyệt hỗ trợ: Chrome 111+, Safari 16.4+, Firefox 128+.
+
 ## Khởi động dịch vụ local và kiểm tra build
 
 ```powershell

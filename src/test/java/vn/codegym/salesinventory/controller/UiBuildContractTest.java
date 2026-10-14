@@ -9,6 +9,23 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class UiBuildContractTest {
+    @Test void allViewsUseSharedLayoutAndRetiredStylesAreAbsent() throws Exception {
+        Path web=Path.of("src/main/webapp");
+        for(String name:List.of("app","nvdo","forms","dealers","orders","mvp","import-jobs")) {
+            assertThat(web.resolve("assets/css/"+name+".css")).doesNotExist();
+        }
+        try(var files=Files.walk(web.resolve("WEB-INF/views"))) {
+            var views=files.filter(f->f.toString().endsWith(".jsp")).toList();
+            assertThat(views).hasSize(46);
+            for(var view:views) {
+                String content=Files.readString(view);
+                assertThat(content).as("Layout chung của %s",view).contains("<layout:page", " view=");
+                assertThat(content).doesNotContain("sidebar.jspf", "topbar.jspf", "pagination.jspf", "assets/css/");
+            }
+        }
+        assertThat(Files.readString(Path.of("src/main/tailwind/app.css")))
+            .contains("tailwindcss/preflight.css", "source(none)").doesNotContain("layer(legacy)");
+    }
     @Test void builtStylesAndSpriteMeetTransferBudget() throws Exception {
         byte[] css=Files.readAllBytes(Path.of("target/generated-webapp/assets/css/ui.css"));
         var compressed=new ByteArrayOutputStream();

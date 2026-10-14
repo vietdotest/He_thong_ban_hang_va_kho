@@ -1,11 +1,9 @@
-@layer theme, base, legacy, components, utilities;
+@layer theme, base, components, utilities;
 @import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
-@import "../webapp/assets/css/app.css" layer(legacy);
-@import "../webapp/assets/css/nvdo.css" layer(legacy);
-@import "../webapp/assets/css/forms.css" layer(legacy);
-@import "./legacy/pages.css" layer(legacy);
 @import "./foundation.css";
+@import "./base.css";
 @import "./components/shared.css";
 @import "./components/views.css";
 @import "./print.css";
