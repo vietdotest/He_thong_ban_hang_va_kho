@@ -1,13 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title><c:out value="${title}"/> | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-</head>
-<body class="app-page" data-view="imports/import" data-ui-css="">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="${title}" view="imports/import" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <main class="page-body app-content import-page">
     <c:set var="listPath" value="${userImportPage ? '/admin/users' : '/catalog/products'}"/>
     <div class="page-heading"><div>
@@ -55,7 +49,7 @@
         </section>
     </c:if>
     <c:if test="${importStep > 1}">
-        <div class="section-heading import-table-toolbar"><div class="import-counts"><span class="badge badge-success">${importStep == 2 ? validCount : successCount} ${importStep == 2 ? 'dòng hợp lệ' : 'đã nhập'}</span><span class="badge badge-danger">${importStep == 2 ? invalidCount : failureCount} ${importStep == 2 ? 'dòng lỗi' : 'bỏ qua'}</span></div>
+        <div class="section-heading import-table-toolbar"><div class="import-counts"><ui:badge tone="success">${importStep == 2 ? validCount : successCount} ${importStep == 2 ? 'dòng hợp lệ' : 'đã nhập'}</ui:badge><ui:badge tone="danger">${importStep == 2 ? invalidCount : failureCount} ${importStep == 2 ? 'dòng lỗi' : 'bỏ qua'}</ui:badge></div>
             <label class="import-status-filter">Xem trạng thái <select data-import-status><option value="all">Tất cả dòng</option><option value="error" ${userImportPage and importStep == 3 ? 'selected' : ''}>Chỉ dòng lỗi</option><option value="valid">Dòng hợp lệ</option></select></label>
         </div>
         <div class="table-wrap import-table" role="region" aria-label="Kiểm tra dữ liệu nhập Excel">
@@ -78,4 +72,6 @@
         </form>
     </c:if>
     <c:if test="${importStep == 3}"><a class="button button-plain" href="?new=1"><ui:icon name="file-arrow-up"/>Nhập thêm tệp khác</a></c:if>
-</main></body></html>
+</main>
+</jsp:body>
+</layout:page>
