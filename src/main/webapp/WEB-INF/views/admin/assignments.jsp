@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Phân công người dùng</title><%@ include file="../fragments/assets.jspf" %></head><body class="app-page" data-view="admin/assignments" data-ui-css=""><%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %><main class="page-body app-content assignments-page">
+<layout:page title="Phân công người dùng" view="admin/assignments" bodyClass="app-page" css="" bare="false">
+<jsp:body>
+<main class="page-body app-content assignments-page">
 <div class="page-heading"><div><h1>Phân công người dùng</h1><p><c:out value="${target.full_name}"/> — <c:out value="${target.username}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/scopes">Danh mục kho và địa bàn</a></div>
 <c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu phân công.</div></c:if><c:if test="${not empty formError}"><div class="alert alert-error" role="alert"><c:out value="${formError}"/></div></c:if>
 <form class="content-panel account-form assignment-form" method="post"><input type="hidden" name="id" value="${target.id}"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
@@ -13,5 +14,7 @@
 </fieldset><fieldset><legend>Địa bàn phụ trách</legend><p class="muted">Chọn khu vực kinh doanh được giao. Địa bàn không phải địa chỉ của kho.</p>
 <c:forEach var="item" items="${territories}"><label class="checkbox-field scope-choice"><input type="checkbox" name="territory" value="${item.id}" ${(not empty form ? form.territories.contains(item.id.toString()) : item.selected == 1) ? 'checked' : ''}><span><strong><c:out value="${item.name}"/></strong><small><c:out value="${item.code}"/> · <c:choose><c:when test="${not empty item.address}"><c:out value="${item.address}"/></c:when><c:otherwise>Chưa bổ sung địa chỉ</c:otherwise></c:choose></small></span></label></c:forEach>
 <c:if test="${empty territories}"><p class="muted">Chưa có địa bàn. <a href="${pageContext.request.contextPath}/admin/scopes?new=1&amp;kind=territory">Thêm địa bàn</a> nếu cần phân công khu vực.</p></c:if></fieldset></div>
-<div class="form-actions"><button class="button button-primary">Lưu phân công</button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Về danh sách</a></div></form>
-</main></body></html>
+<div class="form-actions"><ui:button variant="primary">Lưu phân công</ui:button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Về danh sách</a></div></form>
+</main>
+</jsp:body>
+</layout:page>

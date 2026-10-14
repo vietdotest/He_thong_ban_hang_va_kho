@@ -1,14 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Hồ sơ cá nhân | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-</head>
-<body class="app-page" data-view="account/profile" data-ui-css="">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="Hồ sơ cá nhân" view="account/profile" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <main class="page-body app-content profile-page">
     <div class="page-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin để đồng nghiệp liên hệ khi cần.</p></div></div>
     <c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu thay đổi hồ sơ.</div></c:if>
@@ -53,5 +46,5 @@
         </section>
     </div>
 </main>
-</body>
-</html>
+</jsp:body>
+</layout:page>

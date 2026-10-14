@@ -30,7 +30,7 @@
                     <option value="PENDING_ACTIVATION" ${criteria.status() == 'PENDING_ACTIVATION' ? 'selected' : ''}>Chờ kích hoạt</option>
                     <option value="ADMIN_LOCKED" ${criteria.status() == 'ADMIN_LOCKED' ? 'selected' : ''}>Bị khóa</option>
                 </select></label>
-                <div class="filter-actions"><button class="button button-primary" type="submit">Áp dụng</button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Đặt lại</a></div>
+                <div class="filter-actions"><ui:button variant="primary" type="submit">Áp dụng</ui:button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Đặt lại</a></div>
             </form>
 
             <div class="table-summary">Tìm thấy <strong><c:out value="${userPage.totalItems()}"/></strong> tài khoản</div>
@@ -47,7 +47,7 @@
                                 <c:choose>
                                     <c:when test="${user.status().name() == 'ACTIVE'}"><span class="status-badge status-active">Đang hoạt động</span></c:when>
                                     <c:when test="${user.status().name() == 'DISABLED'}"><span class="status-badge status-disabled">Đã vô hiệu hóa</span></c:when>
-                                    <c:when test="${user.status().name() == 'PENDING_ACTIVATION'}"><span class="badge badge-warning">Chờ kích hoạt</span></c:when><c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
+                                    <c:when test="${user.status().name() == 'PENDING_ACTIVATION'}"><ui:badge tone="warning">Chờ kích hoạt</ui:badge></c:when><c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
                                 </c:choose>
                                 <c:if test="${user.mustChangePassword()}"><small class="status-note">Chờ đổi mật khẩu</small></c:if>
                             </td>

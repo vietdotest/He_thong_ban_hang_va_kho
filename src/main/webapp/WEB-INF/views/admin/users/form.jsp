@@ -1,17 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản | Quản lý bán hàng</title>
-    <%@ include file="../../fragments/assets.jspf" %>
-</head>
-<body class="app-page" data-view="admin/users/form" data-ui-css="">
-<%@ include file="../../fragments/sidebar.jspf" %>
-<%@ include file="../../fragments/topbar.jspf" %>
-
+<layout:page title="${editing ? 'Chỉnh sửa' : 'Tạo'} tài khoản" view="admin/users/form" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <div class="app-content">
 
     <main class="page-body narrow-body">
@@ -41,13 +31,13 @@
                 </div>
 
                 <div class="form-actions">
-                    <button class="button button-primary" type="submit">${editing ? 'Lưu thay đổi' : 'Tạo và gửi email'}</button>
+                    <ui:button variant="primary" type="submit">${editing ? 'Lưu thay đổi' : 'Tạo và gửi email'}</ui:button>
                     <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Hủy</a>
                 </div>
             </form>
         </section>
-        <c:if test="${editing and form.status().name() == 'PENDING_ACTIVATION'}"><form method="post" class="content-panel account-form" action="${pageContext.request.contextPath}/admin/users/activation"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><input type="hidden" name="id" value="${userId}"><p class="muted">Tài khoản đang chờ người dùng kích hoạt qua email.</p><button class="button button-secondary">Gửi lại email kích hoạt</button></form></c:if>
+        <c:if test="${editing and form.status().name() == 'PENDING_ACTIVATION'}"><form method="post" class="content-panel account-form" action="${pageContext.request.contextPath}/admin/users/activation"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>"><input type="hidden" name="id" value="${userId}"><p class="muted">Tài khoản đang chờ người dùng kích hoạt qua email.</p><ui:button variant="secondary">Gửi lại email kích hoạt</ui:button></form></c:if>
     </main>
 </div>
-</body>
-</html>
+</jsp:body>
+</layout:page>

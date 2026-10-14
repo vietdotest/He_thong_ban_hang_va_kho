@@ -1,17 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Đổi mật khẩu | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-    <script src="${pageContext.request.contextPath}/assets/js/login.js" defer></script>
-</head>
-<body class="app-page" data-view="account/change-password" data-ui-css="">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="Đổi mật khẩu" view="account/change-password" bodyClass="app-page" css="" bare="false">
+<jsp:attribute name="head"><script src="${pageContext.request.contextPath}/assets/js/login.js?v=${applicationScope.assetVersion}" defer></script></jsp:attribute>
+<jsp:body>
 <div class="app-content">
 
     <main class="page-body narrow-body">
@@ -27,11 +18,10 @@
                 <div class="form-field"><label for="current-password">Mật khẩu hiện tại</label><div class="password-control"><input id="current-password" name="currentPassword" type="password" maxlength="128" autocomplete="current-password" aria-invalid="${not empty currentPasswordError}"><button class="password-toggle" type="button" data-password-toggle="current-password">Hiện</button></div><p class="field-error"><c:out value="${currentPasswordError}"/></p></div>
                 <div class="form-field"><label for="new-password">Mật khẩu mới</label><div class="password-control"><input id="new-password" name="newPassword" type="password" maxlength="72" autocomplete="new-password" aria-invalid="${not empty passwordError}"><button class="password-toggle" type="button" data-password-toggle="new-password">Hiện</button></div><p class="field-helper">Từ 8 đến 72 ký tự, gồm ít nhất một chữ cái và một chữ số.</p><p class="field-error"><c:out value="${passwordError}"/></p></div>
                 <div class="form-field"><label for="confirmation">Nhập lại mật khẩu mới</label><div class="password-control"><input id="confirmation" name="confirmation" type="password" maxlength="72" autocomplete="new-password"><button class="password-toggle" type="button" data-password-toggle="confirmation">Hiện</button></div></div>
-                <div class="form-actions"><button class="button button-primary" type="submit">Lưu thay đổi</button><a class="button button-plain" href="${pageContext.request.contextPath}/dashboard">Hủy</a></div>
+                <div class="form-actions"><ui:button variant="primary" type="submit">Lưu thay đổi</ui:button><a class="button button-plain" href="${pageContext.request.contextPath}/dashboard">Hủy</a></div>
             </form>
         </section>
     </main>
 </div>
-</body>
-</html>
-
+</jsp:body>
+</layout:page>
