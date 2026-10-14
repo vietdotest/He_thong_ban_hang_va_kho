@@ -9,6 +9,16 @@ import static org.assertj.core.api.Assertions.*;
 import vn.codegym.salesinventory.service.*;
 
 class MvpStockAcceptanceIT extends StoryDatabaseSupport {
+    @Test void cardDateFilterUsesVietnamDayAndPreservesEarlierBalance(){
+        long first=receive("10"),second=receive("10");
+        update("UPDATE mvp_stock_events e JOIN mvp_receipt_lines rl ON rl.id=e.source_id SET e.occurred_at=? WHERE e.source_type='RECEIPT_LINE' AND rl.receipt_id=?",java.sql.Timestamp.from(Instant.parse("2027-01-01T16:59:59Z")),first);
+        update("UPDATE mvp_stock_events e JOIN mvp_receipt_lines rl ON rl.id=e.source_id SET e.occurred_at=? WHERE e.source_type='RECEIPT_LINE' AND rl.receipt_id=?",java.sql.Timestamp.from(Instant.parse("2027-01-01T17:00:00Z")),second);
+        var result=stock.card(worker,warehouse,product,LocalDate.of(2027,1,2),LocalDate.of(2027,1,2));
+        assertThat(result).hasSize(1);assertThat(Sql.id(result.get(0).get("receipt_id"))).isEqualTo(second);
+        assertThat((BigDecimal)result.get(0).get("warehouse_balance")).isEqualByComparingTo("20");
+        assertThatThrownBy(()->stock.card(worker,warehouse,product,LocalDate.of(2027,1,2),LocalDate.of(2027,1,1))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(()->stock.card(sales,warehouse,product,LocalDate.of(2027,1,2),LocalDate.of(2027,1,2))).isInstanceOf(SecurityException.class);
+    }
     long manager,sales,worker,warehouse,supplier,product,unit,dealer,address;
     final Instant now=Instant.parse("2027-01-01T03:00:00Z");final Clock clock=Clock.fixed(now,ZoneOffset.UTC);
     StockService stock;OrderService orders;
