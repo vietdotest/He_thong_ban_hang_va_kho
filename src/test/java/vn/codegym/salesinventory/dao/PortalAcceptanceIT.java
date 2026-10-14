@@ -20,6 +20,24 @@ class PortalAcceptanceIT extends StoryDatabaseSupport {
     OrderService.Input input(long version){return new OrderService.Input(dealer,address,LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE).plusDays(2),version,UUID.randomUUID().toString(),List.of(new OrderService.LineInput(product,unit,BigDecimal.ONE)));}
     long pending(OrderService orders,long portal){long id=orders.save(portal,0,input(0));var q=orders.quote(portal,id);orders.submit(portal,id,1,q.token(),UUID.randomUUID().toString(),false);return id;}
     BigDecimal held(){return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,clock.instant())).reserved();}
+    @Test void commandReplayKeepsOriginalPortalResultAfterConfirmationAndCancellation(){
+        long portal=active();var orders=new OrderService(source,clock);long id=orders.save(portal,0,input(0));var quote=orders.quote(portal,id);String submitted=UUID.randomUUID().toString();
+        assertThat(orders.submit(portal,id,1,quote.token(),submitted,false).status()).isEqualTo("PENDING_APPROVAL");var confirmation=orders.confirmationQuote(sales,id);String confirmed=UUID.randomUUID().toString();orders.confirmPortalOrder(sales,id,2,confirmation.token(),confirmed,confirmation.confirmation());
+        orders.cancel(manager,id,3,UUID.randomUUID().toString(),"Đại lý đổi nhu cầu");assertThat(held()).isEqualByComparingTo("0");
+        assertThat(orders.submit(portal,id,1,quote.token(),submitted,false).status()).isEqualTo("PENDING_APPROVAL");assertThat(orders.confirmPortalOrder(sales,id,2,confirmation.token(),confirmed,true).status()).isEqualTo("SUBMITTED");assertThat(held()).isEqualByComparingTo("0");
+        assertThatThrownBy(()->orders.submit(portal,id,2,quote.token(),submitted,false)).isInstanceOf(vn.codegym.salesinventory.validation.CommandConflictException.class);
+        assertThatThrownBy(()->orders.confirmPortalOrder(sales,id,3,confirmation.token(),confirmed,true)).isInstanceOf(vn.codegym.salesinventory.validation.CommandConflictException.class);
+    }
+    @Test void managerDecisionReplayKeepsOriginalResultAndRejectsChangedReason(){
+        long portal=active();var orders=new OrderService(source,clock);update("UPDATE dealers SET credit_limit=50 WHERE id=?",dealer);long id=pending(orders,portal);var quote=orders.reviewQuote(manager,id);String k=UUID.randomUUID().toString();
+        orders.decide(manager,id,2,quote.token(),k,true,"Duyệt hạn mức",quote.confirmation());orders.cancel(manager,id,3,UUID.randomUUID().toString(),"Đại lý đổi nhu cầu");
+        assertThat(orders.decide(manager,id,2,quote.token(),k,true,"Duyệt hạn mức",true).status()).isEqualTo("SUBMITTED");assertThat(held()).isEqualByComparingTo("0");
+        assertThatThrownBy(()->orders.decide(manager,id,2,quote.token(),k,true,"Lý do khác",true)).isInstanceOf(vn.codegym.salesinventory.validation.CommandConflictException.class);
+    }
+    @Test void relinkRacingConfirmationCompletesWithoutLockInversion()throws Exception{
+        long portal=active();var orders=new OrderService(source,clock);long id=pending(orders,portal);var quote=orders.confirmationQuote(sales,id);var start=new java.util.concurrent.CyclicBarrier(2);var pool=java.util.concurrent.Executors.newFixedThreadPool(2);
+        try{var confirmation=pool.submit(()->{start.await();try{orders.confirmPortalOrder(sales,id,2,quote.token(),UUID.randomUUID().toString(),quote.confirmation());return true;}catch(SecurityException e){return false;}});var relink=pool.submit(()->{start.await();accounts.relink(manager,portal,1,second,"Bàn giao tài khoản");return true;});assertThat(relink.get(30,java.util.concurrent.TimeUnit.SECONDS)).isTrue();boolean accepted=confirmation.get(30,java.util.concurrent.TimeUnit.SECONDS);assertThat(held()).isEqualByComparingTo(accepted?"1":"0");}finally{pool.shutdownNow();}
+    }
     @Test void salesCanReturnOrdinaryPortalToOriginalDealerForEditing(){long portal=active();var orders=new OrderService(source,clock);long id=pending(orders,portal);String key=UUID.randomUUID().toString();orders.returnForEdit(sales,id,2,key,"Sửa điểm giao",true);orders.returnForEdit(sales,id,2,key,"Sửa điểm giao",true);
         assertThat(orders.find(portal,id)).containsEntry("status","DRAFT").containsEntry("can_edit",true);assertThat(held()).isEqualByComparingTo("0");orders.save(portal,id,input(3));var q=orders.quote(portal,id);assertThat(orders.submit(portal,id,4,q.token(),UUID.randomUUID().toString(),false).status()).isEqualTo("PENDING_APPROVAL");
         assertThat(count("SELECT COUNT(*) n FROM mvp_order_history WHERE order_id=? AND event_type='RETURNED'",id)).isEqualTo(1);

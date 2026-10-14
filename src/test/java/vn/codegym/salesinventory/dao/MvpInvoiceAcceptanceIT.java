@@ -10,6 +10,7 @@ import vn.codegym.salesinventory.validation.CommandConflictException;
 import static org.assertj.core.api.Assertions.*;
 
 class MvpInvoiceAcceptanceIT extends MvpWorkflowSupport {
+    @Test void orderLinksOnlyItsInvoicesAndCurrentDealerScopeIsRechecked(){long shipment=delivered("8","8","8");long invoice=new InvoiceService(source,clock).issue(user("ACCOUNTANT"),shipment,2,key());long order=Sql.id(one("SELECT order_id FROM mvp_shipments WHERE id=?",shipment).get("order_id"));var links=(List<Map<String,Object>>)orders.find(sales,order).get("invoices");assertThat(links).hasSize(1);assertThat(Sql.id(links.get(0).get("id"))).isEqualTo(invoice);update("UPDATE dealers SET primary_staff_id=? WHERE id=?",user("SALES"),dealer);assertThatThrownBy(()->orders.find(sales,order)).isInstanceOf(SecurityException.class);}
     long delivered(String ordered,String sent,String received){long shipment=dispatched(ordered,sent);fulfillment.deliver(worker,shipment,1,key(),"Người nhận",received(shipment,received),"Giao theo thực nhận");return shipment;}
     CreditService.CreditSnapshot credit(){return Sql.snapshot(source,c->CreditService.snapshot(c,dealer,now));}
     @Test void invoiceForEightTransfersOnlyDeliveredCommitmentAndReplayCannotDuplicate(){long shipment=delivered("10","8","8");var invoices=new InvoiceService(source,clock);long accountant=user("ACCOUNTANT");String k=key();long id=invoices.issue(accountant,shipment,2,k);assertThat(invoices.issue(accountant,shipment,2,k)).isEqualTo(id);
