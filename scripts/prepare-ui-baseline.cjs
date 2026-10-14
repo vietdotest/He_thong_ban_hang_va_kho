@@ -7,7 +7,7 @@ const inventory=JSON.parse(fs.readFileSync(path.join(root,'src/test/resources/ui
 for(const {view}of inventory){const file=path.join(runtime,'WEB-INF/views',view+'.jsp');let text=fs.readFileSync(file,'utf8');text=text.replace(/<body\b(?![^>]*data-view)/,'<body data-view="'+view+'"');fs.writeFileSync(file,text);}
 const assets=path.join(runtime,'assets');fs.mkdirSync(assets,{recursive:true});
 fs.writeFileSync(path.join(assets,'__ui_preview_500.jsp'),'<%@ page contentType="text/html;charset=UTF-8" %><% if (true) throw new IllegalStateException("UI Preview test"); %>');
-const query=sql=>execFileSync('docker',['exec','-i',container,'sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -B sales_inventory'],{input:sql,encoding:'utf8'}).trim();
+const query=sql=>execFileSync('docker',['exec','-i',container,'sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot --default-character-set=utf8mb4 -N -B sales_inventory'],{input:sql,encoding:'utf8'}).trim();
 let id=query("SELECT id FROM import_jobs WHERE kind='USER' AND actor_id=1 AND filename='UI-baseline-expired.xlsx' LIMIT 1;");
 if(!id){query("INSERT INTO import_jobs(id,kind,actor_id,filename,has_cost,status,confirm_key,total_rows,valid_rows,preview_expires_at,reason) VALUES(UUID(),'USER',1,'UI-baseline-expired.xlsx',0,'EXPIRED',UUID(),1,0,'2026-01-01 00:00:00','Tác vụ thử đã hết hạn.');");id=query("SELECT id FROM import_jobs WHERE kind='USER' AND actor_id=1 AND filename='UI-baseline-expired.xlsx' LIMIT 1;");}
 fs.writeFileSync(path.join(root,'.tools/ui-preview-data.json'),JSON.stringify({userImportJob:id},null,2));

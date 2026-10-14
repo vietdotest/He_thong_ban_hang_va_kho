@@ -12,6 +12,8 @@
   button, input, select, textarea { line-height: normal; }
   button, input, select, textarea { border: revert-layer; padding: revert-layer; background-color: revert-layer; }
   input[type=checkbox], input[type=radio] { margin: 3px 3px 3px 4px; }
+  /* Giữ cách vẽ native của progress; kích thước vẫn do component import quyết định. */
+  progress { all: revert-layer; }
   fieldset { margin-inline: 2px; padding: .35em .75em .625em; border: 2px groove; }
   legend { padding-inline: 2px; }
   dialog { margin: auto; }
