@@ -17,6 +17,7 @@ public final class RoutePermissions {
         return required(path,method);
     }
     public static String required(String path,String method) {
+        if(path.equals("/inventory/stock"))return method.equals("GET")?"STOCK_READ":null;
         if(path.equals("/reports/sales"))return method.equals("GET")?"SALES_DEBT_REPORT_READ":null;
         if(path.equals("/accounting/debt"))return method.equals("GET")?"SALES_DEBT_REPORT_READ":null;
         if(path.equals("/accounting/returns"))return method.equals("GET")?"RETURN_READ":"RETURN_WRITE";

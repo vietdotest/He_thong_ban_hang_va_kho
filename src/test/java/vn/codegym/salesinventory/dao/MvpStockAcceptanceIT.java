@@ -35,6 +35,11 @@ class MvpStockAcceptanceIT extends StoryDatabaseSupport {
     }
     void reserve(long id) { var q=orders.quote(sales,id);if(!q.valid()||!orders.submit(sales,id,1,q.token(),key(),false).submitted()) throw new IllegalArgumentException("Không tiếp nhận được đơn."); }
     StockService.StockSnapshot balance() { return Sql.snapshot(source,c->StockService.snapshot(c,warehouse,product,now)); }
+    @Test void stockReadShowsSalesOnlyAvailabilityAndDeniesForeignWarehouseAndCards(){receive("20");long id=order("4");reserve(id);var salesRows=stock.stock(sales,warehouse,"");assertThat(salesRows).hasSize(1);assertThat(salesRows.get(0)).doesNotContainKeys("onHand","reserved","cost_price").containsEntry("physical",false).containsEntry("can_card",false);assertThat(new BigDecimal(salesRows.get(0).get("available").toString())).isEqualByComparingTo("16");
+        var warehouseRows=stock.stock(worker,warehouse,"");assertThat(warehouseRows.get(0)).containsKeys("onHand","reserved").containsEntry("can_card",true);assertThat(stock.stock(manager,warehouse,"").get(0)).containsEntry("physical",true).containsEntry("can_card",false);
+        assertThatThrownBy(()->stock.stock(user("WAREHOUSE"),warehouse,"")).isInstanceOf(SecurityException.class);assertThatThrownBy(()->stock.card(sales,warehouse,product)).isInstanceOf(SecurityException.class);assertThatThrownBy(()->stock.card(manager,warehouse,product)).isInstanceOf(SecurityException.class);
+        update("UPDATE dealers SET primary_staff_id=? WHERE id=?",user("SALES"),dealer);assertThat(stock.stock(sales,null,"")).isEmpty();assertThatThrownBy(()->stock.stock(sales,warehouse,"")).isInstanceOf(SecurityException.class);
+    }
     @Test void cancellationRequiresScopeAndReasonReleasesStockCreditAndReplaysOnce(){receive("10");long id=order("4");reserve(id);String k=key();
         assertThatThrownBy(()->orders.cancel(worker,id,2,k,"Hủy")).isInstanceOf(SecurityException.class);
         assertThatThrownBy(()->orders.cancel(sales,id,2,k,"")).isInstanceOf(IllegalArgumentException.class);
