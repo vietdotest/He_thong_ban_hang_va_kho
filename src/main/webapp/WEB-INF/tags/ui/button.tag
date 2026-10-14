@@ -6,4 +6,4 @@
 <%@ attribute name="name" required="false" type="java.lang.String" %>
 <%@ attribute name="value" required="false" type="java.lang.String" %>
 <%@ attribute name="disabled" required="false" type="java.lang.Boolean" %>
-<button type="<c:out value='${empty type ? "submit" : type}'/>" class="button button-<c:out value='${empty variant ? "secondary" : variant}'/>" name="<c:out value='${name}'/>" value="<c:out value='${value}'/>" <c:if test="${disabled}">disabled</c:if>><c:if test="${not empty icon}"><ui:icon name="${icon}"/></c:if><jsp:doBody/></button>
+<button type="<c:out value='${empty type ? "submit" : type}'/>" class="button button-<c:out value='${empty variant ? "secondary" : variant}'/>" <c:if test="${not empty name}">name="<c:out value='${name}'/>" value="<c:out value='${value}'/>"</c:if> <c:if test="${disabled}">disabled</c:if>><c:if test="${not empty icon}"><ui:icon name="${icon}"/></c:if><jsp:doBody/></button>

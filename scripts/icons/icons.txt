@@ -39,3 +39,5 @@ money-bill-wave
 rotate-left
 chart-line
 clipboard-list
+file
+envelope

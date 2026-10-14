@@ -5,6 +5,10 @@
 @import "../webapp/assets/css/nvdo.css" layer(legacy);
 @import "../webapp/assets/css/forms.css" layer(legacy);
 @import "./legacy/pages.css" layer(legacy);
+@import "./foundation.css";
+@import "./components/shared.css";
+@import "./components/views.css";
+@import "./print.css";
 @source "../webapp/WEB-INF";
 @source "../webapp/assets/js";
 
