@@ -8,6 +8,40 @@ import vn.codegym.salesinventory.config.*;
 import static org.assertj.core.api.Assertions.*;
 
 class SchemaMigrationAcceptanceIT extends StoryDatabaseSupport {
+    @Test void v029UpgradePreservesOrderSnapshotsApprovalHistoryAndDoesNotInventStockOrDebt()throws Exception{
+        String database="mvp_upgrade_"+UUID.randomUUID().toString().replace("-","").substring(0,16),url=MYSQL.getJdbcUrl().replace("/story_acceptance","/"+database);
+        try(var root=DriverManager.getConnection(MYSQL.getJdbcUrl(),"root",MYSQL.getPassword());var sql=root.createStatement()){
+            sql.execute("CREATE DATABASE "+database);
+            try(var migrations=DatabaseFactory.createMigrationSource(new AppConfig.DatabaseSettings(url,"root",MYSQL.getPassword(),2,1,10000))){
+                Flyway.configure().dataSource(migrations).target("29").load().migrate();
+                Sql.transaction(migrations,c->{
+                    Sql.update(c,"INSERT INTO warehouses(id,code,name,address) VALUES(90000,'LEGACY','Kho gốc','Địa chỉ gốc')");
+                    Sql.update(c,"INSERT INTO territories(id,code,name) VALUES(90000,'LEGACY','Địa bàn gốc')");
+                    Sql.update(c,"INSERT INTO dealers(id,code,name,group_id,territory_id,primary_staff_id,warehouse_id) VALUES(90000,'LEGACY','Đại lý gốc',1,90000,1,90000)");
+                    Sql.update(c,"INSERT INTO dealer_addresses(id,dealer_id,address,recipient,phone) VALUES(90000,90000,'Địa chỉ giao gốc','Người nhận gốc','0912345678')");
+                    Sql.update(c,"INSERT INTO categories(id,code,name) VALUES(90000,'LEGACY','Nhóm gốc')");
+                    Sql.update(c,"INSERT INTO products(id,sku,name,category_id,base_unit) VALUES(90000,'LEGACY','Hàng gốc',90000,'Lon')");
+                    Sql.update(c,"INSERT INTO product_units(id,product_id,name,factor,is_base) VALUES(90000,90000,'Lon',1,1)");
+                    for(long id:new long[]{90000,90001}){
+                        Sql.update(c,"INSERT INTO orders(id,dealer_id,address_id,desired_delivery,status,created_by,owner_id,creation_key,creation_hash,version,dealer_name_snapshot,address_snapshot,net_total,warehouse_id) VALUES(?,90000,90000,'2026-10-14',?,1,1,?,'legacy-hash',4,'Snapshot đại lý gốc','Snapshot địa chỉ gốc',123.4567,90000)",id,id==90000?"SUBMITTED":"PENDING_APPROVAL",UUID.randomUUID().toString());
+                        Sql.update(c,"INSERT INTO order_lines(order_id,position,product_id,unit_id,quantity,sku_snapshot,name_snapshot,unit_name_snapshot,factor_snapshot,unit_version,base_quantity,selling_price,gross,discount,net) VALUES(?,0,90000,90000,1.234567,'SKU gốc','Snapshot hàng gốc','Lon',1,1,1.234567,100,123.4567,0,123.4567)",id);
+                    }
+                    Sql.update(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(90001,1,?,'digest',JSON_OBJECT('net','123.4567'),'Giá dưới sàn gốc','2026-10-14 00:00:00')",UUID.randomUUID().toString());return null;
+                });
+                var before=Sql.snapshot(migrations,c->Sql.query(c,"SELECT id,version,status,dealer_name_snapshot,address_snapshot,net_total FROM orders ORDER BY id"));
+                var linesBefore=Sql.snapshot(migrations,c->Sql.query(c,"SELECT * FROM order_lines ORDER BY id"));
+                var approvalBefore=Sql.snapshot(migrations,c->Sql.query(c,"SELECT * FROM order_approval_requests ORDER BY id"));
+                Flyway.configure().dataSource(migrations).load().migrate();
+                var after=Sql.snapshot(migrations,c->Sql.query(c,"SELECT id,version,status,dealer_name_snapshot,address_snapshot,net_total FROM orders ORDER BY id"));assertThat(after).isEqualTo(before);
+                var linesAfter=Sql.snapshot(migrations,c->Sql.query(c,"SELECT * FROM order_lines ORDER BY id"));assertThat(linesAfter).isEqualTo(linesBefore);
+                var approvalAfter=Sql.snapshot(migrations,c->Sql.query(c,"SELECT * FROM order_approval_requests ORDER BY id"));assertThat(approvalAfter).isEqualTo(approvalBefore);
+                var pending=Sql.snapshot(migrations,c->Sql.one(c,"SELECT source,pending_reason,fulfillment_state FROM orders WHERE id=90001"));assertThat(pending).containsEntry("source","INTERNAL").containsEntry("pending_reason","EXCEPTION").containsEntry("fulfillment_state","NONE");
+                var history=Sql.snapshot(migrations,c->Sql.one(c,"SELECT event_type,reason FROM mvp_order_history WHERE order_id=90001"));assertThat(history).containsEntry("event_type","LEGACY_PENDING").containsEntry("reason","Giá dưới sàn gốc");
+                for(String table:new String[]{"mvp_lots","mvp_holds","mvp_invoices","mvp_payments","mvp_credits"}){long count=Sql.snapshot(migrations,c->Sql.id(Sql.one(c,"SELECT COUNT(*) n FROM "+table).get("n")));assertThat(count).isZero();}
+                Flyway.configure().dataSource(migrations).load().validate();
+            }finally{sql.execute("DROP DATABASE "+database);}
+        }
+    }
     @Test void freshAndV018UpgradeUsePrivilegedRunnerAndDmlOnlyRuntime()throws Exception{
         for(boolean upgrade:new boolean[]{false,true}){
             String suffix=UUID.randomUUID().toString().replace("-","").substring(0,16),database="release_"+suffix,username="runtime_"+suffix;
