@@ -20,6 +20,12 @@ for(const row of matrix){
     expect(new URL(page.url()).pathname).toBe(new URL(route,'http://preview.invalid').pathname);
     await expect(page.locator(row.selector).first()).toBeVisible();
     await expect(page.locator('body')).toHaveAttribute('data-view',row.view);
+    const quote=page.locator('[data-quote-status]');
+    if(await quote.count()){
+      await expect(quote).not.toHaveText('Giá sẽ được kiểm tra lại ngay khi gửi.',{timeout:30000});
+      await expect(quote).not.toHaveText('Đang tính báo giá…',{timeout:30000});
+      await expect(quote).not.toHaveAttribute('aria-busy','true',{timeout:30000});
+    }
     await page.evaluate(()=>document.fonts.ready);
     await page.evaluate(()=>{for(const el of document.querySelectorAll('td,small,time,p,span'))if(el.children.length===0&&/\d{2}:\d{2}|Phiên gần nhất|Đăng nhập gần nhất/.test(el.textContent))el.setAttribute('data-ui-dynamic','');});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
