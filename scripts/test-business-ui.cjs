@@ -33,7 +33,9 @@ async function stable(page){const quote=page.locator('[data-quote-status]');if(a
   const denied=await context.request.post('/orders',{form:{action:'save',id:String(fixture.draft),_csrf:'invalid'}});check(`${width}: CSRF vẫn chặn`,denied.status()===403);
   await capture('order-draft',true);
   const warehouseContext=await browser.newContext({baseURL,locale:'vi-VN',timezoneId:'Asia/Ho_Chi_Minh',viewport:{width,height:1000}}),warehousePage=await warehouseContext.newPage();await login(warehousePage,'warehouse');await warehousePage.goto('/fulfillment/shipments?order='+fixture.sourceOrder+'&id='+fixture.shipment);
-  check(`${width}: mã đơn trên màn kho`,(await warehousePage.locator('main').innerText()).includes(fixture.number)&&!(await warehousePage.locator('main').innerText()).includes('ĐH-'+fixture.sourceOrder));await capture('shipments',false,warehousePage);await warehouseContext.close();
+  check(`${width}: mã đơn trên màn kho`,(await warehousePage.locator('main').innerText()).includes(fixture.number)&&!(await warehousePage.locator('main').innerText()).includes('ĐH-'+fixture.sourceOrder));
+  check(`${width}: dòng danh sách kho có đúng mã đơn`,await warehousePage.locator(`table a[href="/fulfillment/shipments?order=${fixture.sourceOrder}"]`).innerText()===fixture.number);
+  await capture('shipments',false,warehousePage);await warehouseContext.close();
   await page.goto('/inventory/stock?warehouse='+fixture.warehouse+'&category='+fixture.category+'&state=AVAILABLE');check(`${width}: nhóm cha gồm SKU nhóm con`,(await page.locator('table').innerText()).includes(fixture.sku));await capture('stock',true);
   await page.goto('/inventory/stock?warehouse='+fixture.warehouse+'&category='+fixture.category+'&state=UNAVAILABLE');check(`${width}: lọc hết khả dụng loại SKU còn tồn`,!(await page.locator('table').innerText()).includes(fixture.sku));
   await page.goto('/accounting/debt?dealer='+fixture.dealer);await capture('debt',true);

@@ -89,7 +89,7 @@ public final class FulfillmentService {
             AuditService.record(c,actor,"SHIPMENT_DISPATCHED","SHIPMENT",shipment,null,Sql.one(c,"SELECT * FROM mvp_shipments WHERE id=?",shipment));return MvpCommands.finish(c,command,shipment);
         });
     }
-    public List<Map<String,Object>> orders(long actor) {return Sql.snapshot(source,c->{MvpAccess.stockOperator(c,actor,"FULFILLMENT_READ");return Sql.query(c,"SELECT o.id,o.version,o.fulfillment_state,o.dealer_name_snapshot,o.warehouse_name_snapshot,o.desired_delivery FROM orders o JOIN user_warehouses uw ON uw.warehouse_id=o.warehouse_id AND uw.user_id=? WHERE o.status='SUBMITTED' ORDER BY o.id DESC LIMIT 100",actor);});}
+    public List<Map<String,Object>> orders(long actor) {return Sql.snapshot(source,c->{MvpAccess.stockOperator(c,actor,"FULFILLMENT_READ");return Sql.query(c,"SELECT o.id,o.number,o.version,o.fulfillment_state,o.dealer_name_snapshot,o.warehouse_name_snapshot,o.desired_delivery FROM orders o JOIN user_warehouses uw ON uw.warehouse_id=o.warehouse_id AND uw.user_id=? WHERE o.status='SUBMITTED' ORDER BY o.id DESC LIMIT 100",actor);});}
     public long deliver(long actor,long shipment,long version,String requestKey,String recipient,List<DeliveryLine> lines,String reason) {
         String who=MvpCommands.text(recipient,200,"Người nhận");String why=reason==null?"":reason.trim();if(why.length()>1000)throw new IllegalArgumentException("Lý do tối đa 1000 ký tự.");
         if(lines==null||lines.isEmpty()||lines.size()>1000)throw new IllegalArgumentException("Nhập đủ dòng giao hàng.");
