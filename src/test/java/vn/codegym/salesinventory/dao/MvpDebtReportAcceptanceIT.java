@@ -28,4 +28,24 @@ class MvpDebtReportAcceptanceIT extends MvpWorkflowSupport {
     }
     @Test void overdueUsesInvoiceSnapshotDateAndOutstandingAfterAllocations(){pay("300000");var later=new SalesDebtReportService(source,Clock.fixed(now.plus(Duration.ofDays(31)),ZoneOffset.UTC));var report=later.debt(sales,dealer,"");assertThat(report.totals().get("overdue_amount")).isEqualByComparingTo("500000");assertThat(report.totals().get("commitment")).isEqualByComparingTo("200000");var sameDue=new SalesDebtReportService(source,Clock.fixed(now.plus(Duration.ofDays(30)),ZoneOffset.UTC));assertThat(sameDue.debt(sales,dealer,"").totals().get("overdue_amount")).isEqualByComparingTo("0");
     }
+    @Test void agingBalancesReconcileAfterPaymentsAndCreditsAtEveryBoundary() {
+        pay("300000");credit("2");LocalDate today=MvpCommands.date(now);
+        for(int days:new int[]{-1,0,1,30,31,60,61,90,91}) {
+            update("UPDATE mvp_invoices SET due_date=? WHERE id=?",today.minusDays(days),invoice);
+            var report=reports.debt(sales,dealer,"");String key=DebtAging.bucket(today.minusDays(days),today);
+            assertThat(report.totals().get(key)).isEqualByComparingTo("300000");
+            BigDecimal total=DebtAging.LABELS.keySet().stream().map(k->report.totals().get(k)).reduce(BigDecimal.ZERO,BigDecimal::add);
+            assertThat(total).isEqualByComparingTo(report.totals().get("outstanding"));
+            assertThat(report.totals().get("overdue_amount")).isEqualByComparingTo(days>0?"300000":"0");
+        }
+    }
+    @Test void excelHasNumericAmountsLiteralUntrustedNamesAndMatchesScopedReport() throws Exception {
+        update("UPDATE dealers SET name='=1+2' WHERE id=?",dealer);
+        byte[] file=reports.exportDebt(sales,dealer,"");var rows=Xlsx.read(file);
+        assertThat(rows.get(3).cells()).contains("=1+2","800000.0000");
+        assertThat(rows.get(4).cells().get(0)).isEqualTo("TỔNG");
+        String sheet="";try(var zip=new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(file))){java.util.zip.ZipEntry entry;while((entry=zip.getNextEntry())!=null)if(entry.getName().equals("xl/worksheets/sheet1.xml"))sheet=new String(zip.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);}
+        assertThat(sheet).contains("<c t=\"n\"><v>800000.0000</v></c>","<t xml:space=\"preserve\">=1+2</t>").doesNotContain("<f>");
+        assertThatThrownBy(()->reports.exportDebt(user("SALES"),dealer,"")).isInstanceOf(SecurityException.class);
+    }
 }

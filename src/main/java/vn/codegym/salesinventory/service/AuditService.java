@@ -4,7 +4,7 @@ import java.util.*;
 import vn.codegym.salesinventory.dao.Sql;
 /** Module tồn kho/công nợ/hóa đơn dùng record trong cùng giao dịch ghi sổ. */
 public final class AuditService {
-    private static final Set<String> SENSITIVE=Set.of("cost_price","cost","margin","profit_margin");
+    private static final Set<String> SENSITIVE=Set.of("cost_price","cost","margin","profit_margin","unit_cost_snapshot","cost_amount","known_cost","gross_profit","margin_percent");
     private static final Set<String> SECRET=Set.of("password","password_hash","token","token_hash","temporary_password","password_confirmation","csrf_token","_csrf","reset_token","activation_token");
     private AuditService() { }
     public static String eventLabel(String code) {

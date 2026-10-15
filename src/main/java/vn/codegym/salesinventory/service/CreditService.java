@@ -14,7 +14,10 @@ public final class CreditService {
     public CreditService(DataSource source,Clock clock) { this.source=source;this.clock=clock; }
     public record CreditSnapshot(BigDecimal netReceivable,BigDecimal outstanding,BigDecimal credit,BigDecimal commitment,
                                  BigDecimal limit,BigDecimal remaining,boolean overdue) {
-        public Map<String,Object> display() { return Map.of("outstanding",outstanding.toPlainString(),"credit",credit.toPlainString(),
+        public Map<String,Object> display() { var formatted=new LinkedHashMap<String,String>();
+            formatted.put("outstanding",MoneyDisplay.format(outstanding));formatted.put("credit",MoneyDisplay.format(credit));
+            formatted.put("commitment",MoneyDisplay.format(commitment));formatted.put("limit",MoneyDisplay.format(limit));formatted.put("remaining",MoneyDisplay.format(remaining));
+            return Map.of("formatted",formatted,"outstanding",outstanding.toPlainString(),"credit",credit.toPlainString(),
             "commitment",commitment.toPlainString(),"limit",limit.toPlainString(),"remaining",remaining.toPlainString(),"overdue",overdue); }
     }
     static BigDecimal sum(Connection c,String sql,Object... args) throws SQLException {

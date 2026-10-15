@@ -1,4 +1,4 @@
-﻿param([Parameter(Mandatory=$true)][string]$BackupDirectory,[switch]$Upgrade)
+﻿param([Parameter(Mandatory=$true)][string]$BackupDirectory,[switch]$Upgrade,[string]$CompatibilityWar='')
 $ErrorActionPreference='Stop'
 $backupRoot=[IO.Path]::GetFullPath($BackupDirectory)
 $sqlFile=Join-Path $backupRoot 'database.sql'
@@ -40,8 +40,20 @@ try{
         & 'C:\Program Files\Java\jdk-17\bin\java.exe' '-Dfile.encoding=UTF-8' '-cp' "$classes;$libraries" 'vn.codegym.salesinventory.config.SchemaValidation'
         if($LASTEXITCODE -ne 0){throw 'Runtime chỉ validate không đạt trên database nâng cấp.'}
     }
+    $compatibilityHash=''
+    if($CompatibilityWar) {
+        if(!$Upgrade){throw 'Kiểm tương thích WAR cũ cần nâng cấp trên bản phục hồi tạm.'}
+        $compatibilityHash=(Get-FileHash -LiteralPath $CompatibilityWar -Algorithm SHA256).Hash
+        $compatibilityRoot=[IO.Path]::GetFullPath((Join-Path $backupRoot ('compatibility-'+[Guid]::NewGuid().ToString('N'))))
+        if(!$compatibilityRoot.StartsWith($backupRoot.TrimEnd('\','/')+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'Đích giải nén nằm ngoài backup.'}
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [IO.Compression.ZipFile]::ExtractToDirectory([IO.Path]::GetFullPath($CompatibilityWar),$compatibilityRoot)
+        $compatibilityClasses=Join-Path $compatibilityRoot 'WEB-INF/classes';$compatibilityLib=Join-Path $compatibilityRoot 'WEB-INF/lib/*'
+        & 'C:\Program Files\Java\jdk-17\bin\java.exe' '-Dfile.encoding=UTF-8' '-cp' "$compatibilityClasses;$compatibilityLib" 'vn.codegym.salesinventory.config.SchemaValidation'
+        if($LASTEXITCODE -ne 0){throw 'WAR cũ không validate được schema mới; chưa cho phép phát hành.'}
+    }
     $schemaAfter=Temp-Sql 'SELECT MAX(CAST(version AS UNSIGNED)) FROM flyway_schema_history WHERE success=1;'
-    [pscustomobject]@{passed=$true;backupHash=(Get-FileHash -LiteralPath $sqlFile -Algorithm SHA256).Hash;schemaBefore=$schemaBefore;schemaAfter=$schemaAfter;preserved=$before;upgraded=[bool]$Upgrade;checkedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backupRoot 'restore-verification.json') -Encoding utf8
+    [pscustomobject]@{passed=$true;backupHash=(Get-FileHash -LiteralPath $sqlFile -Algorithm SHA256).Hash;schemaBefore=$schemaBefore;schemaAfter=$schemaAfter;preserved=$before;upgraded=[bool]$Upgrade;compatibilityWarHash=$compatibilityHash;oldRuntimeValidated=[bool]$CompatibilityWar;checkedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backupRoot 'restore-verification.json') -Encoding utf8
     Write-Output "Đã kiểm chứng phục hồi SQL trên container tạm, schema $schemaBefore -> $schemaAfter; lịch sử và số tiền giữ nguyên."
 }finally{
     foreach($key in $environmentBefore.Keys){[Environment]::SetEnvironmentVariable($key,$environmentBefore[$key])}

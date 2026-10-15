@@ -1,2 +1,3 @@
+<%@ taglib prefix="display" uri="urn:codegym:display" %>
 <%@ taglib prefix="ui" tagdir="/WEB-INF/tags/ui" %>
 <%@ taglib prefix="layout" tagdir="/WEB-INF/tags/layout" %>
