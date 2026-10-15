@@ -164,7 +164,7 @@ try {
         Check-UiHealth $sha
         if ($InjectHealthFailure) { throw 'Mô phỏng lỗi health UI-only.' }
         if ($Target -eq 'Public') { $publicHealth=Invoke-RestMethod "$($config.appBaseUrl)/health"; if ($publicHealth.release -ne $sha -or $publicHealth.status -ne 'UP') { throw 'Health public không đúng SHA.' } }
-        [pscustomobject]@{sha=$sha;pid=$process.Id;backup=$backup;target=$Target;uiOnly=$true;deployedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content $deployment -Encoding UTF8
+        [pscustomobject]@{sha=$sha;tree=(Checked-Git @('rev-parse',($sha+'^{tree}')));warHash=(Get-FileHash -LiteralPath $war -Algorithm SHA256).Hash;pid=$process.Id;backup=$backup;target=$Target;uiOnly=$true;deployedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content $deployment -Encoding UTF8
         Write-Output "UI-only thành công: $sha; backup $backup."
     } catch {
         $failure=$_
@@ -172,7 +172,7 @@ try {
         Replace-UiWar $recoveryWar
         $restored=Start-UiTomcat $oldSha
         Check-UiHealth $oldSha
-        [pscustomobject]@{sha=$oldSha;pid=$restored.Id;backup=$backup;target=$Target;uiOnly=$true;restored=$true} | ConvertTo-Json | Set-Content $deployment -Encoding UTF8
+        [pscustomobject]@{sha=$oldSha;tree=(Checked-Git @('rev-parse',($oldSha+'^{tree}')));warHash=(Get-FileHash -LiteralPath $war -Algorithm SHA256).Hash;pid=$restored.Id;backup=$backup;target=$Target;uiOnly=$true;restored=$true;deployedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content $deployment -Encoding UTF8
         Write-Output 'Đã phục hồi WAR cũ; giữ nguyên database, uploads và cấu hình.'
         throw $failure
     }
