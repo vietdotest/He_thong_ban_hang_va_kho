@@ -28,13 +28,28 @@ public final class SalesDebtReportService {
         BigDecimal invoiced=CreditService.sum(c,"SELECT COALESCE(SUM(net_amount),0) amount FROM mvp_invoices WHERE dealer_id=?",id);
         BigDecimal collected=CreditService.sum(c,"SELECT COALESCE(SUM(p.amount),0) amount FROM mvp_payments p WHERE p.dealer_id=? AND NOT EXISTS(SELECT 1 FROM mvp_payment_reversals r WHERE r.payment_id=p.id)",id);
         BigDecimal credited=CreditService.sum(c,"SELECT COALESCE(SUM(amount),0) amount FROM mvp_credits WHERE dealer_id=?",id);BigDecimal overdue=BigDecimal.ZERO;
-        for(var invoice:Sql.query(c,"SELECT * FROM mvp_invoices WHERE dealer_id=? AND due_date<? ORDER BY due_date,id",id,MvpCommands.date(clock.instant())))overdue=overdue.add(CreditService.invoiceOutstanding(c,invoice));
+        var aging=DebtAging.empty();var today=MvpCommands.date(clock.instant());
+        for(var invoice:Sql.query(c,"SELECT id,net_amount,due_date FROM mvp_invoices WHERE dealer_id=? ORDER BY due_date,id",id)) {
+            BigDecimal balance=CreditService.invoiceOutstanding(c,invoice);String bucket=DebtAging.bucket(LocalDate.parse(invoice.get("due_date").toString()),today);
+            aging.merge(bucket,balance,BigDecimal::add);if(bucket.startsWith("days_"))overdue=overdue.add(balance);
+        }
+        row.putAll(aging);
         row.put("invoiced",invoiced);row.put("collected",collected);row.put("credited",credited);row.put("net_sales",invoiced.subtract(credited));row.put("overdue_amount",overdue);row.put("outstanding",credit.outstanding());row.put("credit",credit.credit());row.put("commitment",credit.commitment());return row;
     }
-    public Report debt(long actor,Long dealer,String query){return Sql.snapshot(source,c->{var a=reader(c,actor);var rows=new ArrayList<Map<String,Object>>();var totals=new LinkedHashMap<String,BigDecimal>();for(String key:List.of("invoiced","collected","credited","outstanding","credit","commitment","overdue_amount"))totals.put(key,BigDecimal.ZERO);
+    public Report debt(long actor,Long dealer,String query){return Sql.snapshot(source,c->{var a=reader(c,actor);var rows=new ArrayList<Map<String,Object>>();var totals=new LinkedHashMap<String,BigDecimal>();for(String key:List.of("invoiced","collected","credited","outstanding","credit","commitment","overdue_amount"))totals.put(key,BigDecimal.ZERO);totals.putAll(DebtAging.empty());
         for(var customer:scopedDealers(c,actor,a,dealer,query)){var row=debtRow(c,customer);rows.add(row);for(String key:totals.keySet())add(totals,key,(BigDecimal)row.get(key));}return new Report(List.copyOf(rows),Collections.unmodifiableMap(totals));});}
+    public byte[] exportDebt(long actor,Long dealer,String query) {
+        var report=debt(actor,dealer,query);var rows=new ArrayList<List<?>>();
+        rows.add(List.of("Sổ công nợ hiện tại",java.time.ZonedDateTime.now(clock.withZone(vn.codegym.salesinventory.config.VietnamTime.ZONE)).toString()));
+        rows.add(List.of("Bộ lọc đại lý",dealer==null?"Tất cả trong phạm vi":dealer.toString(),"Tìm kiếm",query==null?"":query));
+        var heading=new ArrayList<Object>(List.of("Mã đại lý","Tên đại lý","Hóa đơn","Đã thu","Giảm trừ","Còn phải thu","Dư có","Cam kết","Quá hạn"));heading.addAll(DebtAging.LABELS.values());rows.add(heading);
+        var keys=new ArrayList<String>(List.of("invoiced","collected","credited","outstanding","credit","commitment","overdue_amount"));keys.addAll(DebtAging.LABELS.keySet());
+        for(var row:report.rows()){var cells=new ArrayList<Object>(List.of(row.get("code"),row.get("name")));for(String key:keys)cells.add(row.get(key));rows.add(cells);}
+        var totals=new ArrayList<Object>(List.of("TỔNG",""));for(String key:keys)totals.add(report.totals().get(key));rows.add(totals);
+        return Xlsx.writeCells(rows);
+    }
     public Map<String,Object> dealerDebt(long actor,long id){return Sql.snapshot(source,c->{reader(c,actor);var dealer=MvpAccess.dealer(c,actor,"SALES_DEBT_REPORT_READ",id,false);var result=debtRow(c,dealer);
-        var invoices=Sql.query(c,"SELECT * FROM mvp_invoices WHERE dealer_id=? ORDER BY invoice_date,id",id);for(var invoice:invoices){InvoiceService.decorate(c,invoice);invoice.put("overdue",invoice.get("due_date")!=null&&LocalDate.parse(invoice.get("due_date").toString()).isBefore(MvpCommands.date(clock.instant()))&&((BigDecimal)invoice.get("outstanding")).signum()>0);}result.put("invoices",invoices);
+        var invoices=Sql.query(c,"SELECT * FROM mvp_invoices WHERE dealer_id=? ORDER BY invoice_date,id",id);for(var invoice:invoices){InvoiceService.decorate(c,invoice);String bucket=DebtAging.bucket(LocalDate.parse(invoice.get("due_date").toString()),MvpCommands.date(clock.instant()));invoice.put("age_key",bucket);invoice.put("age_label",DebtAging.LABELS.get(bucket));invoice.put("overdue",invoice.get("due_date")!=null&&LocalDate.parse(invoice.get("due_date").toString()).isBefore(MvpCommands.date(clock.instant()))&&((BigDecimal)invoice.get("outstanding")).signum()>0);}result.put("invoices",invoices);
         result.put("payments",Sql.query(c,"SELECT p.id,p.number,p.amount,p.paid_date,r.id reversal_id,r.number reversal_number FROM mvp_payments p LEFT JOIN mvp_payment_reversals r ON r.payment_id=p.id WHERE p.dealer_id=? ORDER BY p.paid_date,p.id",id));result.put("credits",Sql.query(c,"SELECT id,return_id,number,amount,credit_date FROM mvp_credits WHERE dealer_id=? ORDER BY credit_date,id",id));return result;});}
     public SalesReport sales(long actor,LocalDate from,LocalDate to,Long dealer,String query) {
         if(from==null||to==null||from.isAfter(to)||from.getYear()<1000||to.getYear()>9999)throw new IllegalArgumentException("Khoảng ngày doanh số không hợp lệ.");
