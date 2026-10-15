@@ -1,6 +1,7 @@
 <%@ tag body-content="empty" pageEncoding="UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="ui" tagdir="/WEB-INF/tags/ui" %>
+<%@ attribute name="title" required="true" type="java.lang.String" %>
 
 <%
 String uiPath = (String) request.getAttribute(jakarta.servlet.RequestDispatcher.FORWARD_SERVLET_PATH);
@@ -36,13 +37,13 @@ case "/account/profile": uiTitle = "Hồ sơ cá nhân"; break;
 case "/account/change-password": uiTitle = "Đổi mật khẩu"; break;
 case "/admin/users/import": uiTitle = "Nhập người dùng Excel"; break;
 case "/catalog/products/import": uiTitle = "Nhập sản phẩm Excel"; break;
-default: uiTitle = "Thông báo"; break;
+default: uiTitle = (String) jspContext.getAttribute("title"); break;
 }
 request.setAttribute("uiTitle", uiTitle);
 Object uiStep = request.getAttribute("importStep");
 if (uiStep != null && uiStep.toString().equals("2")) request.setAttribute("uiTitle","Kiểm tra tệp Excel");
 if (uiStep != null && uiStep.toString().equals("3")) request.setAttribute("uiTitle","Kết quả nhập Excel");
-request.setAttribute("uiSection", uiPath.startsWith("/dealers") || uiPath.equals("/orders") ? "Khách hàng và đơn hàng" : uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/account") ? "Tài khoản" : "Quản trị");
+request.setAttribute("uiSection", uiPath.startsWith("/dealers") || uiPath.equals("/orders") ? "Khách hàng và đơn hàng" : uiPath.startsWith("/catalog") || uiPath.startsWith("/pricing") ? "Danh mục và giá" : uiPath.startsWith("/accounting/") ? "Kế toán" : uiPath.startsWith("/inventory/") || uiPath.startsWith("/fulfillment/") ? "Kho hàng" : uiPath.startsWith("/reports/") ? "Báo cáo" : uiPath.startsWith("/portal") ? "Cổng đại lý" : uiPath.startsWith("/account/") ? "Tài khoản" : "Quản trị");
 %>
 <header class="app-topbar nvdo-topbar">
 <button type="button" class="icon-button mobile-menu-button" data-menu-open aria-controls="nvdo-menu" aria-expanded="false" aria-label="Mở menu"><ui:icon name="bars"/></button>
