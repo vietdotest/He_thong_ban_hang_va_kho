@@ -4,6 +4,7 @@
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
     [switch]$PreflightOnly,
     [switch]$InjectHealthFailure,
+    [string]$PreviewFailureProbe = '',
     [switch]$UiOnly,
     [string]$RollbackWar = ''
 )
@@ -89,6 +90,7 @@ if ($Target -eq 'Preview' -and $releaseBranch -notmatch '^(main|develop|feature/
 $sourceChanges=@(git status --porcelain --untracked-files=all -- src pom.xml scripts)
 if ($sourceChanges.Count -ne 0) { throw 'Code triển khai còn thay đổi hoặc file chưa commit.' }
 if ($InjectHealthFailure -and $Target -ne 'Preview') { throw 'Chỉ mô phỏng lỗi trên môi trường kiểm thử.' }
+if ($PreviewFailureProbe -and (!$InjectHealthFailure -or $Target -ne 'Preview')) { throw 'Probe chỉ dùng trong diễn tập lỗi Preview.' }
 $deploySha = git rev-parse HEAD
 $deployTree = git rev-parse 'HEAD^{tree}'
 $deployTools = Join-Path $deployRoot '.tools'
@@ -186,7 +188,7 @@ if ($oldSha -match '^[a-f0-9]{40}$' -and (Test-Path -LiteralPath (Join-Path $bac
     [pscustomobject]@{sha=$oldSha;tree=$oldTree;warHash=(Get-FileHash -LiteralPath (Join-Path $backup 'ROOT.war')).Hash;target=$Target;base=$deployBase;container=$deployContainer;schemaCompatible=$true;allowedMigration='src/main/resources/db/migration/V044__sales_cost_snapshots.sql'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'ui-backup.json') -Encoding utf8
 }
 Write-Output "Đã sao lưu database, uploads, WAR và cấu hình tại $backup."
-& (Join-Path $PSScriptRoot 'verify-mvp-backup.ps1') -BackupDirectory $backup -Upgrade
+& (Join-Path $PSScriptRoot 'verify-mvp-backup.ps1') -BackupDirectory $backup -Upgrade -CompatibilityWar (Join-Path $backup 'ROOT.war')
 }catch{if($stoppedForBackup){$restored=Start-ReleaseTomcat $oldSha;Wait-ReleaseHealth $oldSha;Assert-PublicHealth $oldSha};throw}
 $newProcess=$null; $applicationMoved=$false;$migrationAttempted=$false
 try {
@@ -205,7 +207,10 @@ try {
     Copy-Item -LiteralPath $deployWar -Destination $oldWar -Force
     $newProcess=Start-ReleaseTomcat $deploySha
     Wait-ReleaseHealth $deploySha
-    if ($InjectHealthFailure) { throw 'Mô phỏng health thất bại để kiểm tra phục hồi trên Preview.' }
+    if ($InjectHealthFailure) {
+        if($PreviewFailureProbe){$probePath=Assert-ChildPath $PreviewFailureProbe $deployTools;& $probePath;if(!$?){throw 'Probe Preview thất bại.'}}
+        throw 'Mô phỏng health thất bại để kiểm tra phục hồi trên Preview.'
+    }
     Assert-PublicHealth $deploySha
     if ((git rev-parse HEAD) -ne $deploySha) { throw 'SHA đã thay đổi trong lúc triển khai.' }
     [pscustomobject]@{sha=$deploySha;tree=$deployTree;pid=$newProcess.Id;warHash=(Get-FileHash -LiteralPath $oldWar).Hash;deployedAt=(Get-Date).ToString('o');backup=$backup;target=$Target;health='UP'} |

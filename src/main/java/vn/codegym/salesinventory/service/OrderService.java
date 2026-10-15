@@ -150,7 +150,8 @@ public final class OrderService {
         String q=selected.query()==null?"":selected.query().trim();if(q.length()>150)throw new IllegalArgumentException("Tìm kiếm tối đa 150 ký tự.");String term="%"+q+"%";
         String state=selected.status()==null?"":selected.status();if(!state.isEmpty()&&!Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED","CANCELLED").contains(state))throw new IllegalArgumentException("Trạng thái đơn không hợp lệ.");
         return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);
-            if(selected.dealer()!=null)scoped(c,actor,a,selected.dealer(),false);
+            // List filters remain an intersection with the authorized scope: an outside dealer yields zero rows.
+            // Detail/command endpoints still reject outside-scope identifiers explicitly.
             String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";
             String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR o.number LIKE ? OR CAST(o.id AS CHAR) LIKE ?)"
                 +" AND (? IS NULL OR d.primary_staff_id=?) AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR o.created_at>=?) AND (? IS NULL OR o.created_at<?)";
