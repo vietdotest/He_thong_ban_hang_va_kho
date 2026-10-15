@@ -9,6 +9,13 @@ import vn.codegym.salesinventory.service.*;
 import static org.assertj.core.api.Assertions.*;
 
 class BusinessFiltersAcceptanceIT extends MvpWorkflowSupport {
+    @Test void warehouseOrderListUsesThePersistedOrderNumber() {
+        long order=accepted("1");
+        String number=Sql.text(one("SELECT number FROM orders WHERE id=?",order).get("number"));
+        assertThat(number).startsWith("DH-");
+        assertThat(fulfillment.orders(worker)).filteredOn(row->Sql.id(row.get("id"))==order)
+            .singleElement().satisfies(row->assertThat(row.get("number")).isEqualTo(number));
+    }
     @Test void filteredTotalSpansPagesAndUsesVietnamCreationDayAndCurrentAssignment() {
         long area=Sql.id(one("SELECT territory_id FROM dealers WHERE id=?",dealer).get("territory_id"));
         for(int i=0;i<21;i++) {
