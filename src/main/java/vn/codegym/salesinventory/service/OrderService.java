@@ -44,7 +44,8 @@ public final class OrderService {
                 row.put("unit",l.conversion.unitName());row.put("factor",l.conversion.factor().toPlainString());row.put("baseQuantity",l.conversion.baseQuantity().toPlainString());
                 if(controls.get("available") instanceof Map<?,?> available&&available.get(Long.toString(l.product))!=null){BigDecimal quantity=new BigDecimal(available.get(Long.toString(l.product)).toString());row.put("availableBase",quantity.stripTrailingZeros().toPlainString());row.put("availableUnits",quantity.max(BigDecimal.ZERO).divide(l.conversion.factor(),6,RoundingMode.DOWN).stripTrailingZeros().toPlainString());}
                 row.put("selling",l.price.sellingPrice().toPlainString());row.put("gross",l.gross.toPlainString());row.put("discount",l.discount.toPlainString());row.put("net",l.net.toPlainString());
-                row.put("formatted",Map.of("selling",MoneyDisplay.format(l.price.sellingPrice()),"gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
+                row.put("formatted",Map.of("baseQuantity",QuantityDisplay.format(l.conversion.baseQuantity()),"factor",QuantityDisplay.format(l.conversion.factor()),
+                    "availableBase",QuantityDisplay.format(row.get("availableBase")),"availableUnits",QuantityDisplay.format(row.get("availableUnits")),"selling",MoneyDisplay.format(l.price.sellingPrice()),"gross",MoneyDisplay.format(l.gross),"discount",MoneyDisplay.format(l.discount),"net",MoneyDisplay.format(l.net)));
                 row.put("needsApproval",belowFloor(l));row.put("policy",l.policy.applied()?l.policy.tier().name():"");rows.add(row);}
             var out=new LinkedHashMap<String,Object>();out.put("date",date.toString());out.put("lines",rows);out.put("gross",gross.toPlainString());out.put("discount",discount.toPlainString());out.put("net",net.toPlainString());out.put("errors",errors);out.put("warning",warning);out.put("token",token);out.put("confirmation",confirmation);out.put("needsApproval",needsApproval());out.put("controls",controls);out.put("formatted",Map.of("gross",MoneyDisplay.format(gross),"discount",MoneyDisplay.format(discount),"net",MoneyDisplay.format(net)));return out;
         }
@@ -135,12 +136,45 @@ public final class OrderService {
         row.put("invoices",!portal(ctx.access)&&ctx.access.allows("INVOICE_READ")?Sql.query(c,"SELECT i.id,i.number,i.invoice_date FROM mvp_invoices i JOIN mvp_shipments s ON s.id=i.shipment_id WHERE s.order_id=? ORDER BY i.id",id):List.of());
         @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "CANCELLED","LEGACY_CANCELLED"->"Hủy đơn";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
         if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
-    public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request){String q=query==null?"":query.trim();if(q.length()>150)q=q.substring(0,150);String term="%"+q+"%";String state=Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED","CANCELLED").contains(status==null?"":status)?status:"";
-        return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR CAST(o.id AS CHAR) LIKE ?)";
-            var args=new ArrayList<Object>();if(portal)args.add(PortalAccountService.linked(c,actor));else{args.add(all(a));args.add(actor);}args.addAll(Arrays.asList(state,state,dealer,dealer,term,term,term));long total=Sql.id(Sql.one(c,"SELECT COUNT(*) total"+filter,args.toArray()).get("total"));var p=request.clamp(total);var params=new ArrayList<Object>(args);params.add(p.pageSize());params.add(p.offset());
-            var rows=Sql.query(c,"SELECT o.id,o.number,o.status,o.source,o.pending_reason,o.fulfillment_state,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",params.toArray());for(var row:rows)row.put("net_formatted",MoneyDisplay.format(row.get("net_total")));return new PageResult<>(rows,total,p.page(),p.pageSize());});}
+    public record Filter(String query,String status,Long dealer,Long staff,Long territory,LocalDate from,LocalDate to) {
+        public Filter {
+            if(from!=null&&(from.getYear()<1000||from.getYear()>9998)||to!=null&&(to.getYear()<1000||to.getYear()>9998)||from!=null&&to!=null&&from.isAfter(to))throw new IllegalArgumentException("Khoảng ngày tạo đơn không hợp lệ.");
+            for(Long id:Arrays.asList(dealer,staff,territory))if(id!=null&&id<=0)throw new IllegalArgumentException("Bộ lọc không hợp lệ.");
+        }
+    }
+    public record SearchReport(PageResult<Map<String,Object>> page,BigDecimal totalAmount){}
+    public PageResult<Map<String,Object>> search(long actor,String query,String status,Long dealer,PageRequest request) {
+        return searchReport(actor,new Filter(query,status,dealer,null,null,null,null),request).page();
+    }
+    public SearchReport searchReport(long actor,Filter selected,PageRequest request) {
+        String q=selected.query()==null?"":selected.query().trim();if(q.length()>150)throw new IllegalArgumentException("Tìm kiếm tối đa 150 ký tự.");String term="%"+q+"%";
+        String state=selected.status()==null?"":selected.status();if(!state.isEmpty()&&!Set.of("DRAFT","PENDING_APPROVAL","SUBMITTED","REJECTED","CANCELLED").contains(state))throw new IllegalArgumentException("Trạng thái đơn không hợp lệ.");
+        return Sql.snapshot(source,c->{var a=reader(c,actor);boolean portal=portal(a);
+            if(selected.dealer()!=null)scoped(c,actor,a,selected.dealer(),false);
+            String scope=portal?" d.id=? ":" (? OR d.primary_staff_id=?) ";
+            String filter=" FROM orders o JOIN dealers d ON d.id=o.dealer_id WHERE "+scope+" AND (?='' OR o.status=?) AND (? IS NULL OR o.dealer_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR o.number LIKE ? OR CAST(o.id AS CHAR) LIKE ?)"
+                +" AND (? IS NULL OR d.primary_staff_id=?) AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR o.created_at>=?) AND (? IS NULL OR o.created_at<?)";
+            var args=new ArrayList<Object>();if(portal)args.add(PortalAccountService.linked(c,actor));else{args.add(all(a));args.add(actor);}
+            Object from=selected.from()==null?null:Timestamp.from(selected.from().atStartOfDay(VietnamTime.ZONE).toInstant());Object until=selected.to()==null?null:Timestamp.from(selected.to().plusDays(1).atStartOfDay(VietnamTime.ZONE).toInstant());
+            args.addAll(Arrays.asList(state,state,selected.dealer(),selected.dealer(),term,term,term,term,selected.staff(),selected.staff(),selected.territory(),selected.territory(),from,from,until,until));
+            var summary=Sql.one(c,"SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN o.status IN ('SUBMITTED','PENDING_APPROVAL') THEN o.net_total ELSE 0 END),0) total_amount"+filter,args.toArray());
+            long total=Sql.id(summary.get("total"));var paging=request.clamp(total);var parameters=new ArrayList<Object>(args);parameters.add(paging.pageSize());parameters.add(paging.offset());
+            var rows=Sql.query(c,"SELECT o.id,o.number,o.status,o.source,o.pending_reason,o.fulfillment_state,o.desired_delivery,o.net_total,o.version,o.created_at,d.code dealer_code,d.name dealer_name,d.transaction_locked"+filter+" ORDER BY o.id DESC LIMIT ? OFFSET ?",parameters.toArray());
+            for(var row:rows)row.put("net_formatted",MoneyDisplay.format(row.get("net_total")));
+            return new SearchReport(new PageResult<>(rows,total,paging.page(),paging.pageSize()),(BigDecimal)summary.get("total_amount"));
+        });
+    }
+    public Map<String,List<Map<String,Object>>> filterOptions(long actor) {
+        return Sql.snapshot(source,c->{var a=reader(c,actor);var parameters=new ArrayList<Object>();String scope;
+            if(portal(a)){scope="d.id=?";parameters.add(PortalAccountService.linked(c,actor));}else{scope="(? OR d.primary_staff_id=?)";parameters.add(all(a));parameters.add(actor);}
+            var dealers=Sql.query(c,"SELECT d.id,d.code,d.name,d.primary_staff_id staff_id,u.full_name staff_name,d.territory_id,t.name territory_name FROM dealers d JOIN users u ON u.id=d.primary_staff_id JOIN territories t ON t.id=d.territory_id WHERE "+scope+" ORDER BY d.name,d.id",parameters.toArray());
+            var staff=new LinkedHashMap<Long,Map<String,Object>>();var territories=new LinkedHashMap<Long,Map<String,Object>>();
+            for(var d:dealers){long user=Sql.id(d.get("staff_id")),area=Sql.id(d.get("territory_id"));staff.putIfAbsent(user,Map.of("id",user,"name",d.get("staff_name")));territories.putIfAbsent(area,Map.of("id",area,"name",d.get("territory_name")));}
+            return Map.of("dealers",dealers,"staff",List.copyOf(staff.values()),"territories",List.copyOf(territories.values()));
+        });
+    }
     public List<Map<String,Object>> addresses(long actor,long dealer){return Sql.transaction(source,c->{var a=reader(c,actor);scoped(c,actor,a,dealer,false);return Sql.query(c,"SELECT id,address,recipient,phone,is_default FROM dealer_addresses WHERE dealer_id=? AND status='ACTIVE' ORDER BY is_default DESC,id",dealer);});}
-    public List<Map<String,Object>> units(long actor,long dealer,long product){return Sql.transaction(source,c->{var a=reader(c,actor);var d=scoped(c,actor,a,dealer,false);if(portal(a))PortalCatalogService.requireOffer(c,actor,product);var rows=Sql.query(c,"SELECT id,name,factor,is_base FROM product_units WHERE product_id=? AND (warehouse_id IS NULL OR warehouse_id=?) ORDER BY is_base DESC,name,id",product,d.get("warehouse_id"));for(var row:rows)row.put("factor",((BigDecimal)row.get("factor")).toPlainString());return rows;});}
+    public List<Map<String,Object>> units(long actor,long dealer,long product){return Sql.transaction(source,c->{var a=reader(c,actor);var d=scoped(c,actor,a,dealer,false);if(portal(a))PortalCatalogService.requireOffer(c,actor,product);var rows=Sql.query(c,"SELECT id,name,factor,is_base FROM product_units WHERE product_id=? AND (warehouse_id IS NULL OR warehouse_id=?) ORDER BY is_base DESC,name,id",product,d.get("warehouse_id"));for(var row:rows){row.put("factorFormatted",QuantityDisplay.format(row.get("factor")));row.put("factor",((BigDecimal)row.get("factor")).toPlainString());}return rows;});}
     public void takeover(long actor,long id,long version,String reason){String why=CatalogValidation.text(reason,1000,"Lý do tiếp quản");Sql.transaction(source,c->{var ctx=context(c,actor,id,true);writer(ctx.access);if(!ctx.access.roles().contains("SALES_MANAGER"))throw new SecurityException();editable(ctx.order,version);
         if(Sql.id(ctx.order.get("owner_id"))==actor)throw FieldValidationException.field("form","Bạn đang phụ trách nháp này.");
         Sql.update(c,"UPDATE orders SET owner_id=?,version=version+1 WHERE id=?",actor,id);Sql.update(c,"DELETE FROM order_quote_tickets WHERE order_id=?",id);
