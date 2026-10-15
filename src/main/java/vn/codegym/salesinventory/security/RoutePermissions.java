@@ -5,7 +5,49 @@ public final class RoutePermissions {
     public static boolean publicPath(String p) {
         return p.equals("/") || p.equals("/login") || p.equals("/health") || p.equals("/forgot-password") || p.equals("/reset-password") || p.equals("/activate") || p.startsWith("/assets/");
     }
+    public static String required(String path,String method,String action) {
+        if(path.equals("/accounting/returns")&&method.equals("POST"))return "credit".equals(action)?"CREDIT_ISSUE":"receive".equals(action)?"STOCK_RETURN_RECEIVE":"RETURN_WRITE";
+        if(path.equals("/orders")&&method.equals("POST")&&"renewPortal".equals(action))return "ORDER_CONFIRM_PORTAL";
+        if(path.equals("/orders")&&method.equals("POST")&&"approveRenewal".equals(action))return "ORDER_APPROVE";
+        if(path.equals("/fulfillment/shipments")&&method.equals("POST")&&"recover".equals(action))return "STOCK_RETURN_RECEIVE";
+        if(path.equals("/orders")&&method.equals("POST")&&"cancel".equals(action))return "ORDER_CANCEL";
+        if(path.equals("/orders")&&method.equals("POST")&&("confirmPortal".equals(action)||"returnPortal".equals(action)))return "ORDER_CONFIRM_PORTAL";
+        if(path.equals("/orders")&&method.equals("POST")&&"returnEdit".equals(action))return "ORDER_APPROVE";
+        if(path.equals("/orders")&&method.equals("POST")&&("approve".equals(action)||"reject".equals(action)))return "ORDER_APPROVE";
+        return required(path,method);
+    }
     public static String required(String path,String method) {
+        if(path.equals("/inventory/stock"))return method.equals("GET")?"STOCK_READ":null;
+        if(path.equals("/reports/sales"))return method.equals("GET")?"SALES_DEBT_REPORT_READ":null;
+        if(path.equals("/accounting/debt"))return method.equals("GET")?"SALES_DEBT_REPORT_READ":null;
+        if(path.equals("/accounting/returns"))return method.equals("GET")?"RETURN_READ":"RETURN_WRITE";
+        if(path.equals("/accounting/payments"))return method.equals("GET")?"INVOICE_READ":"PAYMENT_WRITE";
+        if(path.equals("/accounting/invoices"))return method.equals("GET")?"INVOICE_READ":"INVOICE_ISSUE";
+        if(path.equals("/fulfillment/shipments"))return method.equals("GET")?"FULFILLMENT_READ":"FULFILLMENT_WRITE";
+        if(path.equals("/inventory/receipts"))return method.equals("GET")?"STOCK_READ":"STOCK_RECEIPT_WRITE";
+        if(path.equals("/inventory/card"))return method.equals("GET")?"STOCK_READ":null;
+        if(path.equals("/dealers/accounts"))return "PORTAL_ACCOUNT_MANAGE";
+        if(path.equals("/portal")||path.equals("/api/portal/products")||path.equals("/api/portal/options"))return method.equals("GET")?"PORTAL_ORDER_READ":null;
+        if(path.equals("/portal/orders"))return method.equals("GET")?"PORTAL_ORDER_READ":"PORTAL_ORDER_WRITE";
+        if(path.equals("/orders"))return method.equals("GET")?"ORDER_READ":"ORDER_WRITE";
+        if(path.equals("/api/orders/options"))return method.equals("GET")?"ORDER_READ":null;
+        if(path.equals("/dealers")) return method.equals("GET") ? "DEALER_READ" : "DEALER_MANAGE";
+        if(path.equals("/dealers/addresses")) return method.equals("GET") ? "DEALER_READ" : "DEALER_ADDRESS_MANAGE";
+        if(path.equals("/dealers/handover")) return "DEALER_HANDOVER";
+        if(path.equals("/dealers/credit")) return method.equals("GET") ? "DEALER_READ" : "DEALER_CREDIT_MANAGE";
+        if(path.equals("/dealers/status")) return method.equals("GET") ? "DEALER_READ" : "DEALER_STATUS_MANAGE";
+        if(path.startsWith("/api/lookups/")) {
+            if(!method.equals("GET")) return null;
+            return switch(path) {
+                case "/api/lookups/dealers" -> "DEALER_READ";
+                case "/api/lookups/products", "/api/lookups/categories", "/api/lookups/suppliers", "/api/lookups/unitnames" -> "CATALOG_READ";
+                case "/api/lookups/unitwarehouses" -> "WAREHOUSE_MANAGE";
+                case "/api/lookups/priceversions" -> "PRICE_READ";
+                case "/api/lookups/auditusers" -> "AUDIT_READ";
+                case "/api/lookups/users", "/api/lookups/warehouses", "/api/lookups/territories", "/api/lookups/scopes" -> "USER_MANAGE";
+                default -> null;
+            };
+        }
         if(path.equals("/dashboard") || path.equals("/logout") || path.startsWith("/account/")) return "PROFILE";
         if(path.equals("/admin/roles")) return "ROLE_MANAGE";
         if(path.startsWith("/admin/users")) return "USER_MANAGE";
@@ -15,6 +57,8 @@ public final class RoutePermissions {
         if(path.startsWith("/catalog/products")) return method.equals("GET") ? "CATALOG_READ" : "PRODUCT_MANAGE";
         if(path.equals("/catalog/categories")) return method.equals("GET") ? "CATALOG_READ" : "PRODUCT_MANAGE";
         if(path.equals("/catalog/units") || path.equals("/catalog/suppliers")) return method.equals("GET") ? "CATALOG_READ" : "WAREHOUSE_MANAGE";
+        if(path.equals("/pricing/discounts"))return method.equals("GET")?"DISCOUNT_READ":"DISCOUNT_MANAGE";
+        if(path.equals("/pricing/history"))return "PRICE_READ";
         if(path.startsWith("/pricing/")) return method.equals("GET") ? "PRICE_READ" : "PRICE_MANAGE";
         return null;
     }

@@ -8,32 +8,21 @@ import java.util.Map;
 import vn.codegym.salesinventory.service.*;
 import vn.codegym.salesinventory.config.ApplicationContextKeys;
 
-public final class UserImportServlet extends PortalServlet {
+public final class UserImportServlet extends DurableImportServlet {
     private final UserImportService injectedService;
 
     public UserImportServlet() { this.injectedService = null; }
     UserImportServlet(UserImportService service) { this.injectedService = service; }
+    @Override protected String importKind(){return "USER";}
+    @Override protected ImportPreview readPreview(long actor,byte[] bytes){return service().preview(actor,bytes);}
 
     private UserImportService service() {
         return injectedService != null ? injectedService : new UserImportService(source(),
                 (UserManagementService) getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE));
     }
 
-    @Override protected void preparePost(HttpServletRequest request) throws Exception {
-        String type = request.getContentType();
-        if (type == null || !type.toLowerCase(java.util.Locale.ROOT).startsWith("multipart/form-data")) return;
-        try { request.getPart("file"); }
-        catch (Exception e) {
-            for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-                String name = cause.getClass().getName();
-                if (name.contains(".fileupload.") && (name.endsWith("SizeLimitExceededException") || name.endsWith("FileSizeLimitExceededException")))
-                    throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.", e);
-            }
-            throw e;
-        }
-    }
-
     @Override protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if(injectedService==null){super.get(request,response);return;}
         access(request).require("USER_MANAGE");
         if(value(request,"report").equals("1")){ImportFlow.download(request,response,"userImport",actor(request).id(),access(request));return;}
         if(value(request,"new").equals("1"))ImportFlow.clear(request,"userImport");
@@ -54,6 +43,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        if(injectedService==null){super.post(request,response);return;}
         access(request).require("USER_MANAGE");
         boolean confirm = value(request, "action").equals("confirm");
         try {
@@ -67,8 +57,8 @@ public final class UserImportServlet extends PortalServlet {
                 } finally { request.getSession().removeAttribute("userImport"); }
             } else {
                 ImportFlow.clear(request,"userImport");
-                var file = request.getPart("file");
-                if (file == null || file.getSize() == 0) throw new IllegalArgumentException("Vui lòng chọn tệp XLSX.");
+                var file = uploadFile(request);
+                if (file == null || file.getSize() == 0) throw new IllegalArgumentException("Vui lòng chọn tệp Excel (.xlsx).");
                 if (file.getSize() > Xlsx.MAX_BYTES) throw new IllegalArgumentException("Tệp XLSX tối đa 10MB.");
                 byte[] bytes;
                 try (var input = file.getInputStream()) { bytes = input.readNBytes(Xlsx.MAX_BYTES + 1); }
@@ -83,6 +73,7 @@ public final class UserImportServlet extends PortalServlet {
     }
 
     @Override protected void badRequest(HttpServletRequest request, HttpServletResponse response, String message) throws ServletException, IOException {
+        if(injectedService==null){super.badRequest(request,response,message);return;}
         if ("POST".equals(request.getMethod()))ImportFlow.clear(request,"userImport");
         response.setStatus(400);
         request.setAttribute("errors", Map.of("file", message));

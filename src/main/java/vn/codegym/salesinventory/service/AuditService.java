@@ -17,6 +17,15 @@ public final class AuditService {
             case "USER_ASSIGNMENTS_UPDATED" -> "Cập nhật phân công";case "ROLE_PERMISSIONS_UPDATED" -> "Cập nhật phân quyền";case "SCOPE_UPDATED" -> "Cập nhật kho / địa bàn";
             case "PRODUCT_SAVED","PRODUCT_UPDATED" -> "Lưu sản phẩm";case "PRODUCT_CREATED" -> "Thêm sản phẩm";case "PRODUCT_DELETED" -> "Xóa sản phẩm";
             case "CATEGORY_SAVED" -> "Lưu nhóm hàng";case "CATEGORY_DELETED" -> "Xóa nhóm hàng";
+            case "DEALER_SAVED" -> "Lưu hồ sơ đại lý";case "DEALER_DELETED" -> "Xóa hồ sơ đại lý";
+            case "DEALER_ADDRESS_SAVED" -> "Lưu điểm giao hàng";case "DEALER_ADDRESS_DEFAULT_CHANGED" -> "Đổi điểm giao mặc định";
+            case "DEALER_HANDED_OVER" -> "Bàn giao đại lý";
+            case "DEALER_CREDIT_CHANGED" -> "Thay đổi cấu hình tín dụng";
+            case "DEALER_LOCKED" -> "Khóa giao dịch đại lý";case "DEALER_UNLOCKED" -> "Mở giao dịch đại lý";
+            case "DISCOUNT_POLICY_SAVED" -> "Lưu chính sách chiết khấu";
+            case "ORDER_APPROVAL_REQUESTED" -> "Gửi đơn chờ duyệt giá";case "ORDER_PRICE_APPROVED" -> "Duyệt giá đơn hàng";case "ORDER_PRICE_REJECTED" -> "Từ chối giá đơn hàng";
+            case "ORDER_DRAFT_SAVED" -> "Lưu đơn nháp";case "ORDER_SUBMITTED" -> "Gửi đơn tiếp nhận";case "ORDER_DRAFT_TAKEN_OVER" -> "Tiếp quản đơn nháp";
+            case "PORTAL_ACCOUNT_CREATED" -> "Cấp tài khoản đại lý";case "PORTAL_ACCOUNT_RELINKED" -> "Đổi liên kết đại lý";case "PORTAL_ACCOUNT_LOCKED" -> "Khóa tài khoản đại lý";case "PORTAL_ACCOUNT_UNLOCKED" -> "Mở tài khoản đại lý";case "PORTAL_ACTIVATION_RESENT" -> "Gửi lại kích hoạt đại lý";
             case "UNIT_SAVED" -> "Lưu đơn vị quy đổi";case "UNIT_DELETED" -> "Xóa đơn vị quy đổi";
             case "SUPPLIER_SAVED" -> "Lưu nhà cung cấp";case "SUPPLIER_DELETED" -> "Xóa nhà cung cấp";case "SCOPE_CREATED" -> "Thêm kho / địa bàn";
             case "PRICE_VERSION_CREATED" -> "Tạo phiên bản bảng giá";case "PRICE_VERSION_UPDATED" -> "Sửa hiệu lực bảng giá";
@@ -27,6 +36,11 @@ public final class AuditService {
     public static String objectLabel(String code) {
         return switch(code) {
             case "USER" -> "Tài khoản";case "PRODUCT" -> "Sản phẩm";case "PRICE_VERSION" -> "Bảng giá";case "PRICE_ITEM" -> "Giá sản phẩm";
+            case "DEALER" -> "Đại lý";
+            case "DEALER_ADDRESS" -> "Điểm giao hàng";
+            case "DISCOUNT_POLICY" -> "Chính sách chiết khấu";
+            case "ORDER" -> "Đơn hàng";
+            case "PORTAL_ACCOUNT" -> "Tài khoản cổng đại lý";
             case "CATEGORY" -> "Nhóm hàng";case "SUPPLIER" -> "Nhà cung cấp";case "UNIT","PRODUCT_UNIT" -> "Đơn vị quy đổi";
             case "WAREHOUSE" -> "Kho";case "TERRITORY" -> "Địa bàn";case "ROLE" -> "Vai trò";case "SESSION","" -> "Phiên làm việc";
             default -> code;
@@ -48,10 +62,14 @@ public final class AuditService {
     public static void record(Connection c,long actor,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
         Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",actor,event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
     }
+    /** Automatic maintenance has no human actor; retain its trigger in the ordinary snapshot. */
+    public static void recordSystem(Connection c,String event,String type,long id,Map<String,?> before,Map<String,?> after) throws SQLException {
+        Sql.insert(c,"INSERT INTO audit_logs(actor_user_id,event_type,object_type,object_id,before_values,after_values,before_cost,after_cost,occurred_at) VALUES(NULL,?,?,?,?,?,?,?,CURRENT_TIMESTAMP(6))",event,type,id,snapshot(before,false),snapshot(after,false),snapshot(before,true),snapshot(after,true));
+    }
     /** Overview intentionally excludes snapshots and all sensitive values. */
     public static List<Map<String,Object>> recent(Connection c,vn.codegym.salesinventory.security.Access access) throws SQLException {
         access.require("AUDIT_READ");
-        var rows=Sql.query(c,"SELECT a.event_type,a.object_type,a.object_id,a.occurred_at,u.full_name FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id ORDER BY a.occurred_at DESC,a.id DESC LIMIT 5");
+        var rows=Sql.query(c,"SELECT a.event_type,a.object_type,a.object_id,a.occurred_at,u.full_name FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id WHERE "+AuditReadService.LEGACY+" AND NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.actor_user_id AND pu.account_kind='DEALER') AND (a.object_type IS NULL OR a.object_type<>'USER' OR NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.object_id AND pu.account_kind='DEALER')) ORDER BY a.occurred_at DESC,a.id DESC LIMIT 5");
         for(var row:rows) {
             row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
             row.put("event_label",eventLabel(Sql.text(row.get("event_type"))));
@@ -63,7 +81,8 @@ public final class AuditService {
         access.require("AUDIT_READ");
         if(offset<0)throw new IllegalArgumentException("Trang không hợp lệ.");
         String sensitive=access.allows("COST_READ") ? ",a.before_cost,a.after_cost" : "";
-        var rows=Sql.query(c,"SELECT a.id,a.event_type,a.object_type,a.object_id,a.before_values,a.after_values,a.occurred_at,u.full_name"+sensitive+" FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id"+filter+" ORDER BY a.occurred_at DESC,a.id DESC LIMIT 100 OFFSET "+offset,args);
+        String scoped=(filter.isBlank()?" WHERE 1=1 ":filter)+" AND "+AuditReadService.LEGACY+" AND NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.actor_user_id AND pu.account_kind='DEALER') AND (a.object_type IS NULL OR a.object_type<>'USER' OR NOT EXISTS(SELECT 1 FROM users pu WHERE pu.id=a.object_id AND pu.account_kind='DEALER'))";
+        var rows=Sql.query(c,"SELECT a.id,a.event_type,a.object_type,a.object_id,a.before_values,a.after_values,a.occurred_at,u.full_name"+sensitive+" FROM audit_logs a LEFT JOIN users u ON u.id=a.actor_user_id"+scoped+" ORDER BY a.occurred_at DESC,a.id DESC LIMIT 100 OFFSET "+offset,args);
         for(var row:rows) {
             row.put("display_time",Sql.instant(row.get("occurred_at")).atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")));
             row.put("event_label",eventLabel(Sql.text(row.get("event_type"))));row.put("object_label",objectLabel(Sql.text(row.get("object_type"))));

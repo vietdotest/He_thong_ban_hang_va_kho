@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <web-app xmlns="https://jakarta.ee/xml/ns/jakartaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd" version="6.0">
     <display-name>Hệ thống bán hàng và kho</display-name>
+    <listener><listener-class>vn.codegym.salesinventory.listener.UiAssetsListener</listener-class></listener>
     <listener>
         <listener-class>vn.codegym.salesinventory.listener.ApplicationLifecycleListener</listener-class>
     </listener>
@@ -277,6 +278,22 @@
         <servlet-name>PricingServlet</servlet-name>
         <url-pattern>/pricing/lists</url-pattern>
     </servlet-mapping>
+    <servlet><servlet-name>LookupServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.LookupServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>LookupServlet</servlet-name><url-pattern>/api/lookups/*</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerServlet</servlet-name><url-pattern>/dealers</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerAddressServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerAddressServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerAddressServlet</servlet-name><url-pattern>/dealers/addresses</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerHandoverServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerHandoverServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerHandoverServlet</servlet-name><url-pattern>/dealers/handover</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerCreditServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerCreditServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerCreditServlet</servlet-name><url-pattern>/dealers/credit</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerStatusServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerStatusServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerStatusServlet</servlet-name><url-pattern>/dealers/status</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DiscountServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DiscountServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DiscountServlet</servlet-name><url-pattern>/pricing/discounts</url-pattern></servlet-mapping>
+    <servlet><servlet-name>PriceHistoryServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.PriceHistoryServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>PriceHistoryServlet</servlet-name><url-pattern>/pricing/history</url-pattern></servlet-mapping>
     <session-config>
         <session-timeout>30</session-timeout>
         <cookie-config>
@@ -300,4 +317,29 @@
         <error-code>500</error-code>
         <location>/WEB-INF/views/error/500.jsp</location>
     </error-page>
+    <servlet><servlet-name>OrderServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.OrderServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>OrderServlet</servlet-name><url-pattern>/orders</url-pattern><url-pattern>/api/orders/options</url-pattern></servlet-mapping>
+    <servlet><servlet-name>PortalAccountsServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.PortalAccountsServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>PortalAccountsServlet</servlet-name><url-pattern>/dealers/accounts</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DealerPortalServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DealerPortalServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DealerPortalServlet</servlet-name><url-pattern>/portal</url-pattern><url-pattern>/portal/orders</url-pattern><url-pattern>/api/portal/options</url-pattern><url-pattern>/api/portal/products</url-pattern></servlet-mapping>
+    <servlet><servlet-name>StockReceiptServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.StockReceiptServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>StockReceiptServlet</servlet-name><url-pattern>/inventory/receipts</url-pattern></servlet-mapping>
+    <servlet><servlet-name>FulfillmentServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.FulfillmentServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>FulfillmentServlet</servlet-name><url-pattern>/fulfillment/shipments</url-pattern></servlet-mapping>
+    <servlet><servlet-name>InvoiceServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.InvoiceServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>InvoiceServlet</servlet-name><url-pattern>/accounting/invoices</url-pattern></servlet-mapping>
+    <servlet><servlet-name>PaymentServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.PaymentServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>PaymentServlet</servlet-name><url-pattern>/accounting/payments</url-pattern></servlet-mapping>
+    <servlet><servlet-name>ReturnServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.ReturnServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>ReturnServlet</servlet-name><url-pattern>/accounting/returns</url-pattern></servlet-mapping>
+    <servlet><servlet-name>DebtServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.DebtServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>DebtServlet</servlet-name><url-pattern>/accounting/debt</url-pattern></servlet-mapping>
+    <servlet><servlet-name>SalesReportServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.SalesReportServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>SalesReportServlet</servlet-name><url-pattern>/reports/sales</url-pattern></servlet-mapping>
+    <servlet><servlet-name>StockServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.StockServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>StockServlet</servlet-name><url-pattern>/inventory/stock</url-pattern></servlet-mapping>
+    <servlet><servlet-name>StockCardServlet</servlet-name><servlet-class>vn.codegym.salesinventory.controller.StockCardServlet</servlet-class></servlet>
+    <servlet-mapping><servlet-name>StockCardServlet</servlet-name><url-pattern>/inventory/card</url-pattern></servlet-mapping>
+    <jsp-config><jsp-property-group><url-pattern>*.jsp</url-pattern><include-prelude>/WEB-INF/jspf/ui-taglibs.jspf</include-prelude></jsp-property-group></jsp-config>
 </web-app>

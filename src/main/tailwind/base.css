@@ -1,0 +1,23 @@
+/* Nền tường minh sau Preflight; component quyết định bố cục và biến thể riêng. */
+@layer base {
+  html { line-height: 1.5; font-family: var(--font-sans); }
+  h1, h2, h3, h4, h5, h6 { font-weight: 700; }
+  h1 { margin-block: .67em; } h2 { margin-block: .83em; } h3 { margin-block: 1em; }
+  h4 { margin-block: 1.33em; } h5 { margin-block: 1.67em; } h6 { margin-block: 2.33em; }
+  p, pre, blockquote, dl, figure { margin-block: 1em; }
+  blockquote, figure { margin-inline: 40px; } dd { margin-inline-start: 40px; }
+  ul, ol { margin-block: 1em; padding-inline-start: 40px; }
+  ul { list-style: disc; } ol { list-style: decimal; }
+  a { text-decoration: underline; }
+  button, input, select, textarea { line-height: normal; }
+  button, input, select, textarea { border: revert-layer; padding: revert-layer; background-color: revert-layer; }
+  input[type=checkbox], input[type=radio] { margin: 3px 3px 3px 4px; }
+  /* Giữ cách vẽ native của progress; kích thước vẫn do component import quyết định. */
+  progress { all: revert-layer; }
+  fieldset { margin-inline: 2px; padding: .35em .75em .625em; border: 2px groove; }
+  legend { padding-inline: 2px; }
+  dialog { margin: auto; }
+  img, svg, video, canvas, audio, iframe, embed, object { display: inline; vertical-align: baseline; }
+  img, video { max-width: revert-layer; height: revert-layer; }
+  th { font-weight: 700; }
+}

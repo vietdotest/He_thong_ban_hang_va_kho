@@ -20,7 +20,11 @@ public abstract class PortalServlet extends HttpServlet {
         return error instanceof vn.codegym.salesinventory.validation.FieldValidationException fields ? fields.errors() : Map.of("form",error.getMessage());
     }
     protected static long number(HttpServletRequest r,String key) { try { return Long.parseLong(value(r,key)); } catch(NumberFormatException e) { throw new IllegalArgumentException("Mã bản ghi không hợp lệ."); } }
-    protected void view(HttpServletRequest r,HttpServletResponse s,String path) throws ServletException,IOException { r.getRequestDispatcher("/WEB-INF/views/"+path+".jsp").forward(r,s); }
+    protected void view(HttpServletRequest r,HttpServletResponse s,String path) throws ServletException,IOException {
+        String uri = r.getRequestURI();
+        if(uri != null) r.setAttribute("paginationPath", uri.substring(Objects.requireNonNullElse(r.getContextPath(),"").length()));
+        r.getRequestDispatcher("/WEB-INF/views/"+path+".jsp").forward(r,s);
+    }
     protected void redirect(HttpServletRequest r,HttpServletResponse s,String path) { s.setStatus(303); s.setHeader("Location",r.getContextPath()+path); }
     protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
     protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }

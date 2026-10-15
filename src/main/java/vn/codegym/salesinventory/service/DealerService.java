@@ -1,0 +1,122 @@
+package vn.codegym.salesinventory.service;
+
+import java.sql.*;
+import java.util.*;
+import javax.sql.DataSource;
+import vn.codegym.salesinventory.dao.Sql;
+import vn.codegym.salesinventory.dto.*;
+import vn.codegym.salesinventory.security.Access;
+import vn.codegym.salesinventory.validation.*;
+
+/** Dealer reads and writes share the same authorization scope, including counts. */
+public final class DealerService {
+    private final DataSource source;
+    public DealerService(DataSource source) { this.source=source; }
+    public record Input(String code,String name,String taxCode,String phone,long group,long territory,
+                        long staff,Long warehouse,String status,long version) { }
+    public static Map<String,String> errors(Input in) {
+        var errors=new LinkedHashMap<String,String>();
+        try { CatalogValidation.code(clean(in.code),50); } catch(IllegalArgumentException e) { errors.put("code",e.getMessage()); }
+        try { CatalogValidation.text(clean(in.name),200,"Tên đại lý"); } catch(IllegalArgumentException e) { errors.put("name",e.getMessage()); }
+        try { TaxCode.normalize(in.taxCode); } catch(IllegalArgumentException e) { errors.put("taxCode",e.getMessage()); }
+        try { PhoneNumber.normalize(in.phone); } catch(IllegalArgumentException e) { errors.put("phone",e.getMessage()); }
+        if(in.group<=0)errors.put("group","Hãy chọn nhóm bảng giá.");
+        if(in.territory<=0)errors.put("territory","Hãy chọn khu vực.");
+        if(in.staff<=0)errors.put("staff","Hãy chọn người phụ trách chính.");
+        if(in.warehouse!=null && in.warehouse<=0)errors.put("warehouse","Kho không hợp lệ.");
+        if(!Set.of("ACTIVE","DISCONTINUED").contains(clean(in.status)))errors.put("status","Trạng thái hồ sơ không hợp lệ.");
+        if(in.version<0)errors.put("form","Phiên bản không hợp lệ.");
+        return errors;
+    }
+    private static String clean(String text){return text==null?"":text.trim();}
+    public static Access access(Connection c,long actor,String permission) throws SQLException {
+        // The same connection sees permission revocation and writes atomically. Lock actor first.
+        var user=Sql.one(c,"SELECT status FROM users WHERE id=? FOR SHARE",actor);
+        if(!"ACTIVE".equals(user.get("status")))throw new SecurityException("Tài khoản không còn hoạt động.");
+        Set<String> roles=new HashSet<>(),permissions=new HashSet<>();
+        for(var row:Sql.query(c,"SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id=r.id WHERE ur.user_id=? FOR SHARE",actor))roles.add(Sql.text(row.get("code")));
+        for(var row:Sql.query(c,"SELECT p.code FROM permissions p JOIN role_permissions rp ON rp.permission_id=p.id JOIN user_roles ur ON ur.role_id=rp.role_id WHERE ur.user_id=? FOR SHARE",actor))permissions.add(Sql.text(row.get("code")));
+        var result=new Access(roles,permissions,List.of(),List.of(),List.of());result.require(permission);return result;
+    }
+    public static boolean all(Access a){return a.allows("DEALER_READ_ALL") && a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT","DIRECTOR")::contains);}
+    public static Map<String,Object> scoped(Connection c,long actor,Access access,long id,boolean lock) throws SQLException {
+        access.require("DEALER_READ");
+        var rows=Sql.query(c,"SELECT d.* FROM dealers d WHERE d.id=? AND (? OR d.primary_staff_id=?)"+(lock?" FOR UPDATE":""),id,all(access),actor);
+        if(rows.isEmpty())throw new SecurityException("Đại lý không thuộc phạm vi được phép.");
+        return rows.get(0);
+    }
+    private static final String JOIN=" FROM dealers d JOIN customer_groups g ON g.id=d.group_id JOIN territories t ON t.id=d.territory_id JOIN users u ON u.id=d.primary_staff_id LEFT JOIN warehouses w ON w.id=d.warehouse_id LEFT JOIN (SELECT dealer_id,COUNT(*) total_addresses,SUM(status='ACTIVE') active_addresses FROM dealer_addresses GROUP BY dealer_id) adr ON adr.dealer_id=d.id";
+    private static final String COLUMNS="d.*,g.name group_name,t.name territory_name,u.full_name staff_name,w.name warehouse_name,COALESCE(adr.total_addresses,0) total_addresses,COALESCE(adr.active_addresses,0) active_addresses";
+    public record Filter(String query,Long territory,Long group,Long staff,String status){}
+    public PageResult<Map<String,Object>> search(long actor,String query,PageRequest requested) {
+        return search(actor,new Filter(query,null,null,null,""),requested);
+    }
+    public PageResult<Map<String,Object>> search(long actor,Filter filter,PageRequest requested) {
+        String q=clean(filter.query);if(q.length()>150)q=q.substring(0,150);String pattern="%"+q+"%";
+        return Sql.snapshot(source,c->{var a=access(c,actor,"DEALER_READ");
+            String condition=" WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.tax_code LIKE ? OR d.phone LIKE ?)"
+                +" AND (? IS NULL OR d.territory_id=?) AND (? IS NULL OR d.group_id=?) AND (? IS NULL OR d.primary_staff_id=?) AND (?='' OR (?='LOCKED' AND d.transaction_locked=1) OR (?<>'LOCKED' AND d.status=? AND (?<>'ACTIVE' OR d.transaction_locked=0)))";
+            Object[] args={all(a),actor,pattern,pattern,pattern,pattern,filter.territory,filter.territory,filter.group,filter.group,filter.staff,filter.staff,clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status),clean(filter.status)};
+            long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+condition,args).get("total"));var paging=requested.clamp(count);
+            var params=new ArrayList<Object>(Arrays.asList(args));params.add(paging.pageSize());params.add(paging.offset());
+            var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+condition+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
+            return new PageResult<>(rows,count,paging.page(),paging.pageSize());
+        });
+    }
+    public List<Map<String,Object>> suggest(long actor,String query){String q=clean(query);if(q.length()>150)q=q.substring(0,150);final String term=q;
+        return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");if(term.length()<2)return List.of();
+            return Sql.query(c,"SELECT d.id,d.code,d.name FROM dealers d WHERE (? OR d.primary_staff_id=?) AND (d.code LIKE ? OR d.name LIKE ? OR d.phone LIKE ?) ORDER BY (d.code=?) DESC,(d.code LIKE ?) DESC,d.name,d.id LIMIT 10",all(a),actor,"%"+term+"%","%"+term+"%","%"+term+"%",term,term+"%");});
+    }
+    public Map<String,List<Map<String,Object>>> filterOptions(long actor){return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");
+        Object[] args={all(a),actor};String condition=" WHERE (? OR d.primary_staff_id=?)";
+        return Map.of("filterGroups",Sql.query(c,"SELECT DISTINCT g.id,g.name FROM customer_groups g JOIN dealers d ON d.group_id=g.id"+condition+" ORDER BY g.name,g.id",args),
+            "filterTerritories",Sql.query(c,"SELECT DISTINCT t.id,t.name FROM territories t JOIN dealers d ON d.territory_id=t.id"+condition+" ORDER BY t.name,t.id",args),
+            "filterStaff",Sql.query(c,"SELECT DISTINCT u.id,u.full_name name FROM users u JOIN dealers d ON d.primary_staff_id=u.id"+condition+" ORDER BY u.full_name,u.id",args));});}
+    public Map<String,Object> find(long actor,long id){return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_READ");scoped(c,actor,a,id,false);return Sql.one(c,"SELECT "+COLUMNS+JOIN+" WHERE d.id=?",id);});}
+    public Map<String,List<Map<String,Object>>> options(long actor){return Sql.transaction(source,c->{access(c,actor,"DEALER_MANAGE");
+        return Map.of("groups",Sql.query(c,"SELECT id,code,name FROM customer_groups ORDER BY name,id"),
+            "territories",Sql.query(c,"SELECT id,code,name,address FROM territories ORDER BY name,id"),
+            "staff",Sql.query(c,"SELECT DISTINCT u.id,u.username code,u.full_name name FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.status='ACTIVE' AND r.code IN ('SALES','SALES_MANAGER') ORDER BY u.full_name,u.id"),
+            "warehouses",Sql.query(c,"SELECT id,code,name,address FROM warehouses ORDER BY name,id"));});}
+    public long save(long actor,long id,Input in) {
+        var errors=errors(in);if(!errors.isEmpty())throw new FieldValidationException(errors);
+        return Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");
+            Sql.one(c,"SELECT name FROM catalog_locks WHERE name='DEALER_ASSIGNMENTS' FOR UPDATE");
+            if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Chỉ Quản lý kinh doanh hoặc Kế toán được sửa hồ sơ.");
+            Map<String,Object> before=id==0?null:scoped(c,actor,a,id,true);
+            if(before!=null && Sql.id(before.get("version"))!=in.version)throw FieldValidationException.field("form","Hồ sơ đã được người khác sửa. Hãy tải lại.");
+            if(!Sql.query(c,"SELECT id FROM dealers WHERE code=? AND id<>?",clean(in.code),id).isEmpty())throw FieldValidationException.field("code","Mã đại lý đã tồn tại.");
+            String tax=TaxCode.normalize(in.taxCode);
+            if(!tax.isEmpty()&&!Sql.query(c,"SELECT id FROM dealers WHERE REPLACE(TRIM(tax_code),'-','')=? AND id<>? FOR UPDATE",tax.replace("-",""),id).isEmpty())throw FieldValidationException.field("taxCode","Mã số thuế đã tồn tại.");
+            for(var check:List.of(new Object[]{"customer_groups",in.group,"group"},new Object[]{"territories",in.territory,"territory"}))
+                if(Sql.query(c,"SELECT id FROM "+check[0]+" WHERE id=? FOR SHARE",check[1]).isEmpty())throw FieldValidationException.field(check[2].toString(),"Lựa chọn không còn tồn tại.");
+            if(Sql.query(c,"SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.id=? AND u.status='ACTIVE' AND r.code IN ('SALES','SALES_MANAGER') FOR SHARE",in.staff).isEmpty())throw FieldValidationException.field("staff","Người phụ trách phải là nhân viên kinh doanh đang hoạt động.");
+            if(in.warehouse!=null && Sql.query(c,"SELECT id FROM warehouses WHERE id=? FOR SHARE",in.warehouse).isEmpty())throw FieldValidationException.field("warehouse","Kho không còn tồn tại.");
+            // Handover changes get a dedicated audited operation in SCRUM-42, not a silent profile edit.
+            if(before!=null && Sql.id(before.get("primary_staff_id"))!=in.staff)throw FieldValidationException.field("staff","Dùng chức năng bàn giao để đổi người phụ trách.");
+            Object[] values={clean(in.code),clean(in.name),TaxCode.normalize(in.taxCode),PhoneNumber.normalize(in.phone),in.group,in.territory,in.staff,in.warehouse,in.status};
+            long saved=id;
+            try {if(id==0)saved=Sql.insert(c,"INSERT INTO dealers(code,name,tax_code,phone,group_id,territory_id,primary_staff_id,warehouse_id,status) VALUES(?,?,?,?,?,?,?,?,?)",values);
+                else {var params=new ArrayList<Object>(Arrays.asList(values));params.add(id);Sql.update(c,"UPDATE dealers SET code=?,name=?,tax_code=?,phone=?,group_id=?,territory_id=?,primary_staff_id=?,warehouse_id=?,status=?,version=version+1 WHERE id=?",params.toArray());}}
+            catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field(e.getMessage().contains("uq_dealer_tax_code")?"taxCode":"code",e.getMessage().contains("uq_dealer_tax_code")?"Mã số thuế đã tồn tại.":"Mã đại lý đã tồn tại.");throw e;}
+            syncReference(c,saved,in.staff);
+            AuditService.record(c,actor,"DEALER_SAVED","DEALER",saved,before,Sql.one(c,"SELECT * FROM dealers WHERE id=?",saved));return saved;
+        });
+    }
+    public static void syncReference(Connection c,long dealer,long staff) throws SQLException {
+        String ref="DEALER:"+dealer;Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?",ref);
+        Sql.update(c,"INSERT INTO dealer_staff_references(user_id,dealer_reference) VALUES(?,?)",staff,ref);
+    }
+    public void delete(long actor,long id,long version){Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");Sql.one(c,"SELECT name FROM catalog_locks WHERE name='DEALER_ASSIGNMENTS' FOR UPDATE");var before=scoped(c,actor,a,id,true);
+        if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Không có quyền xóa hồ sơ.");
+        if(Sql.id(before.get("version"))!=version)throw new IllegalArgumentException("Hồ sơ đã thay đổi, hãy tải lại.");
+        if(!Sql.query(c,"SELECT dealer_id FROM dealer_transaction_references WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có giao dịch. Chỉ được ngừng giao dịch.");
+        if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
+        if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.");
+        if(!Sql.query(c,"SELECT user_id FROM dealer_accounts WHERE dealer_id=? LIMIT 1",id).isEmpty()||!Sql.query(c,"SELECT id FROM dealer_account_link_history WHERE old_dealer_id=? OR new_dealer_id=? LIMIT 1",id,id).isEmpty())throw new IllegalArgumentException("Đại lý đã có tài khoản cổng hoặc lịch sử liên kết. Hãy ngừng giao dịch để giữ lịch sử.");
+        Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
+        Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
+    });}
+}

@@ -1,0 +1,45 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@import "./foundation.css";
+@import "./base.css";
+@import "./components/shared.css";
+@import "./components/views.css";
+@import "./print.css";
+@source "../webapp/WEB-INF";
+@source "../webapp/assets/js";
+
+@theme {
+  --font-sans: "Noto Sans", sans-serif;
+  --color-primary: #243b53; --color-primary-hover: #162c43;
+  --color-selected: #e7eef5; --color-nav: #f8fafc; --color-canvas: #f3f5f7;
+  --color-ink: #1e293b; --color-muted: #526175; --color-line: #d9e0e7;
+  --color-input: #7e8c9c; --color-focus: #176cc1;
+  --color-success: #17634b; --color-success-bg: #e9f5ee;
+  --color-danger: #a32a32; --color-danger-bg: #fff0f1;
+  --color-warning: #8a5b00; --color-warning-bg: #fff4d6;
+  --radius-ui: 6px;
+}
+
+@layer components {
+  .button { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-ui border border-input bg-white px-4 text-sm font-bold text-primary hover:bg-nav; }
+  .button-primary { @apply border-primary bg-primary text-white hover:bg-primary-hover; }
+  .button-secondary { @apply bg-white text-primary; }
+  .button-plain { @apply border-transparent bg-transparent text-primary; }
+  .button-small { @apply px-3; }
+  .button:focus-visible, .icon-button:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 3px; }
+  .button:disabled, .button[aria-disabled="true"] { opacity: .6; cursor: not-allowed; }
+  .icon { width: 16px; height: 16px; display: inline-block; flex: none; fill: currentColor; vertical-align: -.125em; }
+  .nav-item .icon { width: 18px; height: 18px; }
+  .badge-success { @apply bg-success-bg text-success; }
+  .badge-neutral { @apply bg-nav text-muted; }
+  .badge-danger { @apply bg-danger-bg text-danger; }
+  .badge-warning { @apply bg-warning-bg text-warning; }
+  .depth-0 { padding-left: 0; } .depth-1 { @apply pl-4; } .depth-2 { @apply pl-8; } .depth-3 { @apply pl-12; }
+  .is-submitting { cursor: wait; }
+  @media (width < 64rem) {
+    .mobile-account .account-menu > summary { font-size: 0; padding: 0; border: 0; background: transparent; }
+    .mobile-account .account-menu > summary .icon { display: none; }
+  }
+}
