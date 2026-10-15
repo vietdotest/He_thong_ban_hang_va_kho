@@ -35,7 +35,7 @@
       if(!response.ok)throw new Error('units');const data=await response.json();
       if(controller.signal.aborted||unitRequests.get(row)!==controller||!row.isConnected)return;
       const items=data.items||[];select.replaceChildren(new Option(items.length?'Chọn đơn vị':'Không có đơn vị thuộc kho phục vụ',''));
-      items.forEach(u=>select.add(new Option(u.name+' (×'+String(u.factor)+')',String(u.id))));
+      items.forEach(u=>select.add(new Option(u.name+' (×'+u.factorFormatted+')',String(u.id))));
       if(selected&&items.some(u=>String(u.id)===selected))select.value=selected;
       else if(selected){const stale=new Option('Đơn vị cũ không còn hợp lệ',selected);stale.dataset.stale='true';select.add(stale);select.value=selected;row.querySelector('[data-line-error]').textContent='Kiểm tra lại đơn vị hoặc kho phục vụ.';}
       else if(items.length===1)select.value=String(items[0].id);
@@ -65,8 +65,8 @@
     }
   }
   function renderQuote(data){const errors=data.errors||{};const rows=[...lines.querySelectorAll('[data-order-line]')];rows.forEach((row,i)=>{const message=errors['line'+i]||errors['quantity'+i]||'',error=row.querySelector('[data-line-error]');error.textContent=message;error.id='order-line-error-'+i;error.setAttribute('role','alert');row.querySelectorAll('input:not([type=hidden]),select').forEach(input=>{input.setAttribute('aria-invalid',String(Boolean(message)));input.setAttribute('aria-describedby',error.id);});row.querySelector('[data-line-money]').textContent='';});
-    (data.lines||[]).forEach(l=>{const row=rows[l.position];if(row)row.querySelector('[data-line-money]').textContent='Cơ sở: '+l.baseQuantity+' · Khả dụng chung SKU: '+(l.availableBase??'—')+' đơn vị cơ sở ('+(l.availableUnits??'—')+' '+l.unit+') · Tiền hàng '+money(l.formatted?.gross)+' · Giảm '+money(l.formatted?.discount)+' · Phải thu '+money(l.formatted?.net)+(l.policy?' · '+l.policy:'');});
-    const credit=data.controls?.credit,creditState=document.querySelector('[data-credit-state]');if(creditState)creditState.textContent=credit?'Còn nợ: '+credit.outstanding+' đ · Dư có: '+credit.credit+' đ · Cam kết: '+credit.commitment+' đ · Hạn mức: '+credit.limit+' đ · Hạn mức còn lại trước đơn: '+credit.remaining+' đ'+(credit.overdue?' · Có nợ quá hạn, chưa thể tiếp nhận đơn.':''):'Chọn đại lý để xem tồn và công nợ.';
+    (data.lines||[]).forEach(l=>{const row=rows[l.position];if(row)row.querySelector('[data-line-money]').textContent='Cơ sở: '+l.formatted?.baseQuantity+' · Khả dụng chung SKU: '+(l.formatted?.availableBase??'—')+' đơn vị cơ sở ('+(l.formatted?.availableUnits??'—')+' '+l.unit+') · Tiền hàng '+money(l.formatted?.gross)+' · Giảm '+money(l.formatted?.discount)+' · Phải thu '+money(l.formatted?.net)+(l.policy?' · '+l.policy:'');});
+    const credit=data.controls?.credit,creditState=document.querySelector('[data-credit-state]');if(creditState)creditState.textContent=credit?'Còn nợ: '+credit.formatted.outstanding+' đ · Dư có: '+credit.formatted.credit+' đ · Cam kết: '+credit.formatted.commitment+' đ · Hạn mức: '+credit.formatted.limit+' đ · Hạn mức còn lại trước đơn: '+credit.formatted.remaining+' đ'+(credit.overdue?' · Có nợ quá hạn, chưa thể tiếp nhận đơn.':''):'Chọn đại lý để xem tồn và công nợ.';
     for(const key of ['gross','discount','net'])document.querySelector('[data-total='+key+']').textContent=money(data.formatted?.[key]);document.querySelector('[data-quote-warning]').textContent=(data.warning||'')+(data.needsApproval?' Đơn cần duyệt giá hoặc hạn mức trước khi tiếp nhận.':'');
     status.textContent=Object.keys(errors).length?'Chưa thể gửi: '+Object.values(errors).join(' '):'Báo giá ngày '+data.date+'. Giá và điều kiện sẽ được kiểm tra lại khi gửi.';
     if(send){send.textContent=data.needsApproval?'Gửi chờ duyệt':optionsPath.includes('/portal/')?'Gửi chờ NVKD xác nhận':'Gửi tiếp nhận';if(Object.keys(errors).length)send.disabled=true;}

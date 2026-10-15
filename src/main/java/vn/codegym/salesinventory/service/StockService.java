@@ -125,13 +125,19 @@ public final class StockService {
         Sql.update(c,"UPDATE orders SET fulfillment_state='RESERVED' WHERE id=? AND fulfillment_state IN ('NONE','RESERVED','EXPIRED')",order);
         AuditService.record(c,actor,"STOCK_RESERVED","ORDER",order,null,Map.of("expires_at",now.plus(Duration.ofHours(24)).toString()));
     }
-    public List<Map<String,Object>> stock(long actor,Long warehouse,String query) {
+    public List<Map<String,Object>> stock(long actor,Long warehouse,String query) {return stock(actor,warehouse,query,null,"");}
+    public List<Map<String,Object>> stock(long actor,Long warehouse,String query,Long category,String state) {
+        if(!Set.of("","AVAILABLE","UNAVAILABLE").contains(state==null?"":state)||category!=null&&category<=0)throw new IllegalArgumentException("Bộ lọc tồn không hợp lệ.");
         String q=query==null?"":query.trim();if(q.length()>150) throw new IllegalArgumentException("Tìm kiếm tối đa 150 ký tự.");
         return Sql.snapshot(source,c->{var access=MvpAccess.internal(c,actor,"STOCK_READ");if(Collections.disjoint(access.roles(),Set.of("WAREHOUSE","WAREHOUSE_MANAGER","SALES","SALES_MANAGER","DIRECTOR","ACCOUNTANT")))throw new SecurityException();if(warehouse!=null&&!MvpAccess.canReadWarehouse(c,actor,access,warehouse))throw new SecurityException("Kho không thuộc phạm vi được xem.");var result=new ArrayList<Map<String,Object>>();
-            for(var row:Sql.query(c,"SELECT DISTINCT l.warehouse_id,l.product_id,w.code warehouse_code,w.name warehouse_name,w.address,p.sku,p.name,p.base_unit,p.status FROM mvp_lots l JOIN warehouses w ON w.id=l.warehouse_id JOIN products p ON p.id=l.product_id WHERE (? IS NULL OR l.warehouse_id=?) AND (p.sku LIKE ? OR p.name LIKE ?) ORDER BY w.name,p.sku",warehouse,warehouse,"%"+q+"%","%"+q+"%")) {
-                long w=Sql.id(row.get("warehouse_id"));if(!MvpAccess.canReadWarehouse(c,actor,access,w)) continue;
+            var categories=new HashSet<Long>();if(category!=null)for(var item:Sql.query(c,"WITH RECURSIVE branch AS (SELECT id FROM categories WHERE id=? UNION ALL SELECT c.id FROM categories c JOIN branch b ON c.parent_id=b.id) SELECT id FROM branch",category))categories.add(Sql.id(item.get("id")));
+            var instant=clock.instant();
+            for(var row:Sql.query(c,"SELECT DISTINCT p.category_id,l.warehouse_id,l.product_id,w.code warehouse_code,w.name warehouse_name,w.address,p.sku,p.name,p.base_unit,p.status FROM mvp_lots l JOIN warehouses w ON w.id=l.warehouse_id JOIN products p ON p.id=l.product_id WHERE (? IS NULL OR l.warehouse_id=?) AND (p.sku LIKE ? OR p.name LIKE ?) ORDER BY w.name,p.sku",warehouse,warehouse,"%"+q+"%","%"+q+"%")) {
+                if(category!=null&&!categories.contains(Sql.id(row.get("category_id"))))continue;long w=Sql.id(row.get("warehouse_id"));if(!MvpAccess.canReadWarehouse(c,actor,access,w)) continue;
                 boolean warehouseReader=!Collections.disjoint(access.roles(),Set.of("WAREHOUSE","WAREHOUSE_MANAGER"))&&!Sql.query(c,"SELECT warehouse_id FROM user_warehouses WHERE user_id=? AND warehouse_id=?",actor,w).isEmpty();boolean physical=warehouseReader||!Collections.disjoint(access.roles(),Set.of("SALES_MANAGER","DIRECTOR","ACCOUNTANT"));if(!physical&&!"ACTIVE".equals(row.get("status")))continue;
-                var values=new LinkedHashMap<>(row);values.putAll(snapshot(c,w,Sql.id(row.get("product_id")),clock.instant()).display());if(!physical){values.remove("onHand");values.remove("reserved");}values.put("physical",physical);values.put("can_card",warehouseReader);result.add(values);
+                var values=new LinkedHashMap<>(row);var balance=snapshot(c,w,Sql.id(row.get("product_id")),instant);
+                if("AVAILABLE".equals(state)&&balance.available().signum()<=0||"UNAVAILABLE".equals(state)&&balance.available().signum()>0)continue;
+                values.putAll(balance.display());if(!physical){values.remove("onHand");values.remove("reserved");}values.put("physical",physical);values.put("can_card",warehouseReader);result.add(values);
             }return result;
         });
     }
