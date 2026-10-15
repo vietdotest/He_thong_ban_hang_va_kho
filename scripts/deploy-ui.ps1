@@ -84,12 +84,19 @@ function Matches-Tomcat($Process) {
     $homePattern='(?i)(?:^|\s|")-Dcatalina\.home='+[regex]::Escape($tomcatHome)+'(?=\s|"|$)'
     return $Process -and $Process.ExecutablePath -eq $java -and $Process.CommandLine -match $basePattern -and $Process.CommandLine -match $homePattern -and $Process.CommandLine.Contains('org.apache.catalina.startup.Bootstrap')
 }
-function Stop-UiTomcat([int]$ExpectedProcessId=0) {
+function Stop-UiTomcat([int]$ExpectedProcessId=0,[switch]$AllowStopped) {
     if ($ExpectedProcessId -eq 0) {
         $listeners=@(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue)
         $owners=@($listeners.OwningProcess | Select-Object -Unique)
-        if ($owners.Count -ne 1) { throw 'Không xác minh được một Tomcat đang chạy.' }
-        $ExpectedProcessId=$owners[0]
+        if ($owners.Count -eq 0 -and $AllowStopped) {
+            $matching=@(Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object { Matches-Tomcat $_ })
+            if ($matching.Count -eq 0) { return }
+            if ($matching.Count -ne 1) { throw 'Không xác minh được một Tomcat đích duy nhất.' }
+            $ExpectedProcessId=$matching[0].ProcessId
+        } else {
+            if ($owners.Count -ne 1) { throw 'Không xác minh được một Tomcat đang chạy.' }
+            $ExpectedProcessId=$owners[0]
+        }
     }
     $process=Get-CimInstance Win32_Process -Filter "ProcessId=$ExpectedProcessId"
     if (!$process -and !(Get-Process -Id $ExpectedProcessId -ErrorAction SilentlyContinue)) { return }
@@ -131,7 +138,7 @@ try {
     $classes=Join-Path $root 'target/ROOT/WEB-INF/classes'; $libraries=Join-Path $root 'target/ROOT/WEB-INF/lib/*'
     & $java '-Dfile.encoding=UTF-8' '-cp' "$classes;$libraries" 'vn.codegym.salesinventory.config.SchemaValidation'
     if ($LASTEXITCODE -ne 0) { throw 'Validate schema không đạt; chưa dừng web.' }
-    Check-UiHealth $oldSha
+    if (!$RollbackWar) { Check-UiHealth $oldSha }
     Write-Output "Preflight UI-only đạt: $Target, $sha; không chạy migration."
     if ($PreflightOnly) { return }
     if (!$RollbackWar) {
@@ -156,7 +163,7 @@ try {
         Copy-Item -LiteralPath $war -Destination $recoveryWar
         [pscustomobject]@{sha=$oldSha;target=$Target;base=$base;container=$container;warHash=(Get-FileHash -LiteralPath $recoveryWar).Hash} | ConvertTo-Json | Set-Content (Join-Path $rollbackUndo 'ui-backup.json') -Encoding UTF8
     }
-    Stop-UiTomcat
+    Stop-UiTomcat -AllowStopped:([bool]$RollbackWar)
     $started=$false
     try {
         Replace-UiWar $candidate
