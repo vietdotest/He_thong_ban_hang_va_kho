@@ -45,12 +45,17 @@ async function stable(page){const quote=page.locator('[data-quote-status]');if(a
   const download=page.waitForEvent('download');await page.getByRole('button',{name:'Xuất Excel',exact:true}).click();const file=await download;await file.saveAs(path.join(output,`cong-no-${width}.xlsx`));check(`${width}: tải XLSX thật`,fs.readFileSync(path.join(output,`cong-no-${width}.xlsx`)).subarray(0,2).toString()==='PK');
   await page.goto('/reports/sales?dealer='+fixture.dealer+'&from='+fixture.day+'&to='+fixture.day);await capture('sales-margin',true);
   check(`${width}: lãi gộp đúng snapshot`,(await page.locator('main').innerText()).includes(money(fixture.expectedProfit)+' đ'));
+  check(`${width}: tỷ lệ biên đúng snapshot`,(await page.locator('main').innerText()).includes(Number(fixture.expectedMargin).toLocaleString('vi-VN',{maximumFractionDigits:2})+'%'));
   await page.goto('/reports/sales?dealer='+fixture.missingDealer+'&from='+fixture.day+'&to='+fixture.day);check(`${width}: chứng từ thiếu giá vốn được công bố`,(await page.locator('main').innerText()).includes('Chưa có giá vốn lịch sử'));await capture('sales-missing');
   await page.goto('/dealers?q='+encodeURIComponent(fixture.dealerCode));check(`${width}: đại lý có giao dịch không có nút Xóa`,await page.locator('tbody').getByRole('button',{name:'Xóa',exact:true}).count()===0);await capture('dealers');
   await page.goto('/dealers/credit?dealer='+fixture.dealer);check(`${width}: hướng dẫn tín dụng không còn Sprint 3`,!(await page.locator('main').innerText()).includes('Sprint 3 chưa'));await capture('credit');
   if(width===360){await page.locator('[data-menu-open]').focus();await page.keyboard.press('Enter');check('menu mở bằng bàn phím',await page.locator('html').evaluate(el=>el.classList.contains('menu-open')));await page.keyboard.press('Escape');check('Escape trả focus menu',await page.locator('[data-menu-open]').evaluate(el=>document.activeElement===el));}
   check(`${width}: không có lỗi JS hoặc CSP`,errors.length===0);await context.close();
  }
- const restricted=await browser.newContext({baseURL,viewport:{width:1440,height:1000}}),page=await restricted.newPage();await login(page,'accountant');await page.goto('/reports/sales?dealer='+fixture.dealer+'&from='+fixture.day+'&to='+fixture.day);check('Kế toán không nhận HTML giá vốn/lãi gộp',!(await page.content()).match(/known_cost|gross_profit|margin_percent|Lãi gộp bán hàng|Giá vốn thuần/));await restricted.close();
+ for(const actor of ['accountant','director','sales','admin','warehouse','portal']){
+  const restricted=await browser.newContext({baseURL,viewport:{width:1440,height:1000}}),page=await restricted.newPage();await login(page,actor);const response=await page.goto('/reports/sales?dealer='+fixture.dealer+'&from='+fixture.day+'&to='+fixture.day);
+  check(`${actor}: HTTP đúng quyền báo cáo`,response.status()===(['admin','warehouse','portal'].includes(actor)?403:200));
+  check(`${actor}: không nhận HTML giá vốn/lãi gộp`,!(await page.content()).match(/known_cost|gross_profit|margin_percent|Lãi gộp bán hàng|Giá vốn thuần/));await restricted.close();
+ }
  fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({passed:true,checks,completedAt:new Date().toISOString()},null,2));console.log(`Đạt ${checks.length} kiểm tra UI nghiệp vụ; ảnh và Excel tại .tools/ui-evidence/business.`);
 }finally{await browser.close();}})().catch(error=>{fs.writeFileSync(path.join(output,'results.json'),JSON.stringify({passed:false,checks,error:error.message},null,2));console.error(error.message);process.exitCode=1;});
