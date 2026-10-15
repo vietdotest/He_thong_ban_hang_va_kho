@@ -22,7 +22,7 @@ class BusinessFiltersAcceptanceIT extends MvpWorkflowSupport {
         assertThat(first.page().totalItems()).isEqualTo(21);assertThat(first.page().items()).hasSize(20);assertThat(last.page().items()).hasSize(1);
         assertThat(first.totalAmount()).isEqualByComparingTo("2102.5914");assertThat(last.totalAmount()).isEqualByComparingTo(first.totalAmount());
         assertThat(orders.searchReport(sales,new OrderService.Filter("CHECK-","",dealer,null,null,day.minusDays(1),day.minusDays(1)),new PageRequest(1,20)).page().items()).isEmpty();
-        long other=user("SALES");assertThatThrownBy(()->orders.searchReport(other,filter,new PageRequest(1,20))).isInstanceOf(SecurityException.class);
+        long other=user("SALES");assertThat(orders.searchReport(other,filter,new PageRequest(1,20)).page().items()).isEmpty();assertThat(orders.searchReport(other,filter,new PageRequest(1,20)).totalAmount()).isEqualByComparingTo("0");
         update("UPDATE dealers SET primary_staff_id=? WHERE id=?",other,dealer);
         assertThat(orders.searchReport(manager,filter,new PageRequest(1,20)).page().items()).isEmpty();
         assertThat(orders.filterOptions(sales).get("dealers")).isEmpty();

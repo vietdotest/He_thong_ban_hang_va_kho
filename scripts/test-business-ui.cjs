@@ -23,7 +23,8 @@ async function stable(page){const quote=page.locator('[data-quote-status]');if(a
   check(`${width}: tổng toàn bộ kết quả lọc`,(await page.locator('main').innerText()).includes(money(fixture.filteredTotal)+' đ'));
   const next=page.locator('.pagination-footer a[href*="page=2"]').first();check(`${width}: fixture có trang thứ hai`,await next.count()>0);await next.click();check(`${width}: phân trang giữ bộ lọc`,['dealer','staff','territory','from','to','q'].every(k=>new URL(page.url()).searchParams.get(k)===filters.get(k)));
   await page.getByRole('link',{name:'Mở đơn',exact:true}).first().click();await page.getByRole('link',{name:'Danh sách đơn',exact:true}).click();check(`${width}: quay lại giữ bộ lọc`,['dealer','staff','territory','from','to','q'].every(k=>new URL(page.url()).searchParams.get(k)===filters.get(k)));
-  await page.goto('/orders?id='+fixture.draft);await stable(page);
+  await page.goto('/orders?id='+fixture.draft+'&'+filters);await stable(page);
+  if(width===360){await Promise.all([page.waitForURL(u=>u.searchParams.get('notice')==='saved'),page.locator('[data-save-order]').click()]);check('Lưu nháp giữ ngữ cảnh lọc',new URL(page.url()).searchParams.get('staff')===filters.get('staff')&&new URL(page.url()).searchParams.get('from')===fixture.day);await stable(page);}
   check(`${width}: lượng nhập bỏ số 0 thừa`,await page.locator('input[name=quantity]').first().inputValue()==='1.25');
   check(`${width}: hệ số dễ đọc`,(await page.locator('select[name=unit] option:checked').first().innerText()).includes('(×1)'));
   const line=await page.locator('[data-line-money]').first().innerText(),credit=await page.locator('[data-credit-state]').innerText();
