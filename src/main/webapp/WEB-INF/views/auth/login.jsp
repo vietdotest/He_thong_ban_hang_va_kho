@@ -1,16 +1,11 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Đăng nhập hệ thống quản lý bán hàng và kho">
-    <title>Đăng nhập | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-    <script src="${pageContext.request.contextPath}/assets/js/login.js?v=uiux-20261013" defer></script>
-</head>
-<body class="auth-page">
+<layout:page title="Đăng nhập" view="auth/login" bodyClass="auth-page" css="" bare="true">
+<jsp:attribute name="head"><meta name="description" content="Đăng nhập hệ thống quản lý bán hàng và kho">
+
+
+    <script src="${pageContext.request.contextPath}/assets/js/login.js?v=${applicationScope.assetVersion}" defer></script></jsp:attribute>
+<jsp:body>
 <header class="auth-topbar">
     <a class="wordmark" href="${pageContext.request.contextPath}/login">
         <span class="wordmark-symbol" aria-hidden="true">BH</span>
@@ -65,6 +60,5 @@
     </section>
 </main>
 <footer class="auth-bottom">Hệ thống quản lý bán hàng và kho</footer>
-</body>
-</html>
-
+</jsp:body>
+</layout:page>

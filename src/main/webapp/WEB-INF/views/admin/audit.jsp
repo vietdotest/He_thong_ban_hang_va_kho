@@ -1,17 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Nhật ký thao tác | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-</head>
-<body class="app-page audit-page">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="Nhật ký thao tác" view="admin/audit" bodyClass="app-page audit-page" css="" bare="false">
+<jsp:body>
 <div class="app-content">
 
     <main class="page-body">
@@ -44,7 +35,7 @@
                 <label class="field">Đến ngày <input type="date" name="to" value="<c:out value='${param.to}'/>" <c:if test="${not empty filterError and fn:contains(filterError, 'ngày')}">aria-invalid="true" aria-describedby="audit-filter-error"</c:if>></label>
                 <p class="muted">Gõ ít nhất 2 ký tự để chọn người thực hiện. Muốn tìm đầy đủ, để trống người thực hiện và dùng ô tìm kiếm phía trên.</p>
                 <div class="audit-filter-actions">
-                    <button class="button button-primary" type="submit">Lọc nhật ký</button>
+                    <ui:button variant="primary" type="submit">Lọc nhật ký</ui:button>
                     <a class="button button-secondary" href="${pageContext.request.contextPath}/admin/audit">Xóa bộ lọc</a>
                 </div>
             </form>
@@ -79,8 +70,8 @@
             </div>
             </c:if>
         </section>
-<%@ include file="../fragments/pagination.jspf" %>
+<ui:pagination page="${pagination}" path="${paginationPath}" pageParameter="${paginationPageParameter}" sizeParameter="${paginationSizeParameter}" filterValues="${paginationFilterValues}" extraParameters="${paginationExtraParameters}"/>
     </main>
 </div>
-</body>
-</html>
+</jsp:body>
+</layout:page>

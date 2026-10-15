@@ -1,0 +1,42 @@
+<%@ tag body-content="empty" pageEncoding="UTF-8" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+<%@ attribute name="page" required="true" type="java.lang.Object" %>
+<%@ attribute name="path" required="false" type="java.lang.String" %>
+<%@ attribute name="pageParameter" required="false" type="java.lang.String" %>
+<%@ attribute name="sizeParameter" required="false" type="java.lang.String" %>
+<%@ attribute name="filterValues" required="false" type="java.util.Map" %>
+<%@ attribute name="extraParameters" required="false" type="java.util.Map" %>
+<%@ attribute name="filterNames" required="false" type="java.util.List" %>
+<%@ attribute name="label" required="false" type="java.lang.String" %>
+<%@ attribute name="sizeLabel" required="false" type="java.lang.String" %>
+<%@ attribute name="ariaLabel" required="false" type="java.lang.String" %>
+<c:set var="pagination" value="${page}"/><c:set var="paginationPath" value="${path}"/><c:set var="paginationPageParameter" value="${pageParameter}"/><c:set var="paginationSizeParameter" value="${sizeParameter}"/><c:set var="paginationFilterValues" value="${filterValues}"/><c:set var="paginationExtraParameters" value="${extraParameters}"/>
+
+<c:set var="pagerFilters" value="${empty filterNames ? ['job','state','batch','territory','staff','dealer','q','role','status','category','group','from','to','userId','type','product'] : filterNames}"/>
+<c:if test="${not empty pagination}">
+<c:set var="pagerPageParameter" value="${empty paginationPageParameter ? 'page' : paginationPageParameter}"/>
+<c:set var="pagerSizeParameter" value="${empty paginationSizeParameter ? 'pageSize' : paginationSizeParameter}"/>
+<div class="results-footer pagination-footer">
+    <p class="table-summary"><c:out value="${empty label ? 'Hiển thị' : label}"/> <c:out value="${pagination.firstItem}"/>–<c:out value="${pagination.lastItem}"/> / <strong><c:out value="${pagination.totalItems}"/></strong> bản ghi</p>
+    <form method="get" class="page-size-form">
+        <c:forEach var="filterName" items="${pagerFilters}"><c:if test="${not empty paginationFilterValues ? not empty paginationFilterValues[filterName] : not empty param[filterName]}"><input type="hidden" name="<c:out value='${filterName}'/>" value="<c:out value='${not empty paginationFilterValues ? paginationFilterValues[filterName] : param[filterName]}'/>"></c:if></c:forEach>
+        <c:forEach var="extra" items="${paginationExtraParameters}"><c:if test="${extra.key != pagerPageParameter and extra.key != pagerSizeParameter and not empty extra.value}"><input type="hidden" name="<c:out value='${extra.key}'/>" value="<c:out value='${extra.value}'/>"></c:if></c:forEach>
+        <label><c:out value="${empty sizeLabel ? 'Số dòng' : sizeLabel}"/> <select name="<c:out value='${pagerSizeParameter}'/>" aria-label="Số dòng mỗi trang"><c:forEach var="size" items="${[20,50,100]}"><option value="${size}" ${pagination.pageSize == size ? 'selected' : ''}>${size}</option></c:forEach></select></label>
+        <button class="button button-secondary" type="submit">Đổi</button>
+    </form>
+    <nav class="pagination" aria-label="<c:out value='${empty ariaLabel ? "Phân trang" : ariaLabel}'/>">
+        <c:forEach var="target" items="${[1,pagination.page-1]}" varStatus="direction"><c:set var="pageLabel" value="${direction.index == 0 ? 'Đầu' : 'Trước'}"/>
+            <c:url var="pageUrl" value="${paginationPath}"><c:forEach var="filterName" items="${pagerFilters}"><c:param name="${filterName}" value="${not empty paginationFilterValues ? paginationFilterValues[filterName] : param[filterName]}"/></c:forEach><c:forEach var="extra" items="${paginationExtraParameters}"><c:if test="${extra.key != pagerPageParameter and extra.key != pagerSizeParameter}"><c:param name="${extra.key}" value="${extra.value}"/></c:if></c:forEach><c:param name="${pagerSizeParameter}" value="${pagination.pageSize}"/><c:param name="${pagerPageParameter}" value="${target}"/></c:url>
+            <c:choose><c:when test="${pagination.page > 1}"><a class="button button-secondary" href="<c:out value='${pageUrl}'/>"><c:out value="${pageLabel}"/></a></c:when><c:otherwise><button class="button" disabled><c:out value="${pageLabel}"/></button></c:otherwise></c:choose>
+        </c:forEach>
+        <c:forEach begin="${pagination.windowStart}" end="${pagination.windowEnd}" var="target">
+            <c:url var="pageUrl" value="${paginationPath}"><c:forEach var="filterName" items="${pagerFilters}"><c:param name="${filterName}" value="${not empty paginationFilterValues ? paginationFilterValues[filterName] : param[filterName]}"/></c:forEach><c:forEach var="extra" items="${paginationExtraParameters}"><c:if test="${extra.key != pagerPageParameter and extra.key != pagerSizeParameter}"><c:param name="${extra.key}" value="${extra.value}"/></c:if></c:forEach><c:param name="${pagerSizeParameter}" value="${pagination.pageSize}"/><c:param name="${pagerPageParameter}" value="${target}"/></c:url>
+            <a class="button button-secondary ${target == pagination.page ? 'active' : ''}" aria-current="${target == pagination.page ? 'page' : 'false'}" href="<c:out value='${pageUrl}'/>">${target}</a>
+        </c:forEach>
+        <c:forEach var="target" items="${[pagination.page+1,pagination.totalPages]}" varStatus="direction"><c:set var="pageLabel" value="${direction.index == 0 ? 'Tiếp' : 'Cuối'}"/>
+            <c:url var="pageUrl" value="${paginationPath}"><c:forEach var="filterName" items="${pagerFilters}"><c:param name="${filterName}" value="${not empty paginationFilterValues ? paginationFilterValues[filterName] : param[filterName]}"/></c:forEach><c:forEach var="extra" items="${paginationExtraParameters}"><c:if test="${extra.key != pagerPageParameter and extra.key != pagerSizeParameter}"><c:param name="${extra.key}" value="${extra.value}"/></c:if></c:forEach><c:param name="${pagerSizeParameter}" value="${pagination.pageSize}"/><c:param name="${pagerPageParameter}" value="${target}"/></c:url>
+            <c:choose><c:when test="${pagination.page < pagination.totalPages}"><a class="button button-secondary" href="<c:out value='${pageUrl}'/>"><c:out value="${pageLabel}"/></a></c:when><c:otherwise><button class="button" disabled><c:out value="${pageLabel}"/></button></c:otherwise></c:choose>
+        </c:forEach>
+    </nav>
+</div>
+</c:if>

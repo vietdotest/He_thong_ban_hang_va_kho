@@ -1,0 +1,42 @@
+/* Token chung; các alias giữ tương thích với class và script hiện có. */
+@font-face{font-family:"Noto Sans";font-style:normal;font-weight:400;font-display:swap;src:url("../fonts/noto-sans-regular.ttf") format("truetype")}
+@font-face{font-family:"Noto Sans";font-style:normal;font-weight:700;font-display:swap;src:url("../fonts/noto-sans-bold.ttf") format("truetype")}
+:root {
+  --navy: var(--nvdo-primary);
+  --navy-dark: var(--nvdo-hover);
+  --navy-soft: var(--nvdo-selected);
+  --blue: var(--nvdo-primary);
+  --text: var(--nvdo-text);
+  --muted: var(--nvdo-muted);
+  --border: var(--nvdo-line);
+  --canvas: var(--nvdo-canvas);
+  --surface: #ffffff;
+  --danger: var(--nvdo-danger);
+  --danger-bg: var(--nvdo-danger-bg);
+  --success: var(--nvdo-success);
+  --success-bg: var(--nvdo-success-bg);
+  --info-bg: var(--nvdo-selected);
+  --focus: var(--nvdo-focus);
+  color-scheme: light;
+  font-family: var(--font-sans);
+  --nvdo-primary: var(--color-primary);
+  --nvdo-hover: var(--color-primary-hover);
+  --nvdo-selected: var(--color-selected);
+  --nvdo-nav: var(--color-nav);
+  --nvdo-canvas: var(--color-canvas);
+  --nvdo-text: var(--color-ink);
+  --nvdo-muted: var(--color-muted);
+  --nvdo-line: var(--color-line);
+  --nvdo-input-border: var(--color-input);
+  --nvdo-success: var(--color-success);
+  --nvdo-success-bg: var(--color-success-bg);
+  --nvdo-danger: var(--color-danger);
+  --nvdo-danger-bg: var(--color-danger-bg);
+  --nvdo-warning: var(--color-warning);
+  --nvdo-warning-bg: var(--color-warning-bg);
+  --nvdo-focus: var(--color-focus);
+  --nvdo-radius: var(--radius-ui);
+  --nvdo-space: 8px;
+  --nvdo-raw-px-7: 7px;
+  --nvdo-space-7: var(--nvdo-raw-px-7);
+}

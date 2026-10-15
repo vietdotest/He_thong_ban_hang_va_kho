@@ -1,6 +1,4 @@
-<c:if test="${empty csrfToken}"><c:set var="csrfToken" value="${sessionScope['security.csrfToken']}"/></c:if>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/app.css?v=uiux-20261013">
-<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/nvdo.css?v=uiux-20261013">
-<script src="${pageContext.request.contextPath}/assets/js/navigation.js?v=uiux-20261013" defer></script>
-<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/forms.css?v=uiux-20261013">
-<script src="${pageContext.request.contextPath}/assets/js/forms.js?v=uiux-20261013" data-app-context="${pageContext.request.contextPath}" defer></script>
+<c:if test="${empty csrfToken}"><c:set var="csrfToken" value="${sessionScope['security.csrfToken']}" scope="request"/></c:if>
+<link rel="stylesheet" href="${pageContext.request.contextPath}/assets/css/ui.css?v=${applicationScope.assetVersion}">
+<script src="${pageContext.request.contextPath}/assets/js/navigation.js?v=${applicationScope.assetVersion}" defer></script>
+<script src="${pageContext.request.contextPath}/assets/js/forms.js?v=${applicationScope.assetVersion}" data-app-context="${pageContext.request.contextPath}" defer></script>

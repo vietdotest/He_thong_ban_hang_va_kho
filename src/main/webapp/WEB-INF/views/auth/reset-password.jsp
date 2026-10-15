@@ -1,15 +1,8 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Đặt lại mật khẩu | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-    <script src="${pageContext.request.contextPath}/assets/js/login.js?v=uiux-20261013" defer></script>
-</head>
-<body class="auth-page">
+<layout:page title="Đặt lại mật khẩu" view="auth/reset-password" bodyClass="auth-page" css="" bare="true">
+<jsp:attribute name="head"><script src="${pageContext.request.contextPath}/assets/js/login.js?v=${applicationScope.assetVersion}" defer></script></jsp:attribute>
+<jsp:body>
 <header class="auth-topbar"><a class="wordmark" href="${pageContext.request.contextPath}/login"><span class="wordmark-symbol">BH</span><span>Quản lý bán hàng</span></a></header>
 <main class="auth-main">
     <section class="auth-card" aria-labelledby="page-title">
@@ -41,6 +34,5 @@
     </section>
 </main>
 <footer class="auth-bottom">Hệ thống quản lý bán hàng và kho</footer>
-</body>
-</html>
-
+</jsp:body>
+</layout:page>

@@ -1,23 +1,13 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Quản lý tài khoản | Quản lý bán hàng</title>
-    <%@ include file="../../fragments/assets.jspf" %>
-</head>
-<body class="app-page">
-<%@ include file="../../fragments/sidebar.jspf" %>
-<%@ include file="../../fragments/topbar.jspf" %>
-
+<layout:page title="Quản lý tài khoản" view="admin/users/list" bodyClass="app-page" css="">
+<jsp:body>
 <div class="app-content">
 
 
     <main class="page-body users-page">
 <div class="page-heading"><div><h1>Người dùng</h1><p>Tìm tài khoản và xem vai trò được phân công.</p></div>
-<div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/import"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Nhập Excel</a><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new">＋ Thêm người dùng</a></div></div>
+<div class="page-actions"><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users/import"><ui:icon name="file-arrow-up"/>Nhập Excel</a><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/new"><ui:icon name="plus"/> Thêm người dùng</a></div></div>
 
         <c:if test="${not empty successMessage}"><div class="alert alert-success"><c:out value="${successMessage}"/></div></c:if>
 
@@ -40,7 +30,7 @@
                     <option value="PENDING_ACTIVATION" ${criteria.status() == 'PENDING_ACTIVATION' ? 'selected' : ''}>Chờ kích hoạt</option>
                     <option value="ADMIN_LOCKED" ${criteria.status() == 'ADMIN_LOCKED' ? 'selected' : ''}>Bị khóa</option>
                 </select></label>
-                <div class="filter-actions"><button class="button button-primary" type="submit">Áp dụng</button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Đặt lại</a></div>
+                <div class="filter-actions"><ui:button variant="primary" type="submit">Áp dụng</ui:button><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/users">Đặt lại</a></div>
             </form>
 
             <div class="table-summary">Tìm thấy <strong><c:out value="${userPage.totalItems()}"/></strong> tài khoản</div>
@@ -57,7 +47,7 @@
                                 <c:choose>
                                     <c:when test="${user.status().name() == 'ACTIVE'}"><span class="status-badge status-active">Đang hoạt động</span></c:when>
                                     <c:when test="${user.status().name() == 'DISABLED'}"><span class="status-badge status-disabled">Đã vô hiệu hóa</span></c:when>
-                                    <c:when test="${user.status().name() == 'PENDING_ACTIVATION'}"><span class="badge badge-warning">Chờ kích hoạt</span></c:when><c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
+                                    <c:when test="${user.status().name() == 'PENDING_ACTIVATION'}"><ui:badge tone="warning">Chờ kích hoạt</ui:badge></c:when><c:otherwise><span class="status-badge status-locked">Bị khóa</span></c:otherwise>
                                 </c:choose>
                                 <c:if test="${user.mustChangePassword()}"><small class="status-note">Chờ đổi mật khẩu</small></c:if>
                             </td>
@@ -69,9 +59,9 @@
                 </table>
             </div>
 
-            <%@ include file="../../fragments/pagination.jspf" %>
+            <ui:pagination page="${pagination}" path="${paginationPath}" pageParameter="${paginationPageParameter}" sizeParameter="${paginationSizeParameter}" filterValues="${paginationFilterValues}" extraParameters="${paginationExtraParameters}"/>
         </section>
     </main>
 </div>
-</body>
-</html>
+</jsp:body>
+</layout:page>

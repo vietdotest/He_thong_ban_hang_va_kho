@@ -1,14 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html>
-<html lang="vi">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Hồ sơ cá nhân | Quản lý bán hàng</title>
-    <%@ include file="../fragments/assets.jspf" %>
-</head>
-<body class="app-page">
-<%@ include file="../fragments/sidebar.jspf" %>
-<%@ include file="../fragments/topbar.jspf" %>
+<layout:page title="Hồ sơ cá nhân" view="account/profile" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <main class="page-body app-content profile-page">
     <div class="page-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin để đồng nghiệp liên hệ khi cần.</p></div></div>
     <c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu thay đổi hồ sơ.</div></c:if>
@@ -31,7 +24,7 @@
                 <div class="avatar-picker">
                     <c:choose><c:when test="${not empty profile.avatar_key}"><img alt="Ảnh đại diện hiện tại" src="${pageContext.request.contextPath}/account/avatar?v=<c:out value='${profile.avatar_key}'/>"></c:when>
                         <c:otherwise><span class="avatar-placeholder" aria-label="Chưa có ảnh đại diện">BH</span></c:otherwise></c:choose>
-                    <label class="button button-secondary file-button" for="profile-image"><img class="icon" alt="" src="${pageContext.request.contextPath}/assets/icons/upload-outline.svg">Chọn ảnh JPG / PNG
+                    <label class="button button-secondary file-button" for="profile-image"><ui:icon name="file-arrow-up"/>Chọn ảnh JPG / PNG
                         <input id="profile-image" class="file-input" type="file" name="image" accept="image/jpeg,image/png" aria-invalid="${not empty errors.image}" aria-describedby="avatar-helper avatar-error">
                     </label>
                 </div>
@@ -53,5 +46,5 @@
         </section>
     </div>
 </main>
-</body>
-</html>
+</jsp:body>
+</layout:page>

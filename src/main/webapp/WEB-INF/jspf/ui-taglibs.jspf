@@ -1,0 +1,2 @@
+<%@ taglib prefix="ui" tagdir="/WEB-INF/tags/ui" %>
+<%@ taglib prefix="layout" tagdir="/WEB-INF/tags/layout" %>

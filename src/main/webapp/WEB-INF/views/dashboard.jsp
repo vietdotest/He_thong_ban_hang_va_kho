@@ -1,17 +1,19 @@
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %>
-<!doctype html><html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tổng quan công việc | Quản lý bán hàng</title><%@ include file="fragments/assets.jspf" %></head>
-<body class="app-page"><%@ include file="fragments/sidebar.jspf" %><%@ include file="fragments/topbar.jspf" %>
+<layout:page title="Tổng quan công việc" view="dashboard" bodyClass="app-page" css="" bare="false">
+<jsp:body>
 <main class="page-body app-content dashboard-page"><div class="page-heading"><div><h1>Tổng quan</h1><p>Xin chào <c:out value="${currentUser.fullName()}"/>. Chọn phần việc để bắt đầu.</p></div></div>
 <div class="dashboard-work"><section class="content-panel dashboard-tasks"><h2>Phần việc thường dùng</h2>
-<c:forEach var="area" items="${taskAreas}"><c:set var="areaIcon" value="${area.path() == '/admin/users' ? 'users1' : area.path() == '/pricing/lists' ? 'tag1' : area.path() == '/catalog/units' ? 'unit' : area.path() == '/catalog/suppliers' ? 'truck' : 'box1'}"/>
-<div class="task-row task-card"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/${areaIcon}.svg" alt=""><div class="task-copy"><strong><c:out value="${area.label()}"/></strong><p><c:out value="${area.description()}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}${area.path()}">Mở</a></div>
+<c:forEach var="area" items="${taskAreas}"><c:set var="areaIcon" value="${area.path() == '/admin/users' ? 'users' : area.path() == '/pricing/lists' ? 'tag' : area.path() == '/catalog/units' ? 'ruler-combined' : area.path() == '/catalog/suppliers' ? 'truck' : 'box'}"/>
+<div class="task-row task-card"><ui:icon name="${areaIcon}"/><div class="task-copy"><strong><c:out value="${area.label()}"/></strong><p><c:out value="${area.description()}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}${area.path()}">Mở</a></div>
 </c:forEach><c:if test="${empty taskAreas}"><div class="empty-state"><p>Tài khoản chưa được cấp quyền nghiệp vụ. Liên hệ quản trị viên để được phân công.</p><a class="button" href="${pageContext.request.contextPath}/account/profile">Xem hồ sơ</a></div></c:if>
 </section>
 <c:if test="${access.allows('USER_MANAGE') or access.allows('ROLE_MANAGE') or access.allows('AUDIT_READ')}"><section class="content-panel dashboard-admin"><h2>Quản trị hệ thống</h2><p>Quản lý nhân sự và phạm vi truy cập của từng vai trò.</p>
-<c:if test="${access.allows('USER_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/import"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/upload.svg" alt="">Nhập người dùng từ Excel</a><a class="nav-item" href="${pageContext.request.contextPath}/admin/scopes"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/pin.svg" alt="">Kho và địa bàn</a></c:if>
-<c:if test="${access.allows('ROLE_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/roles"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/shield.svg" alt="">Phân quyền</a></c:if>
-<c:if test="${access.allows('AUDIT_READ')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/audit"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/clock.svg" alt="">Nhật ký thao tác</a></c:if>
+<c:if test="${access.allows('USER_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}/admin/users/import"><ui:icon name="file-arrow-up"/>Nhập người dùng từ Excel</a><a class="nav-item" href="${pageContext.request.contextPath}/admin/scopes"><ui:icon name="location-dot"/>Kho và địa bàn</a></c:if>
+<c:if test="${access.allows('ROLE_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/roles"><ui:icon name="shield-halved"/>Phân quyền</a></c:if>
+<c:if test="${access.allows('AUDIT_READ')}"><a class="nav-item" href="${pageContext.request.contextPath}/admin/audit"><ui:icon name="clock"/>Nhật ký thao tác</a></c:if>
 </section></c:if></div>
-<c:if test="${access.allows('AUDIT_READ')}"><div class="section-heading"><h2>Hoạt động gần đây</h2><a class="button button-plain" href="${pageContext.request.contextPath}/admin/audit"><img class="icon" src="${pageContext.request.contextPath}/assets/icons/clock1.svg" alt="">Xem nhật ký</a></div>
+<c:if test="${access.allows('AUDIT_READ')}"><div class="section-heading"><h2>Hoạt động gần đây</h2><a class="button button-plain" href="${pageContext.request.contextPath}/admin/audit"><ui:icon name="clock"/>Xem nhật ký</a></div>
 <c:choose><c:when test="${empty recentOperations}"><div class="alert">Chưa có thao tác được ghi nhận.</div></c:when><c:otherwise><div class="table-wrap"><table><thead><tr><th scope="col">Thao tác</th><th scope="col">Đối tượng</th><th scope="col">Người thực hiện</th><th scope="col">Thời điểm</th></tr></thead><tbody><c:forEach var="entry" items="${recentOperations}"><tr><td><c:out value="${entry.event_label}"/></td><td><c:out value="${entry.object_label}"/><c:if test="${not empty entry.object_id}"> #<c:out value="${entry.object_id}"/></c:if></td><td><c:out value="${entry.full_name}"/></td><td><c:out value="${entry.display_time}"/></td></tr></c:forEach></tbody></table></div></c:otherwise></c:choose>
-</c:if></main></body></html>
+</c:if></main>
+</jsp:body>
+</layout:page>
