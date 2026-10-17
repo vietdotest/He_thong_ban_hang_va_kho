@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$ConfigPath = '',
     [string]$RuntimeRoot = '',
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
@@ -86,7 +86,7 @@ function Assert-PublicHealth([string]$ExpectedSha) {
 
 $releaseBranch=git branch --show-current
 if ($Target -eq 'Public' -and $releaseBranch -ne 'main') { throw 'Public phải phát hành từ main đã tích hợp và kiểm thử.' }
-if ($Target -eq 'Preview' -and $releaseBranch -notmatch '^(main|develop|feature/.+)$') { throw 'Preview cần nhánh chức năng, develop hoặc main.' }
+if ($Target -eq 'Preview' -and $releaseBranch -notmatch '^(main|develop|feature/.+|fix/.+)$') { throw 'Preview cần nhánh chức năng, develop hoặc main.' }
 $sourceChanges=@(git status --porcelain --untracked-files=all -- src pom.xml scripts)
 if ($sourceChanges.Count -ne 0) { throw 'Code triển khai còn thay đổi hoặc file chưa commit.' }
 if ($InjectHealthFailure -and $Target -ne 'Preview') { throw 'Chỉ mô phỏng lỗi trên môi trường kiểm thử.' }
@@ -101,10 +101,7 @@ if (!$evidence.passed -or $evidence.tree -ne $deployTree -or $evidence.skipped -
     throw 'Thiếu clean verify đạt và WAR tương ứng đúng cây code.'
 }
 if ($Target -eq 'Public') {
-    $approvalPath=Join-Path $deployTools 'business-ui-approval.json'
-    if (!(Test-Path -LiteralPath $approvalPath)) { throw 'Thiếu bằng chứng duyệt giao diện Preview của đợt nghiệp vụ.' }
-    $approval=Get-Content -LiteralPath $approvalPath -Raw | ConvertFrom-Json
-    if (!$approval.approved -or $approval.tree -ne $deployTree -or !$evidence.schemaRollbackCompatible) { throw 'Chưa duyệt đúng cây code hoặc chưa kiểm rollback giữ dữ liệu trên schema mới.' }
+    & (Join-Path $PSScriptRoot 'assert-business-release.ps1') -Tree $deployTree -EvidenceDirectory $deployTools -WarHash (Get-FileHash -LiteralPath $deployWar -Algorithm SHA256).Hash
 }
 $deployHome = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $deployRoot) 'He_thong_ban_hang_va_kho/.tools/apache-tomcat-10.1.60'))
 if (!(Test-Path -LiteralPath (Join-Path $deployHome 'bin/bootstrap.jar'))) { throw 'Không tìm thấy Tomcat hiện có.' }

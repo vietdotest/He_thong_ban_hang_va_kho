@@ -2,7 +2,7 @@
 <layout:page title="Bảng giá" view="pricing/prices" bodyClass="app-page" css="" bare="false">
 <jsp:body>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Bảng giá</h1><p>Giá bán theo nhóm khách hàng và thời gian hiệu lực.</p></div><c:if test="${access.allows('PRICE_MANAGE')}"><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${priceReturn}'/>&amp;new=1#price-editor" data-editor="price-editor"><ui:icon name="plus"/> Tạo bảng giá</a></c:if></div>
-<c:if test="${param.notice == 'saved'}"><p class="alert alert-success" role="status">Đã lưu bảng giá.</p></c:if>
+<c:if test="${param.notice == 'saved' and empty errors}"><p class="alert alert-success" role="status">Đã lưu bảng giá.</p></c:if>
 <c:if test="${not empty errors.form}"><p class="alert alert-error" role="alert"><c:out value="${errors.form}"/></p></c:if>
 <c:if test="${not empty errors.id or not empty errors.revision}"><p class="alert alert-error" role="alert"><c:out value="${errors.id}"/><c:out value="${errors.revision}"/></p></c:if>
 <c:if test="${access.allows('PRICE_MANAGE')}"><details id="price-editor" class="content-panel disclosure editor" ${param['new'] == '1' or form.action == 'create' and not empty errors ? 'open' : ''}><summary>Tạo / kế thừa phiên bản</summary>

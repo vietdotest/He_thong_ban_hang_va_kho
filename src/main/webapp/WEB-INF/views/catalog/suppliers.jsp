@@ -2,7 +2,7 @@
 <layout:page title="Nhà cung cấp" view="catalog/suppliers" bodyClass="app-page" css="" bare="false">
 <jsp:body>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhà cung cấp</h1><p>Thông tin liên hệ, thanh toán và kho phụ trách.</p></div><c:if test="${access.allows('WAREHOUSE_MANAGE')}"><a class="button button-primary" href="<c:out value='${pageContext.request.contextPath}${supplierReturn}'/>&amp;new=1#editor" data-editor="editor"><ui:icon name="plus"/> Thêm mới</a></c:if></div>
-<c:if test="${param.notice == 'saved'}"><p class="alert alert-success" role="status">Đã lưu nhà cung cấp.</p></c:if>
+<c:if test="${param.notice == 'saved' and empty errors}"><p class="alert alert-success" role="status">Đã lưu nhà cung cấp.</p></c:if>
 <c:if test="${not empty errors.form}"><p class="alert alert-error" role="alert"><c:out value="${errors.form}"/></p></c:if>
 <form method="get" class="filter-form"><input type="hidden" name="pageSize" value="${pagination.pageSize}"><label>Tìm mã/tên <input name="q" maxlength="150" data-lookup="suppliers" value="<c:out value='${param.q}'/>"></label><ui:button variant="primary">Tìm</ui:button><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/suppliers">Bỏ bộ lọc</a></form>
 <c:if test="${access.allows('WAREHOUSE_MANAGE')}"><details id="editor" class="content-panel disclosure editor" ${not empty edit.id or not empty errors or param['new'] == '1' ? 'open' : ''}><summary>${empty edit.id ? 'Thêm nhà cung cấp' : 'Sửa nhà cung cấp'}</summary>

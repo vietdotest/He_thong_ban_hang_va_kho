@@ -4,7 +4,7 @@
 <jsp:body>
 <main class="page-body app-content catalog-page"><div class="page-heading"><div><h1>Nhóm hàng</h1><p>Sắp xếp nhóm hàng nhiều cấp và quản lý danh mục.</p></div><c:if test="${access.allows('PRODUCT_MANAGE')}"><a class="button button-primary" href="${pageContext.request.contextPath}<c:out value='${categoryReturn}'/>&amp;new=1#editor" data-editor="editor"><ui:icon name="plus"/> Thêm mới</a></c:if></div>
 <form method="get" class="filter-form"><label>Tìm mã hoặc tên nhóm <input name="q" data-lookup="categories" value="<c:out value='${param.q}'/>"></label><ui:button variant="primary">Tìm nhánh</ui:button><a class="button button-secondary" href="${pageContext.request.contextPath}/catalog/categories">Toàn bộ cây</a></form><p class="muted"><c:out value="${categoryCount}"/> nhóm hiển thị. Khi tìm kiếm, giữ nhóm cha và toàn bộ nhánh khớp.</p>
-<c:if test="${param.notice == 'saved'}"><p class="alert" role="status">Đã lưu thay đổi nhóm hàng.</p></c:if>
+<c:if test="${param.notice == 'saved' and empty errors}"><p class="alert" role="status">Đã lưu thay đổi nhóm hàng.</p></c:if>
 <c:if test="${access.allows('PRODUCT_MANAGE')}">
 <details id="editor" class="content-panel disclosure editor" ${not empty edit.id or not empty errors or param['new'] == '1' ? 'open' : ''}><summary>${empty edit.id ? 'Thêm nhóm' : 'Sửa nhóm'}</summary>
 <form method="post" class="account-form">

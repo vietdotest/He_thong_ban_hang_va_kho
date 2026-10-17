@@ -3,7 +3,7 @@
 <jsp:body>
 <main class="page-body app-content assignments-page">
 <div class="page-heading"><div><h1>Phân công người dùng</h1><p><c:out value="${target.full_name}"/> — <c:out value="${target.username}"/></p></div><a class="button button-secondary" href="${pageContext.request.contextPath}/admin/scopes">Danh mục kho và địa bàn</a></div>
-<c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu phân công.</div></c:if><c:if test="${not empty formError}"><div class="alert alert-error" role="alert"><c:out value="${formError}"/></div></c:if>
+<c:if test="${param.notice == 'saved' and empty errors}"><div class="alert alert-success" role="status">Đã lưu phân công.</div></c:if><c:if test="${not empty formError}"><div class="alert alert-error" role="alert"><c:out value="${formError}"/></div></c:if>
 <form class="content-panel account-form assignment-form" method="post"><input type="hidden" name="id" value="${target.id}"><input type="hidden" name="_csrf" value="<c:out value='${csrfToken}'/>">
 <fieldset><legend>Vai trò</legend><p class="muted">Có thể chọn nhiều vai trò. Vai trò quyết định quyền; kho và địa bàn xác định phạm vi phụ trách.</p><div class="permission-grid">
 <c:forEach var="item" items="${roles}"><c:set var="ownAdmin" value="${target.id == currentUser.id() and access.roles().contains('ADMIN') and item.code == 'ADMIN'}"/><label class="checkbox-field"><input type="checkbox" name="role" value="${item.code}" ${(ownAdmin or (not empty form ? form.roles.contains(item.code) : item.selected == 1)) ? 'checked' : ''} ${ownAdmin ? 'disabled' : ''}> <c:out value="${item.name}"/></label><c:if test="${ownAdmin}"><input type="hidden" name="role" value="ADMIN"></c:if></c:forEach></div>

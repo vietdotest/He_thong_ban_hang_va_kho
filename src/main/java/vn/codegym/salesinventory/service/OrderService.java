@@ -34,6 +34,12 @@ public final class OrderService {
         /** Explicit projection: no floor prices, internal actor data or costs in the public quote. */
         public Map<String,Object> reviewDisplay(){
             var out=new LinkedHashMap<>(display());
+            @SuppressWarnings("unchecked") var credit=(Map<String,Object>)controls.get("credit");
+            if(credit!=null){BigDecimal netDebt=new BigDecimal(credit.get("outstanding").toString()).subtract(new BigDecimal(credit.get("credit").toString()));
+                BigDecimal exposure=netDebt.add(new BigDecimal(credit.get("commitment").toString())).add(net);
+                BigDecimal excess=exposure.subtract(new BigDecimal(credit.get("limit").toString())).max(BigDecimal.ZERO);
+                out.put("creditReview",Map.of("netDebt",MoneyDisplay.format(netDebt),"exposure",MoneyDisplay.format(exposure),"excess",MoneyDisplay.format(excess),"exceeds",excess.signum()>0));}
+            out.put("priceException",lines.stream().anyMatch(OrderService::belowFloor));
             @SuppressWarnings("unchecked") var rows=(List<Map<String,Object>>)out.get("lines");
             for(int i=0;i<rows.size();i++){rows.get(i).put("floorFormatted",MoneyDisplay.format(lines.get(i).price.floorPrice()));rows.get(i).put("floorExact",lines.get(i).price.floorPrice().toPlainString());}
             return out;
@@ -100,6 +106,9 @@ public final class OrderService {
     }
     private static String inputHash(Input in){var normalized=new ArrayList<Object>();normalized.add(in.dealer);normalized.add(in.address);normalized.add(in.delivery.toString());
         for(var l:in.lines)normalized.add(List.of(l.product,l.unit,CatalogValidation.decimal(l.quantity,6,true).toPlainString()));return digest(normalized);}
+    private void validateDelivery(LocalDate delivery){
+        if(delivery.isBefore(clock.instant().atZone(VietnamTime.ZONE).toLocalDate()))throw FieldValidationException.field("delivery","Ngày giao không được trước ngày hiện tại tại Việt Nam.");
+    }
     public long save(long actor,long id,Input in){validate(in);String key=id==0?uuid(in.creationKey,"creationKey"):"",hash=inputHash(in);
         return Sql.transaction(source,c->{var a=reader(c,actor);writer(a);var dealer=scoped(c,actor,a,in.dealer,true);
             if(id==0){var old=Sql.query(c,"SELECT id,creation_hash FROM orders WHERE created_by=? AND creation_key=?",actor,key);
@@ -109,7 +118,7 @@ public final class OrderService {
             }
             Map<String,Object> before=null;
             if(id!=0){before=Sql.one(c,"SELECT * FROM orders WHERE id=? FOR UPDATE",id);if(Sql.id(before.get("dealer_id"))!=in.dealer)throw new SecurityException();owner(before,actor);editable(before,in.version);}
-            address(c,dealer,in.address);productLocks(c,in.lines);var errors=new LinkedHashMap<String,String>();
+            validateDelivery(in.delivery);address(c,dealer,in.address);productLocks(c,in.lines);var errors=new LinkedHashMap<String,String>();
             for(int i=0;i<in.lines.size();i++){var l=in.lines.get(i);try{UnitService.orderConversion(c,l.product,l.unit,l.quantity,nullableId(dealer.get("warehouse_id")));}catch(IllegalArgumentException e){errors.put("line"+i,e.getMessage());}}
             if(!errors.isEmpty())throw new FieldValidationException(errors);
             long saved=id;if(id==0){try{saved=Sql.insert(c,"INSERT INTO orders(dealer_id,address_id,desired_delivery,created_by,owner_id,creation_key,creation_hash,source) VALUES(?,?,?,?,?,?,?,?)",in.dealer,in.address,in.delivery,actor,actor,key,hash,portal(a)?"PORTAL":"INTERNAL");}catch(SQLException e){if(e.getErrorCode()==1062)throw FieldValidationException.field("form","Mã lưu đã được dùng đồng thời. Hãy mở lại đơn đã lưu.");throw e;}}
@@ -126,16 +135,17 @@ public final class OrderService {
         row.put("lines",Sql.query(c,"SELECT l.*,p.sku,p.name,u.name unit_name FROM order_lines l JOIN products p ON p.id=l.product_id JOIN product_units u ON u.id=l.unit_id WHERE l.order_id=? ORDER BY l.position",id));
         row.put("formatted",Map.of("gross",MoneyDisplay.format(row.get("gross_total")),"discount",MoneyDisplay.format(row.get("discount_total")),"net",MoneyDisplay.format(row.get("net_total"))));
         @SuppressWarnings("unchecked") var detailLines=(List<Map<String,Object>>)row.get("lines");for(var line:detailLines)line.put("formatted",Map.of("selling",MoneyDisplay.format(line.get("selling_price")),"gross",MoneyDisplay.format(line.get("gross")),"discount",MoneyDisplay.format(line.get("discount")),"net",MoneyDisplay.format(line.get("net"))));
-        var approvals=Sql.query(c,"SELECT status,request_reason,requested_at,decision_reason,decided_at,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.gross')) requested_gross,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.discount')) requested_discount,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.net')) requested_net FROM order_approval_requests WHERE order_id=?",id);
+        var approvals=Sql.query(c,"SELECT ar.status,ar.request_reason,ar.requested_at,ar.decision_reason,ar.decided_at,requester.full_name requested_name,decider.full_name decided_name,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.gross')) requested_gross,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.discount')) requested_discount,JSON_UNQUOTE(JSON_EXTRACT(request_snapshot,'$.formatted.net')) requested_net FROM order_approval_requests ar JOIN users requester ON requester.id=ar.requested_by LEFT JOIN users decider ON decider.id=ar.decided_by WHERE ar.order_id=?",id);
         row.put("can_review",false);if(!approvals.isEmpty()){row.put("approval",approvals.get(0));row.put("can_review","PENDING_APPROVAL".equals(row.get("status"))&&!"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canReview(ctx,actor,request(c,id)));}
         row.put("can_confirm_portal","PENDING_APPROVAL".equals(row.get("status"))&&"STAFF_CONFIRMATION".equals(row.get("pending_reason"))&&canConfirmPortal(ctx,actor));
         row.put("can_cancel",canCancel(ctx)&&!"CANCELLED".equals(row.get("status"))&&Sql.query(c,"SELECT id FROM mvp_shipments WHERE order_id=? LIMIT 1",id).isEmpty());
-        row.put("can_renew_holds","SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canRenew(ctx,actor));
-        row.put("can_approve_renewal","SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canReview(ctx,actor,Map.of("requested_by",ctx.order.get("owner_id"))));
-        row.put("history",Sql.query(c,"SELECT event_type,reason,occurred_at FROM mvp_order_history WHERE order_id=? ORDER BY id",id));
+        var holds=OrderHoldDisplay.load(c,id,clock.instant());row.put("holds",holds);
+        row.put("can_renew_holds",Boolean.TRUE.equals(holds.get("needsRenewal"))&&"SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canRenew(ctx,actor));
+        row.put("can_approve_renewal",Boolean.TRUE.equals(holds.get("needsRenewal"))&&"SUBMITTED".equals(row.get("status"))&&!"COMPLETE".equals(row.get("fulfillment_state"))&&canReview(ctx,actor,Map.of("requested_by",ctx.order.get("owner_id"))));
+        row.put("history",Sql.query(c,"SELECT h.event_type,h.reason,h.occurred_at,u.full_name actor_name FROM mvp_order_history h JOIN users u ON u.id=h.actor_id WHERE h.order_id=? UNION ALL SELECT a.event_type,COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.after_values,'$.reason')),''),a.occurred_at,u.full_name FROM audit_logs a JOIN users u ON u.id=a.actor_user_id WHERE a.object_type='ORDER' AND a.object_id=? AND a.event_type='ORDER_DRAFT_TAKEN_OVER' ORDER BY occurred_at",id,Long.toString(id)));
         row.put("invoices",!portal(ctx.access)&&ctx.access.allows("INVOICE_READ")?Sql.query(c,"SELECT i.id,i.number,i.invoice_date FROM mvp_invoices i JOIN mvp_shipments s ON s.id=i.shipment_id WHERE s.order_id=? ORDER BY i.id",id):List.of());
-        @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "CANCELLED","LEGACY_CANCELLED"->"Hủy đơn";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
-        if(portal(ctx.access)){row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
+        @SuppressWarnings("unchecked")var history=(List<Map<String,Object>>)row.get("history");for(var event:history)event.put("label",switch(Sql.text(event.get("event_type"))){case "ORDER_DRAFT_TAKEN_OVER"->"Tiếp quản nháp";case "REQUESTED"->"Gửi chờ tiếp nhận";case "RETURNED","LEGACY_RETURNED"->"Trả lại sửa";case "APPROVED","LEGACY_APPROVED"->"Duyệt ngoại lệ";case "REJECTED","LEGACY_REJECTED"->"Từ chối";case "CANCELLED","LEGACY_CANCELLED"->"Hủy đơn";case "STAFF_CONFIRMED"->"NVKD xác nhận";case "ESCALATED"->"Chuyển quản lý duyệt";default->"Yêu cầu tiếp nhận trước đây";});
+        if(portal(ctx.access)){for(var event:history)event.remove("actor_name");if(row.get("approval") instanceof Map<?,?> approval){approval.remove("requested_name");approval.remove("decided_name");}row.keySet().removeAll(Set.of("created_by","owner_id","creation_key","creation_hash","submit_key","user_version"));row.put("can_takeover",false);}return row;});}
     public record Filter(String query,String status,Long dealer,Long staff,Long territory,LocalDate from,LocalDate to) {
         public Filter {
             if(from!=null&&(from.getYear()<1000||from.getYear()>9998)||to!=null&&(to.getYear()<1000||to.getYear()>9998)||from!=null&&to!=null&&from.isAfter(to))throw new IllegalArgumentException("Khoảng ngày tạo đơn không hợp lệ.");
@@ -190,7 +200,7 @@ public final class OrderService {
         Sql.update(c,"INSERT INTO order_quote_tickets(token,order_id,actor_id,order_version,digest,requires_confirmation,expires_at,purpose) VALUES(?,?,?,?,?,?,?,?)",token,id,actor,version,q.digest,confirmation,Timestamp.from(clock.instant().plusSeconds(900)),purpose);
         return new Quote(q.date,q.lines,q.gross,q.discount,q.net,q.errors,q.warning,q.digest,token,confirmation,q.controls);}
     private Quote calculate(Connection c,Map<String,Object> dealer,long address,LocalDate delivery,List<LineInput> input)throws SQLException{
-        LocalDate date=clock.instant().atZone(VietnamTime.ZONE).toLocalDate();var errors=new LinkedHashMap<String,String>();var signature=new ArrayList<Object>();signature.add(date);signature.add(dealer);signature.add(delivery);
+        LocalDate date=clock.instant().atZone(VietnamTime.ZONE).toLocalDate();var errors=new LinkedHashMap<String,String>();if(delivery.isBefore(date))errors.put("delivery","Ngày giao đã qua. Trả lại sửa ngày giao trước khi tiếp nhận.");var signature=new ArrayList<Object>();signature.add(date);signature.add(dealer);signature.add(delivery);
         try{signature.add(address(c,dealer,address));}catch(IllegalArgumentException e){errors.put("address",e.getMessage());}
         Long warehouse=nullableId(dealer.get("warehouse_id"));long group=Sql.id(dealer.get("group_id"));if(warehouse==null)errors.put("warehouse","Cần kho phục vụ trước khi gửi. Nháp vẫn được giữ.");
         signature.add(Sql.one(c,"SELECT id,name FROM customer_groups WHERE id=? FOR SHARE",group));if(warehouse!=null)signature.add(Sql.one(c,"SELECT id,name FROM warehouses WHERE id=? FOR SHARE",warehouse));
@@ -230,7 +240,7 @@ public final class OrderService {
                 snapshot(c,actor,id,ctx,q,"PENDING_APPROVAL",key,false);
                 String reason=q.needsApproval()?"EXCEPTION":"STAFF_CONFIRMATION";
                 Sql.update(c,"UPDATE orders SET pending_reason=? WHERE id=?",reason,id);
-                String requestReason=q.needsApproval()?"Giá dưới sàn hoặc vượt hạn mức cần phê duyệt.":"Đơn cổng chờ nhân viên phụ trách xác nhận.";
+                String requestReason=q.needsApproval()?((q.lines.stream().anyMatch(OrderService::belowFloor)?"Giá dưới sàn":"")+(q.lines.stream().anyMatch(OrderService::belowFloor)&&Boolean.TRUE.equals(q.controls.get("creditApproval"))?" và ":"")+(Boolean.TRUE.equals(q.controls.get("creditApproval"))?"Vượt hạn mức":"")+" cần phê duyệt."):"Đơn cổng chờ nhân viên phụ trách xác nhận.";
                 if(Sql.query(c,"SELECT id FROM order_approval_requests WHERE order_id=? FOR UPDATE",id).isEmpty())
                     Sql.insert(c,"INSERT INTO order_approval_requests(order_id,requested_by,request_key,request_digest,request_snapshot,request_reason,requested_at) VALUES(?,?,?,?,?,?,?)",id,actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()));
                 else Sql.update(c,"UPDATE order_approval_requests SET requested_by=?,request_key=?,request_digest=?,request_snapshot=?,request_reason=?,requested_at=?,status='PENDING',decision_key=NULL,decided_by=NULL,decision_reason=NULL,decision_snapshot=NULL,decided_at=NULL WHERE order_id=?",actor,key,q.digest,quoteSnapshot(q),requestReason,Timestamp.from(clock.instant()),id);

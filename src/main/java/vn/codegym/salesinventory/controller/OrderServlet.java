@@ -37,7 +37,7 @@ public class OrderServlet extends PortalServlet {
         r.setAttribute("products",portalMode()?new PortalCatalogService(source()).search(actor,"",new PageRequest(1,20)).items():products().search(actor,"",null,"ACTIVE",new PageRequest(1,20)).items());
         r.setAttribute("submitKey",UUID.randomUUID().toString());r.setAttribute("editing",id==0||Boolean.TRUE.equals(order.get("can_edit")));
         if(Boolean.TRUE.equals(order.get("can_review"))&&r.getAttribute("approvalQuote")==null)r.setAttribute("approvalQuote",service().reviewQuote(actor,id).reviewDisplay());
-        r.setAttribute("decisionKey",UUID.randomUUID().toString());
+        r.setAttribute("deliveryToday",LocalDate.now(vn.codegym.salesinventory.config.VietnamTime.ZONE).toString());r.setAttribute("decisionKey",UUID.randomUUID().toString());
         if(Boolean.TRUE.equals(order.get("can_confirm_portal"))&&r.getAttribute("confirmationQuote")==null)r.setAttribute("confirmationQuote",service().confirmationQuote(actor,id).display());
         if(quote&&Boolean.TRUE.equals(order.get("can_edit")))r.setAttribute("quote",service().quote(actor,id).display());
         else if(quote&&"DRAFT".equals(order.get("status")))r.setAttribute("readQuote",service().estimate(actor,id).display());

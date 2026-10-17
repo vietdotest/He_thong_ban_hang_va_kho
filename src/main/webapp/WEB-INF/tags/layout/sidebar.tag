@@ -7,7 +7,7 @@
 <div class="sidebar-heading"><a class="sidebar-brand" href="${pageContext.request.contextPath}/dashboard"><span class="wordmark-symbol" aria-hidden="true">BH</span><span>Quản lý bán hàng</span></a><button class="icon-button mobile-menu-close" type="button" data-menu-close aria-label="Đóng menu"><ui:icon name="xmark"/></button></div>
 <nav class="sidebar-nav" aria-label="Điều hướng chính">
 <c:if test="${access.roles().contains('DEALER')}"><a class="nav-item" href="${pageContext.request.contextPath}/portal">Cổng đại lý / sản phẩm</a><a class="nav-item" href="${pageContext.request.contextPath}/portal/orders">Đơn của đại lý</a></c:if>
-<c:if test="${access.allows('PORTAL_ACCOUNT_MANAGE')}"><a class="nav-item" href="${pageContext.request.contextPath}/dealers/accounts">Tài khoản cổng đại lý</a></c:if>
+<c:if test="${access.allows('PORTAL_ACCOUNT_MANAGE') and access.roles().contains('SALES_MANAGER')}"><a class="nav-item" href="${pageContext.request.contextPath}/dealers/accounts">Tài khoản cổng đại lý</a></c:if>
 <a class="nav-item" href="${pageContext.request.contextPath}/dashboard"><ui:icon name="house"/>Tổng quan</a>
 <c:if test="${access.allows('DEALER_READ')}"><p class="nav-group">Khách hàng và đơn hàng</p><a class="nav-item" href="${pageContext.request.contextPath}/dealers"><ui:icon name="users"/>Đại lý</a><c:if test="${access.allows('DEALER_HANDOVER')}"><a class="nav-item" href="${pageContext.request.contextPath}/dealers/handover"><ui:icon name="users"/>Phân công / bàn giao</a></c:if></c:if>
 <c:if test="${access.allows('ORDER_READ')}"><a class="nav-item" href="${pageContext.request.contextPath}/orders"><ui:icon name="box"/>Đơn hàng</a></c:if>

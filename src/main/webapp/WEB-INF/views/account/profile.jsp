@@ -4,7 +4,7 @@
 <jsp:body>
 <main class="page-body app-content profile-page">
     <div class="page-heading"><div><h1>Hồ sơ cá nhân</h1><p>Cập nhật thông tin để đồng nghiệp liên hệ khi cần.</p></div></div>
-    <c:if test="${param.notice == 'saved'}"><div class="alert alert-success" role="status">Đã lưu thay đổi hồ sơ.</div></c:if>
+    <c:if test="${param.notice == 'saved' and empty errors}"><div class="alert alert-success" role="status">Đã lưu thay đổi hồ sơ.</div></c:if>
     <div class="profile-layout">
         <section class="content-panel" aria-labelledby="contact-heading">
             <h2 id="contact-heading">Thông tin cá nhân</h2>
