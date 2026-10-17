@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!form) return;
   const lines = form.querySelector('[data-receipt-lines]');
   const warehouse = form.elements.warehouse;
+  const unitOptions = Array.from(lines.querySelector('[name=unit]').options).map(option => option.cloneNode(true));
   const filter = () => {
     for (const option of form.elements.supplier.options) {
       if (!option.value) continue;
@@ -13,12 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const row of lines.querySelectorAll('[data-receipt-line]')) {
       const product = row.querySelector('[name=product]').value;
       const unit = row.querySelector('[name=unit]');
-      for (const option of unit.options) {
-        if (!option.value) continue;
-        option.disabled = option.hidden = option.dataset.product !== product ||
-          (option.dataset.warehouse && option.dataset.warehouse !== warehouse.value);
-      }
-      if (unit.selectedOptions[0]?.disabled) unit.value = '';
+      const selected = unit.value;
+      unit.replaceChildren(...unitOptions.filter(option => !option.value ||
+        (option.dataset.product === product && (!option.dataset.warehouse || option.dataset.warehouse === warehouse.value)))
+        .map(option => option.cloneNode(true)));
+      unit.value = Array.from(unit.options).some(option => option.value === selected) ? selected : '';
     }
   };
   form.addEventListener('change', filter);

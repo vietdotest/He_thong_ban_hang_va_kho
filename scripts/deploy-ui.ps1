@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$ConfigPath = '', [string]$RuntimeRoot = '',
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
     [switch]$PreflightOnly, [switch]$InjectHealthFailure, [string]$RollbackWar = ''
@@ -69,8 +69,7 @@ if ($RollbackWar) {
     $evidence=Get-Content -LiteralPath (Join-Path $tools 'mvp-clean-verify.json') -Raw | ConvertFrom-Json
     if (!$evidence.passed -or $evidence.tree -ne $tree -or $evidence.skipped -ne 0 -or $evidence.failures -ne 0 -or $evidence.errors -ne 0 -or $evidence.warHash -ne (Get-FileHash -LiteralPath $candidate).Hash) { throw 'Thiếu clean verify và WAR đúng cây code.' }
     if ($Target -eq 'Public') {
-        $approval=Get-Content -LiteralPath (Join-Path $tools 'ui-approval.json') -Raw | ConvertFrom-Json
-        if (!$approval.approved -or $approval.tree -ne $tree -or !$approval.reviewer) { throw 'Thiếu nghiệm thu UI của bản phát hành.' }
+        & (Join-Path $PSScriptRoot 'assert-business-release.ps1') -Tree $tree -EvidenceDirectory $tools -WarHash (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash
     }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip=[IO.Compression.ZipFile]::OpenRead($candidate)

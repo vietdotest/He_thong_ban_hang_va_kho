@@ -4,4 +4,5 @@
     <function><name>quantity</name><function-class>vn.codegym.salesinventory.service.QuantityDisplay</function-class><function-signature>java.lang.String format(java.lang.Object)</function-signature></function>
     <function><name>plain</name><function-class>vn.codegym.salesinventory.service.QuantityDisplay</function-class><function-signature>java.lang.String plain(java.lang.Object)</function-signature></function>
     <function><name>money</name><function-class>vn.codegym.salesinventory.service.MoneyDisplay</function-class><function-signature>java.lang.String format(java.lang.Object)</function-signature></function>
+    <function><name>time</name><function-class>vn.codegym.salesinventory.service.TimeDisplay</function-class><function-signature>java.lang.String format(java.lang.Object)</function-signature></function>
 </taglib>
