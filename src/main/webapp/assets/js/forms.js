@@ -74,7 +74,7 @@
     if(location.pathname.endsWith('/admin/users')) attachLookup(input,'users');
     if(location.pathname.endsWith('/dealers')) attachLookup(input,'dealers');
   });
-  document.querySelectorAll('select[name=product]').forEach(select=>attachLookup(select,'products'));
+  document.querySelectorAll('select[name=product]:not([data-local-options])').forEach(select=>attachLookup(select,'products'));
   const mountLookups = root => root.querySelectorAll('select[data-lookup],input[data-lookup]').forEach(element=>attachLookup(element,element.dataset.lookup));
   mountLookups(document);
   window.NvdoForms = Object.freeze({mountLookups});

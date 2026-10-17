@@ -13,6 +13,6 @@
 <%@ include file="../../views/fragments/assets.jspf" %>
 <jsp:invoke fragment="head"/>
 </head><body class="<c:out value='${bodyClass}'/>" data-view="<c:out value='${view}'/>" data-ui-css="<c:out value='${css}'/>">
-<c:if test="${not bare}"><layout:sidebar/><layout:topbar/></c:if>
+<c:if test="${not bare}"><layout:sidebar/><layout:topbar title="${title}"/></c:if>
 <jsp:doBody/>
 </body></html>

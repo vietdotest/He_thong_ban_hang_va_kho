@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$ConfigPath = '', [string]$RuntimeRoot = '',
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
     [switch]$PreflightOnly, [switch]$InjectHealthFailure, [string]$RollbackWar = ''
@@ -31,9 +31,9 @@ if ($Target -eq 'Public') {
     if (!$ConfigPath) { $ConfigPath=Join-Path $tools 'mvp-deploy-8081.json' }
 } else {
     $port=18087; $dbPort=13318; $container='codegym-mvp-release-rehearsal'
-    $base=Child-Path (Join-Path $tools 'mvp-rehearsal-tomcat') $tools
-    $uploads=Child-Path (Join-Path $tools 'mvp-rehearsal-uploads') $tools
-    $deployment=Join-Path $tools 'mvp-rehearsal-deployment.json'
+    $base=Child-Path (Join-Path $runtimeTools 'mvp-rehearsal-tomcat') $runtimeTools
+    $uploads=Child-Path (Join-Path $runtimeTools 'mvp-rehearsal-uploads') $runtimeTools
+    $deployment=Join-Path $runtimeTools 'mvp-rehearsal-deployment.json'
     if (!$ConfigPath) { $ConfigPath=Join-Path $tools 'mvp-preview-config.json' }
 }
 $config=Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
@@ -69,8 +69,7 @@ if ($RollbackWar) {
     $evidence=Get-Content -LiteralPath (Join-Path $tools 'mvp-clean-verify.json') -Raw | ConvertFrom-Json
     if (!$evidence.passed -or $evidence.tree -ne $tree -or $evidence.skipped -ne 0 -or $evidence.failures -ne 0 -or $evidence.errors -ne 0 -or $evidence.warHash -ne (Get-FileHash -LiteralPath $candidate).Hash) { throw 'Thiếu clean verify và WAR đúng cây code.' }
     if ($Target -eq 'Public') {
-        $approval=Get-Content -LiteralPath (Join-Path $tools 'ui-approval.json') -Raw | ConvertFrom-Json
-        if (!$approval.approved -or $approval.tree -ne $tree -or !$approval.reviewer) { throw 'Thiếu nghiệm thu UI của bản phát hành.' }
+        & (Join-Path $PSScriptRoot 'assert-business-release.ps1') -Tree $tree -EvidenceDirectory $tools -WarHash (Get-FileHash -LiteralPath $candidate -Algorithm SHA256).Hash
     }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip=[IO.Compression.ZipFile]::OpenRead($candidate)
@@ -78,7 +77,11 @@ if ($RollbackWar) {
         if (!$zip.GetEntry('assets/css/ui.css') -or $zip.GetEntry('assets/css/ui.css').Length -eq 0 -or !$zip.GetEntry('assets/icons/fa-sprite.svg')) { throw 'WAR thiếu CSS hoặc sprite UI.' }
     } finally { $zip.Dispose() }
 }
-if (Checked-Git @('diff','--name-only',$oldSha,$sha,'--','src/main/resources/db/migration','src/main/java/db/migration')) { throw 'Bản UI chứa thay đổi migration; phát hành schema riêng trước.' }
+$schemaDelta=Checked-Git @('diff','--name-only',$oldSha,$sha,'--','src/main/resources/db/migration','src/main/java/db/migration')
+if ($schemaDelta) {
+    # Chỉ cho phép quay WAR về trước migration bổ sung cột của đợt giá vốn; không chạy/lùi schema.
+    if (!$RollbackWar -or !$metadata.schemaCompatible -or $metadata.allowedMigration -ne 'src/main/resources/db/migration/V044__sales_cost_snapshots.sql' -or $schemaDelta.Trim() -ne $metadata.allowedMigration) { throw 'Bản UI chứa thay đổi migration; phát hành schema riêng trước.' }
+}
 function Matches-Tomcat($Process) {
     $basePattern='(?i)(?:^|\s|")-Dcatalina\.base='+[regex]::Escape($base)+'(?=\s|"|$)'
     $homePattern='(?i)(?:^|\s|")-Dcatalina\.home='+[regex]::Escape($tomcatHome)+'(?=\s|"|$)'

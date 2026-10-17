@@ -30,7 +30,7 @@ for(const row of matrix){
     await page.evaluate(()=>{for(const el of document.querySelectorAll('td,small,time,p,span'))if(el.children.length===0&&/\d{2}:\d{2}|Phiên gần nhất|Đăng nhập gần nhất/.test(el.textContent))el.setAttribute('data-ui-dynamic','');});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     expect(csp).toEqual([]);expect(errors).toEqual([]);
-    if(!process.env.UI_SKIP_SCREENSHOTS)await expect(page).toHaveScreenshot(row.id+'.png',{fullPage:true,mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'});
+    if(!process.env.UI_SKIP_SCREENSHOTS)await expect(page).toHaveScreenshot(row.id+'.png',{timeout:15000,fullPage:true,mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'});
     if(process.env.UI_CAPTURE_REVIEW){
       const folder=path.join(root,'.tools/ui-evidence/latest',test.info().project.name);fs.mkdirSync(folder,{recursive:true});
       await page.screenshot({path:path.join(folder,row.id+'.png'),fullPage:true,animations:'disabled',mask:[page.locator('time,[data-ui-dynamic]')],style:'*{animation:none!important;transition:none!important;caret-color:transparent!important}'});

@@ -60,6 +60,7 @@ public final class DealerService {
             long count=Sql.id(Sql.one(c,"SELECT COUNT(*) total FROM dealers d"+condition,args).get("total"));var paging=requested.clamp(count);
             var params=new ArrayList<Object>(Arrays.asList(args));params.add(paging.pageSize());params.add(paging.offset());
             var rows=Sql.query(c,"SELECT "+COLUMNS+JOIN+condition+" ORDER BY d.code,d.id LIMIT ? OFFSET ?",params.toArray());
+            for(var row:rows)deletionState(c,a,row);
             return new PageResult<>(rows,count,paging.page(),paging.pageSize());
         });
     }
@@ -107,15 +108,23 @@ public final class DealerService {
         String ref="DEALER:"+dealer;Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?",ref);
         Sql.update(c,"INSERT INTO dealer_staff_references(user_id,dealer_reference) VALUES(?,?)",staff,ref);
     }
+    private static String deleteBlockReason(Connection c,Access a,long id)throws SQLException {
+        if(!a.allows("DEALER_MANAGE")||Collections.disjoint(a.roles(),Set.of("SALES_MANAGER","ACCOUNTANT")))return "Không có quyền xóa hồ sơ.";
+        if(!Sql.query(c,"SELECT dealer_id FROM dealer_transaction_references WHERE dealer_id=? LIMIT 1",id).isEmpty())return "Đại lý đã có giao dịch. Chỉ được ngừng giao dịch.";
+        if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())return "Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.";
+        if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())return "Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.";
+        if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())return "Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.";
+        if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())return "Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.";
+        if(!Sql.query(c,"SELECT user_id FROM dealer_accounts WHERE dealer_id=? LIMIT 1",id).isEmpty()||!Sql.query(c,"SELECT id FROM dealer_account_link_history WHERE old_dealer_id=? OR new_dealer_id=? LIMIT 1",id,id).isEmpty())return "Đại lý đã có tài khoản cổng hoặc lịch sử liên kết. Hãy ngừng giao dịch để giữ lịch sử.";
+        return "";
+    }
+    private static void deletionState(Connection c,Access a,Map<String,Object> row)throws SQLException {
+        String reason=deleteBlockReason(c,a,Sql.id(row.get("id")));row.put("canDelete",reason.isEmpty());row.put("deleteBlockReason",reason);
+    }
     public void delete(long actor,long id,long version){Sql.transaction(source,c->{var a=access(c,actor,"DEALER_MANAGE");Sql.one(c,"SELECT name FROM catalog_locks WHERE name='DEALER_ASSIGNMENTS' FOR UPDATE");var before=scoped(c,actor,a,id,true);
         if(!a.roles().stream().anyMatch(Set.of("SALES_MANAGER","ACCOUNTANT")::contains))throw new SecurityException("Không có quyền xóa hồ sơ.");
         if(Sql.id(before.get("version"))!=version)throw new IllegalArgumentException("Hồ sơ đã thay đổi, hãy tải lại.");
-        if(!Sql.query(c,"SELECT dealer_id FROM dealer_transaction_references WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có giao dịch. Chỉ được ngừng giao dịch.");
-        if(!Sql.query(c,"SELECT id FROM dealer_addresses WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có điểm giao hàng. Hãy ngừng giao dịch để bảo toàn lịch sử địa chỉ.");
-        if(!Sql.query(c,"SELECT dealer_id FROM dealer_handover_items WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có bản bàn giao. Hãy ngừng giao dịch để giữ lịch sử.");
-        if(!Sql.query(c,"SELECT id FROM dealer_credit_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử tín dụng. Hãy ngừng giao dịch để giữ lịch sử.");
-        if(!Sql.query(c,"SELECT id FROM dealer_status_history WHERE dealer_id=? LIMIT 1",id).isEmpty())throw new IllegalArgumentException("Đại lý đã có lịch sử khóa/mở. Hãy ngừng giao dịch để giữ lịch sử.");
-        if(!Sql.query(c,"SELECT user_id FROM dealer_accounts WHERE dealer_id=? LIMIT 1",id).isEmpty()||!Sql.query(c,"SELECT id FROM dealer_account_link_history WHERE old_dealer_id=? OR new_dealer_id=? LIMIT 1",id,id).isEmpty())throw new IllegalArgumentException("Đại lý đã có tài khoản cổng hoặc lịch sử liên kết. Hãy ngừng giao dịch để giữ lịch sử.");
+        String reason=deleteBlockReason(c,a,id);if(!reason.isEmpty())throw new IllegalArgumentException(reason);
         Sql.update(c,"DELETE FROM dealer_staff_references WHERE dealer_reference=?","DEALER:"+id);
         Sql.update(c,"DELETE FROM dealers WHERE id=?",id);AuditService.record(c,actor,"DEALER_DELETED","DEALER",id,before,null);return null;
     });}

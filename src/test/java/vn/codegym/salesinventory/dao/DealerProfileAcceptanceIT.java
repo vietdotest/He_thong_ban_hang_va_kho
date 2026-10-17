@@ -65,6 +65,16 @@ class DealerProfileAcceptanceIT extends StoryDatabaseSupport {
         assertThat(service.find(manager,id)).containsEntry("status","DISCONTINUED");
         long unused=dealer();service.delete(manager,unused,1);assertThat(query("SELECT id FROM dealers WHERE id=?",unused)).isEmpty();
     }
+    @Test void deletionAvailabilityTracksPermissionAndNewReferences() {
+        long id=dealer();
+        assertThat(service.search(manager,"",new PageRequest(1,100)).items().stream().filter(r->Sql.id(r.get("id"))==id).findFirst().orElseThrow()).containsEntry("canDelete",true);
+        assertThat(service.search(sales,"",new PageRequest(1,100)).items().stream().filter(r->Sql.id(r.get("id"))==id).findFirst().orElseThrow()).containsEntry("canDelete",false);
+        update("INSERT INTO dealer_transaction_references VALUES(?,'ORDER','NEW')",id);
+        var row=service.search(manager,"",new PageRequest(1,100)).items().stream().filter(r->Sql.id(r.get("id"))==id).findFirst().orElseThrow();
+        assertThat(row).containsEntry("canDelete",false);
+        assertThat(row.get("deleteBlockReason").toString()).contains("giao dịch");
+        assertThatThrownBy(()->service.delete(manager,id,1)).isInstanceOf(IllegalArgumentException.class);
+    }
     @Test void twoEditorsHaveExactlyOneWinnerAndAudit(){
         long id=dealer();String code=Sql.text(service.find(manager,id).get("code"));var pool=Executors.newFixedThreadPool(2);var start=new CountDownLatch(1);
         try{List<Future<Boolean>> tasks=new ArrayList<>();for(int i=0;i<2;i++)tasks.add(pool.submit(()->{start.await();try{service.save(manager,id,input(code,1));return true;}catch(FieldValidationException e){return false;}}));start.countDown();int wins=0;for(var task:tasks)if(task.get(30,TimeUnit.SECONDS))wins++;assertThat(wins).isEqualTo(1);assertThat(count("SELECT COUNT(*) n FROM audit_logs WHERE object_type='DEALER' AND object_id=?",id)).isEqualTo(2);}

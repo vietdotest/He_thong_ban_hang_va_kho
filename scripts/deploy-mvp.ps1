@@ -1,9 +1,10 @@
-﻿param(
+param(
     [string]$ConfigPath = '',
     [string]$RuntimeRoot = '',
     [ValidateSet('Public','Preview')][string]$Target = 'Public',
     [switch]$PreflightOnly,
     [switch]$InjectHealthFailure,
+    [string]$PreviewFailureProbe = '',
     [switch]$UiOnly,
     [string]$RollbackWar = ''
 )
@@ -83,10 +84,13 @@ function Assert-PublicHealth([string]$ExpectedSha) {
     throw 'Health hoặc đăng nhập public không đạt.'
 }
 
-if ((git branch --show-current) -ne 'develop') { throw 'MVP phải phát hành từ develop đã kiểm thử.' }
-git diff --exit-code -- src pom.xml scripts | Out-Null
-if ($LASTEXITCODE -ne 0) { throw 'Code triển khai còn thay đổi chưa commit.' }
+$releaseBranch=git branch --show-current
+if ($Target -eq 'Public' -and $releaseBranch -ne 'main') { throw 'Public phải phát hành từ main đã tích hợp và kiểm thử.' }
+if ($Target -eq 'Preview' -and $releaseBranch -notmatch '^(main|develop|feature/.+|fix/.+)$') { throw 'Preview cần nhánh chức năng, develop hoặc main.' }
+$sourceChanges=@(git status --porcelain --untracked-files=all -- src pom.xml scripts)
+if ($sourceChanges.Count -ne 0) { throw 'Code triển khai còn thay đổi hoặc file chưa commit.' }
 if ($InjectHealthFailure -and $Target -ne 'Preview') { throw 'Chỉ mô phỏng lỗi trên môi trường kiểm thử.' }
+if ($PreviewFailureProbe -and (!$InjectHealthFailure -or $Target -ne 'Preview')) { throw 'Probe chỉ dùng trong diễn tập lỗi Preview.' }
 $deploySha = git rev-parse HEAD
 $deployTree = git rev-parse 'HEAD^{tree}'
 $deployTools = Join-Path $deployRoot '.tools'
@@ -95,6 +99,9 @@ $evidence = Get-Content -LiteralPath (Join-Path $deployTools 'mvp-clean-verify.j
 if (!$evidence.passed -or $evidence.tree -ne $deployTree -or $evidence.skipped -ne 0 -or
     $evidence.failures -ne 0 -or $evidence.errors -ne 0 -or $evidence.warHash -ne (Get-FileHash -LiteralPath $deployWar).Hash) {
     throw 'Thiếu clean verify đạt và WAR tương ứng đúng cây code.'
+}
+if ($Target -eq 'Public') {
+    & (Join-Path $PSScriptRoot 'assert-business-release.ps1') -Tree $deployTree -EvidenceDirectory $deployTools -WarHash (Get-FileHash -LiteralPath $deployWar -Algorithm SHA256).Hash
 }
 $deployHome = [IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $deployRoot) 'He_thong_ban_hang_va_kho/.tools/apache-tomcat-10.1.60'))
 if (!(Test-Path -LiteralPath (Join-Path $deployHome 'bin/bootstrap.jar'))) { throw 'Không tìm thấy Tomcat hiện có.' }
@@ -113,7 +120,7 @@ if ($Target -eq 'Public') {
         $deployConfig.appBaseUrl -ne 'https://hethong.nvdo.id.vn') { throw 'Cấu hình SMTP/HTTPS khác bản đã chốt.' }
 } else {
     $deployPort=18087; $deployDbPort=13318; $deployContainer='codegym-mvp-release-rehearsal'
-    $runtimeTools=Join-Path $deployRoot '.tools'
+    $runtimeTools=Join-Path ([IO.Path]::GetFullPath($RuntimeRoot)) '.tools'
     $deployBase=Join-Path $runtimeTools 'mvp-rehearsal-tomcat'; $deployUploads=Join-Path $runtimeTools 'mvp-rehearsal-uploads'
     $deploymentFile=Join-Path $runtimeTools 'mvp-rehearsal-deployment.json'
     if (!$ConfigPath) { throw 'Preview cần cấu hình local của database phục hồi tạm.' }
@@ -124,6 +131,7 @@ $deployBase=Assert-ChildPath $deployBase $runtimeTools
 $deployUploads=Assert-ChildPath $deployUploads $runtimeTools
 $containerInfo=docker inspect $deployContainer | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0 -or !$containerInfo[0].State.Running) { throw 'Database hiện có chưa chạy.' }
+if ($Target -eq 'Preview' -and ($containerInfo[0].Config.Labels.'nvdo.mvp.rehearsal' -ne 'temporary' -or !$containerInfo[0].HostConfig.Tmpfs.'/var/lib/mysql')) { throw 'Preview chỉ dùng database tạm đã gắn nhãn và tmpfs.' }
 $binding=$containerInfo[0].NetworkSettings.Ports.'3306/tcp'
 if (!$binding -or $binding[0].HostIp -ne '127.0.0.1' -or $binding[0].HostPort -ne "$deployDbPort") { throw 'Database không đúng cổng đã chốt.' }
 if ($Target -eq 'Public' -and !(@($containerInfo[0].Mounts | Where-Object {$_.Type -eq 'volume' -and $_.Name -eq 'codegym-s2-web-data' -and $_.Destination -eq '/var/lib/mysql'}).Count -eq 1)) { throw 'Volume database public khác đích đã chốt.' }
@@ -141,7 +149,7 @@ if ($listener) {
     $pendingProcesses=@(Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object {Test-TomcatProcess $_ $deployBase $deployHome})
     if ($pendingProcesses.Count -gt 0) { throw 'Tomcat đang khởi động hoặc gặp lỗi; cần kiểm tra trước khi thay bản.' }
 }
-Write-Output "Preflight đạt: develop $deploySha, WAR đã kiểm thử, database $deployContainer, cổng $deployPort."
+Write-Output "Preflight đạt: $releaseBranch $deploySha, WAR đã kiểm thử, database $deployContainer, cổng $deployPort."
 if ($PreflightOnly) { return }
 $env:DB_URL="jdbc:mysql://127.0.0.1:$deployDbPort/sales_inventory?useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false"
 $env:DB_USERNAME=$deployConfig.dbUsername;$env:DB_PASSWORD=$deployConfig.dbPassword;$env:APP_BASE_URL=$deployConfig.appBaseUrl;$env:APP_UPLOAD_DIR=$deployUploads
@@ -172,8 +180,12 @@ if (Test-Path -LiteralPath $deploymentFile) {
     Copy-Item -LiteralPath $deploymentFile -Destination (Join-Path $backup 'deployment.json')
     $oldSha=(Get-Content -LiteralPath $deploymentFile -Raw | ConvertFrom-Json).sha
 }
+if ($oldSha -match '^[a-f0-9]{40}$' -and (Test-Path -LiteralPath (Join-Path $backup 'ROOT.war'))) {
+    $oldTree=git rev-parse ($oldSha+'^{tree}')
+    [pscustomobject]@{sha=$oldSha;tree=$oldTree;warHash=(Get-FileHash -LiteralPath (Join-Path $backup 'ROOT.war')).Hash;target=$Target;base=$deployBase;container=$deployContainer;schemaCompatible=$true;allowedMigration='src/main/resources/db/migration/V044__sales_cost_snapshots.sql'} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'ui-backup.json') -Encoding utf8
+}
 Write-Output "Đã sao lưu database, uploads, WAR và cấu hình tại $backup."
-& (Join-Path $PSScriptRoot 'verify-mvp-backup.ps1') -BackupDirectory $backup -Upgrade
+& (Join-Path $PSScriptRoot 'verify-mvp-backup.ps1') -BackupDirectory $backup -Upgrade -CompatibilityWar (Join-Path $backup 'ROOT.war')
 }catch{if($stoppedForBackup){$restored=Start-ReleaseTomcat $oldSha;Wait-ReleaseHealth $oldSha;Assert-PublicHealth $oldSha};throw}
 $newProcess=$null; $applicationMoved=$false;$migrationAttempted=$false
 try {
@@ -192,7 +204,10 @@ try {
     Copy-Item -LiteralPath $deployWar -Destination $oldWar -Force
     $newProcess=Start-ReleaseTomcat $deploySha
     Wait-ReleaseHealth $deploySha
-    if ($InjectHealthFailure) { throw 'Mô phỏng health thất bại để kiểm tra phục hồi trên Preview.' }
+    if ($InjectHealthFailure) {
+        if($PreviewFailureProbe){$probePath=Assert-ChildPath $PreviewFailureProbe $deployTools;& $probePath;if(!$?){throw 'Probe Preview thất bại.'}}
+        throw 'Mô phỏng health thất bại để kiểm tra phục hồi trên Preview.'
+    }
     Assert-PublicHealth $deploySha
     if ((git rev-parse HEAD) -ne $deploySha) { throw 'SHA đã thay đổi trong lúc triển khai.' }
     [pscustomobject]@{sha=$deploySha;tree=$deployTree;pid=$newProcess.Id;warHash=(Get-FileHash -LiteralPath $oldWar).Hash;deployedAt=(Get-Date).ToString('o');backup=$backup;target=$Target;health='UP'} |
@@ -201,16 +216,8 @@ try {
 } catch {
     $failure=$_
     if ($newProcess) { Stop-ExpectedTomcat $newProcess.Id $deployBase $deployHome }
-    if($migrationAttempted){
-        $restorePath='/tmp/mvp-rollback-'+[Guid]::NewGuid().ToString('N')+'.sql'
-        docker cp (Join-Path $backup 'database.sql') ($deployContainer+':'+$restorePath)
-        if($LASTEXITCODE -ne 0){throw 'Không chuyển được backup để phục hồi; giữ web dừng.'}
-        'DROP DATABASE sales_inventory; CREATE DATABASE sales_inventory CHARACTER SET utf8mb4;' | docker exec -i $deployContainer sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot'
-        if($LASTEXITCODE -ne 0){throw 'Không khôi phục được schema gốc; giữ web dừng.'}
-        docker exec $deployContainer sh -c ('MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot sales_inventory < '+$restorePath)
-        if($LASTEXITCODE -ne 0){throw 'Phục hồi database thất bại; giữ web dừng và giữ toàn bộ backup.'}
-        docker exec $deployContainer rm -- $restorePath | Out-Null
-    }
+    # Migration của đợt này chỉ bổ sung cột nullable. Tuyệt đối không lùi DB/uploads.
+    # Nếu schema validate của WAR cũ không đạt, giữ dừng và báo lỗi để xử lý tiến.
     if (!$applicationMoved) {
         if ($previousProcess -and !(Get-Process -Id $previousProcess.ProcessId -ErrorAction SilentlyContinue)) {
             $restored=Start-ReleaseTomcat $oldSha
@@ -220,18 +227,20 @@ try {
         }
         throw
     }
-    Write-Warning 'Bản mới không đạt; database đã phục hồi, đang phục hồi WAR và cấu hình cũ.'
+    Write-Warning 'Bản mới không đạt; giữ nguyên database/uploads, đang phục hồi WAR cũ.'
     foreach ($relative in @('webapps/ROOT','work/Catalina/localhost/ROOT')) {
         $newPath=Assert-ChildPath (Join-Path $deployBase $relative) $deployBase
         if (Test-Path -LiteralPath $newPath) { Move-Item -LiteralPath $newPath -Destination (Join-Path $backup ($relative.Replace('/','-')+'-failed')) }
     }
     if (Test-Path -LiteralPath (Join-Path $backup 'conf')) { Copy-Item -Path (Join-Path $backup 'conf/*') -Destination (Join-Path $deployBase 'conf') -Recurse -Force }
-    if(Test-Path -LiteralPath (Join-Path $backup 'uploads')) { $failedUploads=Assert-ChildPath (Join-Path $backup 'uploads-after-failure') $backup;if(Test-Path -LiteralPath $deployUploads){Move-Item -LiteralPath $deployUploads -Destination $failedUploads};Copy-Item -LiteralPath (Join-Path $backup 'uploads') -Destination $deployUploads -Recurse }
+
     if (Test-Path -LiteralPath (Join-Path $backup 'ROOT.war')) { Copy-Item -LiteralPath (Join-Path $backup 'ROOT.war') -Destination $oldWar -Force }
     if (Test-Path -LiteralPath (Join-Path $backup 'ROOT')) { Move-Item -LiteralPath (Join-Path $backup 'ROOT') -Destination (Join-Path $deployBase 'webapps/ROOT') }
     $restored=Start-ReleaseTomcat $oldSha
     Wait-ReleaseHealth ''
     Assert-PublicHealth ''
+    $restoredTree=git rev-parse ($oldSha+'^{tree}')
+    [pscustomobject]@{sha=$oldSha;tree=$restoredTree;warHash=(Get-FileHash -LiteralPath $oldWar).Hash;pid=$restored.Id;backup=$backup;target=$Target;restored=$true;databasePreserved=$true;uploadsPreserved=$true;deployedAt=(Get-Date).ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $deploymentFile -Encoding utf8
     [pscustomobject]@{restored=$true;pid=$restored.Id;backup=$backup;at=(Get-Date).ToString('o');reason=$failure.Exception.Message} |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $backup 'rollback.json') -Encoding utf8
     Write-Output "Đã phục hồi bản cũ, health UP, PID $($restored.Id)."

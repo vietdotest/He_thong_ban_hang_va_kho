@@ -132,9 +132,9 @@ Mỗi command dùng actor, ID, expectedVersion, UUID và input nghiệp vụ. Qu
 
 Chạy `mvnw.cmd -B -ntp clean verify` bằng JDK17. MySQL Testcontainers dùng database tạm, Clock cố định và barrier cho các ca đồng thời. Các gate gồm nâng cấp V029 giữ snapshot/lịch sử, tồn5/hai đơn4, hạn mức/hai đơn tranh nhau, expiry/soạn, hàng chờ quay về, trả hỏng, dư có/concurrency/replay, tiền lẻ, rollback audit và sai role/kho/đại lý. Luồng số liệu chuẩn kết thúc tồn12, giữ0, cam kết0, nợ0, doanh số thuần800.000đ và thu800.000đ.
 
-`scripts/deploy-mvp.ps1` phát hành **develop**, kiểm evidence/WAR cùng cây code, cổng8081, container/volume hiện tại và đúng tiến trình Tomcat. Cấu hình và credentials giữ local dưới `.tools`; tài khoản migration riêng với runtime. Trước nâng cấp dừng đúng Tomcat, sao lưu DB/uploads/WAR/cấu hình, rồi `scripts/verify-mvp-backup.ps1` phục hồi SQL trên container tạm, thử nâng cấp và đối chiếu lịch sử/tổng tiền. Runtime chỉ validate schema. Nếu migration/health lỗi, phục hồi DB và WAR/cấu hình cũ trước khi bật lại. Mô phỏng lỗi chỉ dùng Preview với container tạm; không dùng public để diễn tập.
+`scripts/deploy-mvp.ps1` phát hành **main** sau khi tích hợp và kiểm thử develop, kiểm evidence/WAR cùng cây code, cổng8081, container/volume hiện tại và đúng tiến trình Tomcat. Cấu hình và credentials giữ local dưới `.tools`; tài khoản migration riêng với runtime. Trước nâng cấp dừng đúng Tomcat, sao lưu DB/uploads/WAR/cấu hình, rồi `scripts/verify-mvp-backup.ps1` phục hồi SQL trên container tạm, thử nâng cấp và đối chiếu lịch sử/tổng tiền. Runtime chỉ validate schema. Đợt bổ sung giá vốn dùng migration thêm cột nullable; khi health lỗi chỉ phục hồi WAR/cấu hình, giữ nguyên DB/uploads và giao dịch mới. Nếu schema không tương thích với WAR cũ, giữ web dừng và xử lý tiến; không tự phục hồi DB từ backup. Mô phỏng lỗi chỉ dùng Preview với container tạm; không dùng public để diễn tập.
 
-Phần hoãn: mã vạch, PDF, FEFO/cảnh báo HSD, chuyển kho, kiểm kê, ảnh chứng từ, gộp soạn/giao/hóa đơn, đối trừ thủ công, Excel/biểu đồ/báo cáo nâng cao và cổng tải hóa đơn. Trang in MVP dùng HTML.
+Phần hoãn: mã vạch, PDF, FEFO/cảnh báo HSD, chuyển kho, kiểm kê, ảnh chứng từ, gộp soạn/giao/hóa đơn, đối trừ thủ công, Excel ngoài sổ công nợ, biểu đồ và báo cáo nâng cao ngoài biên lợi nhuận và cổng tải hóa đơn. Trang in MVP dùng HTML.
 
 ## Kiểm thử và phát hành nền UI
 
@@ -143,3 +143,12 @@ Phần hoãn: mã vạch, PDF, FEFO/cảnh báo HSD, chuyển kho, kiểm kê, �
 Bộ ảnh ở `scripts/visual` dùng Playwright Linux đã ghim, năm cỡ màn hình và ngưỡng khác biệt 1%. Đặt `UI_REVIEW_CANDIDATE=1` để lưu ảnh ứng viên riêng trong `.tools/ui-evidence/candidate`; chỉ cập nhật ảnh chuẩn trong `__screenshots__` sau khi người dùng duyệt.
 
 Phát hành giao diện dùng `scripts/deploy-mvp.ps1 -UiOnly`. Preview nhận nhánh UI hoặc nhánh tích hợp; Public yêu cầu `main` đã nghiệm thu. Script kiểm migration giữa hai SHA, validate checksum và migration chờ, giữ `MIGRATION_ENABLED=false`. Cả phục hồi tự động khi health lỗi và `-RollbackWar` chỉ thay WAR, giữ database, uploads và cấu hình. Luồng phát hành có thay đổi schema tiếp tục dùng quy trình MVP riêng ở trên.
+
+## Bổ sung sau MVP: đơn, tồn và báo cáo
+
+- Danh sách đơn lọc đại lý, người đang phụ trách, khu vực và ngày tạo theo Việt Nam; tổng giá trị mọi kết quả loại nháp/hủy/từ chối, không phải doanh thu.
+- Tồn lọc nhóm gồm nhóm con và trạng thái còn/hết khả dụng trên các cặp SKU/kho đang được theo dõi. Chưa có định mức cảnh báo sắp hết.
+- Công nợ chia tuổi theo hạn thanh toán tại ngày hiện tại: chưa đến hạn, đến hạn hôm nay, 1–30, 31–60, 61–90 và trên 90 ngày quá hạn. Excel theo đúng phạm vi và bộ lọc, tiền là ô số.
+- Giá vốn danh mục/đơn vị cơ sở được chốt khi xuất. Hóa đơn dùng lượng thực nhận; giảm trừ trả hàng tốt/hỏng đảo giá vốn gốc. Lãi gộp bán hàng chưa tính tổn thất hỏng và chi phí vận hành. Chỉ SALES_MANAGER có COST_READ nhận chỉ tiêu giá vốn/lãi gộp/biên từ server.
+- Không điền ngược giá vốn hiện tại vào chứng từ cũ. Thiếu snapshot thì hiển thị thiếu giá vốn lịch sử, không công bố biên toàn nhóm/kỳ như dữ liệu đầy đủ.
+- S8-06 đầy đủ còn nhóm theo nhiều chiều, sản lượng, so sánh kỳ trước và Excel doanh số; các mục này vẫn hoãn, không coi bổ sung biên lợi nhuận là hoàn thành toàn bộ story.

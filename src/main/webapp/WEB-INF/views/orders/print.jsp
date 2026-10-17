@@ -1,9 +1,10 @@
+<%@ taglib prefix="display" uri="urn:codegym:display" %>
 <%@ page contentType="text/html;charset=UTF-8" %><%@ taglib prefix="c" uri="jakarta.tags.core" %><%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %><fmt:setLocale value="vi_VN"/>
 <layout:page title="In đơn hàng" view="orders/print" bodyClass="document-print" css="mvp" bare="true">
 <jsp:attribute name="head"><script defer src="${pageContext.request.contextPath}/assets/js/mvp-receipts.js?v=${applicationScope.assetVersion}"></script></jsp:attribute>
 <jsp:body>
 <main class="content-panel padded-panel"><h1>Đơn hàng <c:out value="${order.number}"/></h1>
-<p>Ngày lập: <c:out value="${order.created_at}"/> · Ngày giá: <c:out value="${order.pricing_date}"/> · Ngày giao mong muốn: <c:out value="${order.desired_delivery}"/></p>
+<p>Ngày lập: <c:out value="${display:time(order.created_at)}"/> · Ngày giá: <c:out value="${order.pricing_date}"/> · Ngày giao mong muốn: <c:out value="${order.desired_delivery}"/></p>
 <p>Đại lý: <c:out value="${order.dealer_code_snapshot}"/> — <c:out value="${order.dealer_name_snapshot}"/></p>
 <p>Địa chỉ giao: <c:out value="${order.address_snapshot}"/></p><p>Người nhận: <c:out value="${order.recipient_snapshot}"/> · Điện thoại: <c:out value="${order.phone_snapshot}"/></p>
 <p>Kho: <c:out value="${order.warehouse_name_snapshot}"/> · Ghi chú: <c:out value="${order.directions_snapshot}"/></p>
