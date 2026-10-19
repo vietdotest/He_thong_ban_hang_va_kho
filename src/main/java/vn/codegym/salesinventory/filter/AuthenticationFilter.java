@@ -16,43 +16,58 @@ import vn.codegym.salesinventory.security.CurrentUser;
 import vn.codegym.salesinventory.security.SessionKeys;
 import vn.codegym.salesinventory.service.SessionService;
 
+/**
+ * S1-02: Kiểm tra phiên trước khi vào trang cần đăng nhập và xử lý phiên hết hạn.
+ */
 public final class AuthenticationFilter implements Filter {
+
     private SessionService sessionService;
 
-    public AuthenticationFilter() {
-    }
+    public AuthenticationFilter() {}
 
     AuthenticationFilter(SessionService sessionService) {
         this.sessionService = sessionService;
     }
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         if (sessionService != null) {
             return;
         }
-        Object configured = filterConfig.getServletContext().getAttribute(ApplicationContextKeys.SESSION_SERVICE);
+        Object configured =
+                filterConfig
+                        .getServletContext()
+                        .getAttribute(ApplicationContextKeys.SESSION_SERVICE);
         if (!(configured instanceof SessionService configuredService)) {
             throw new ServletException("Session service is not initialized");
         }
         sessionService = configuredService;
     }
 
+    // Kiểm phiên đăng nhập và chuyển về trang đăng nhập khi phiên không hợp lệ.
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
         HttpServletRequest httpRequest = (HttpServletRequest) request;
         HttpServletResponse httpResponse = (HttpServletResponse) response;
-        String path = httpRequest.getRequestURI() == null ? "" : httpRequest.getRequestURI().substring(httpRequest.getContextPath().length());
-        if (vn.codegym.salesinventory.security.RoutePermissions.publicPath(path)) { chain.doFilter(request,response); return; }
+        String path =
+                httpRequest.getRequestURI() == null
+                        ? ""
+                        : httpRequest
+                                .getRequestURI()
+                                .substring(httpRequest.getContextPath().length());
+        if (vn.codegym.salesinventory.security.RoutePermissions.publicPath(path)) {
+            chain.doFilter(request, response);
+            return;
+        }
         HttpSession session = httpRequest.getSession(false);
-        Object currentUser = session == null ? null : session.getAttribute(SessionKeys.CURRENT_USER);
-
+        Object currentUser =
+                session == null ? null : session.getAttribute(SessionKeys.CURRENT_USER);
         if (!(currentUser instanceof CurrentUser) || sessionService == null) {
             redirectToLogin(httpRequest, httpResponse, false);
             return;
         }
-
         SessionValidationResult validation;
         try {
             validation = sessionService.validate(session.getId());
@@ -67,7 +82,6 @@ public final class AuthenticationFilter implements Filter {
         CurrentUser refreshedUser = validation.currentUser();
         session.setAttribute(SessionKeys.CURRENT_USER, refreshedUser);
         session.setAttribute(SessionKeys.SERVER_SESSION_ID, validation.serverSessionId());
-
         httpResponse.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
         httpResponse.setHeader("Pragma", "no-cache");
         String requestPath = httpRequest.getRequestURI();
@@ -75,19 +89,20 @@ public final class AuthenticationFilter implements Filter {
                 && !requestPath.equals(httpRequest.getContextPath() + "/account/change-password")
                 && !requestPath.equals(httpRequest.getContextPath() + "/logout")) {
             httpResponse.setStatus(HttpServletResponse.SC_SEE_OTHER);
-            httpResponse.setHeader("Location", httpResponse.encodeRedirectURL(
-                    httpRequest.getContextPath() + "/account/change-password?required=true"));
+            httpResponse.setHeader(
+                    "Location",
+                    httpResponse.encodeRedirectURL(
+                            httpRequest.getContextPath()
+                                    + "/account/change-password?required=true"));
             return;
         }
         chain.doFilter(request, response);
     }
 
     private static void redirectToLogin(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            boolean expired
-    ) {
-        String location = request.getContextPath() + "/login" + (expired ? "?reason=session_expired" : "");
+            HttpServletRequest request, HttpServletResponse response, boolean expired) {
+        String location =
+                request.getContextPath() + "/login" + (expired ? "?reason=session_expired" : "");
         response.setStatus(HttpServletResponse.SC_SEE_OTHER);
         response.setHeader("Location", response.encodeRedirectURL(location));
     }

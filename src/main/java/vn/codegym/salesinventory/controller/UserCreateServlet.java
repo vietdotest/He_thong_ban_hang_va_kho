@@ -18,14 +18,22 @@ import vn.codegym.salesinventory.security.SessionKeys;
 import vn.codegym.salesinventory.service.UserManagementService;
 import vn.codegym.salesinventory.validation.UserAccountValidator;
 
+/**
+ * S1-08: Hiển thị biểu mẫu và nhận yêu cầu tạo tài khoản.
+ */
 public final class UserCreateServlet extends HttpServlet {
+
     private UserManagementService userManagementService;
+
     private CsrfTokenManager csrfTokenManager;
+
     private final UserAccountValidator validator = new UserAccountValidator();
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
-        Object service = getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE);
+        Object service =
+                getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE);
         Object csrf = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(service instanceof UserManagementService configuredService)
                 || !(csrf instanceof CsrfTokenManager configuredCsrf)) {
@@ -35,13 +43,16 @@ public final class UserCreateServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận yêu cầu xem tạo tài khoản.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        request.setAttribute("form", new UserAccountCommand("", "", "", "", "SALES", UserStatus.ACTIVE, 0));
+        request.setAttribute(
+                "form", new UserAccountCommand("", "", "", "", "SALES", UserStatus.ACTIVE, 0));
         render(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu tạo tài khoản.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -50,12 +61,19 @@ public final class UserCreateServlet extends HttpServlet {
         request.setAttribute("form", command);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
             render(request, response);
             return;
         }
         Map<String, String> errors = new LinkedHashMap<>(validator.validate(command));
-        if (command.roleCode().equals("WAREHOUSE") || command.roleCode().equals("WAREHOUSE_MANAGER")) { errors.put("roleCode", "Tạo hồ sơ với vai trò kinh doanh trước, sau đó gán vai trò kho cùng kho phụ trách tại Phân công."); }
+        if (command.roleCode().equals("WAREHOUSE")
+                || command.roleCode().equals("WAREHOUSE_MANAGER")) {
+            errors.put(
+                    "roleCode",
+                    "Tạo hồ sơ với vai trò kinh doanh trước, sau đó gán vai trò kho cùng kho phụ"
+                            + " trách tại Phân công.");
+        }
         if (!errors.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             request.setAttribute("errors", errors);
@@ -64,15 +82,19 @@ public final class UserCreateServlet extends HttpServlet {
         }
         CurrentUser actor = (CurrentUser) session.getAttribute(SessionKeys.CURRENT_USER);
         try {
-            UserManagementResult result = userManagementService.create(
-                    command, actor.id(), RequestMetadata.authenticationContext(request));
+            UserManagementResult result =
+                    userManagementService.create(
+                            command, actor.id(), RequestMetadata.authenticationContext(request));
             if (result.status() == UserManagementResult.Status.SUCCESS) {
-                RequestMetadata.seeOther(response, request.getContextPath() + "/admin/users?notice=created");
+                RequestMetadata.seeOther(
+                        response, request.getContextPath() + "/admin/users?notice=created");
                 return;
             }
             applyResult(result, errors, request);
-            response.setStatus(result.status() == UserManagementResult.Status.FORBIDDEN
-                    ? HttpServletResponse.SC_FORBIDDEN : HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(
+                    result.status() == UserManagementResult.Status.FORBIDDEN
+                            ? HttpServletResponse.SC_FORBIDDEN
+                            : HttpServletResponse.SC_BAD_REQUEST);
             request.setAttribute("errors", errors);
             render(request, response);
         } catch (RuntimeException exception) {
@@ -83,6 +105,7 @@ public final class UserCreateServlet extends HttpServlet {
         }
     }
 
+    // Hiển thị trang tạo tài khoản cùng dữ liệu đã chuẩn bị.
     private void render(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -90,9 +113,11 @@ public final class UserCreateServlet extends HttpServlet {
         request.setAttribute("currentUser", session.getAttribute(SessionKeys.CURRENT_USER));
         request.setAttribute("csrfToken", csrfTokenManager.getOrCreate(session));
         request.setAttribute("editing", false);
-        request.getRequestDispatcher("/WEB-INF/views/admin/users/form.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/admin/users/form.jsp")
+                .forward(request, response);
     }
 
+    // Gom dữ liệu biểu mẫu thành yêu cầu tạo hoặc sửa tài khoản.
     static UserAccountCommand commandFrom(HttpServletRequest request, long version) {
         UserStatus status;
         try {
@@ -107,24 +132,28 @@ public final class UserCreateServlet extends HttpServlet {
                 request.getParameter("phone"),
                 request.getParameter("roleCode"),
                 status,
-                version
-        );
+                version);
     }
 
+    // Lưu kết quả xử lý và cập nhật trạng thái của dòng nhập.
     static void applyResult(
-            UserManagementResult result,
-            Map<String, String> errors,
-            HttpServletRequest request
-    ) {
+            UserManagementResult result, Map<String, String> errors, HttpServletRequest request) {
         switch (result.status()) {
             case DUPLICATE_USERNAME -> errors.put("username", "Tên đăng nhập đã tồn tại.");
             case DUPLICATE_EMAIL -> errors.put("email", "Email đã được sử dụng.");
             case DUPLICATE_PHONE -> errors.put("phone", "Số điện thoại đã được sử dụng.");
             case INVALID_ROLE -> errors.put("roleCode", "Vai trò đã chọn không hợp lệ.");
-            case EMAIL_DELIVERY_FAILED -> request.setAttribute("formError",
-                    "Không gửi được email mật khẩu tạm nên tài khoản chưa được tạo. Vui lòng kiểm tra dịch vụ email.");
-            case FORBIDDEN -> request.setAttribute("formError", "Bạn không có quyền thực hiện thao tác này.");
-            default -> request.setAttribute("formError", "Không thể lưu tài khoản. Vui lòng tải lại trang và thử lại.");
+            case EMAIL_DELIVERY_FAILED ->
+                    request.setAttribute(
+                            "formError",
+                            "Không gửi được email mật khẩu tạm nên tài khoản chưa được tạo. Vui"
+                                    + " lòng kiểm tra dịch vụ email.");
+            case FORBIDDEN ->
+                    request.setAttribute("formError", "Bạn không có quyền thực hiện thao tác này.");
+            default ->
+                    request.setAttribute(
+                            "formError",
+                            "Không thể lưu tài khoản. Vui lòng tải lại trang và thử lại.");
         }
     }
 }

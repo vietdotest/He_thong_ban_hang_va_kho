@@ -3,9 +3,14 @@ package vn.codegym.salesinventory.validation;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * S2-02: Kiểm tra họ tên và số điện thoại khi cập nhật hồ sơ.
+ */
 public final class ProfileValidator {
-    private ProfileValidator() { }
 
+    private ProfileValidator() {}
+
+    // Kiểm tra dữ liệu trước khi tiếp tục xử lý.
     public static Map<String, String> validate(String name, String phone) {
         Map<String, String> errors = new LinkedHashMap<>();
         String trimmed = name == null ? "" : name.trim();

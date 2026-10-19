@@ -7,10 +7,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Set;
 
+/**
+ * Hạ tầng: Tạo nhóm kết nối cơ sở dữ liệu cho ứng dụng và migration.
+ */
 public final class DatabaseFactory {
-    private DatabaseFactory() {
-    }
 
+    private DatabaseFactory() {}
+
+    // Tạo nhóm kết nối dùng tài khoản chạy ứng dụng.
     public static HikariDataSource create(AppConfig.DatabaseSettings settings) {
         return create(settings, VietnamTime.ZONE.getId(), VietnamTime.OFFSET);
     }
@@ -20,7 +24,9 @@ public final class DatabaseFactory {
         return create(settings, "UTC", "+00:00");
     }
 
-    private static HikariDataSource create(AppConfig.DatabaseSettings settings, String zone, String offset) {
+    // Tạo nhóm kết nối dùng tài khoản chạy ứng dụng.
+    private static HikariDataSource create(
+            AppConfig.DatabaseSettings settings, String zone, String offset) {
         HikariConfig hikari = new HikariConfig();
         hikari.setPoolName("sales-inventory-pool");
         hikari.setDriverClassName("com.mysql.cj.jdbc.Driver");
@@ -36,15 +42,24 @@ public final class DatabaseFactory {
         return new HikariDataSource(hikari);
     }
 
+    // Bổ sung cấu hình múi giờ cho URL kết nối cơ sở dữ liệu.
     static String timeZoneUrl(String url, String zone) {
         int query = url.indexOf('?');
         String base = query < 0 ? url : url.substring(0, query);
         var parameters = new ArrayList<String>();
-        var overridden = Set.of("servertimezone", "connectiontimezone", "forceconnectiontimezonetosession", "preserveinstants");
+        var overridden =
+                Set.of(
+                        "servertimezone",
+                        "connectiontimezone",
+                        "forceconnectiontimezonetosession",
+                        "preserveinstants");
         if (query >= 0) {
             for (String parameter : url.substring(query + 1).split("&")) {
                 String key = URLDecoder.decode(parameter.split("=", 2)[0], StandardCharsets.UTF_8);
-                if (!parameter.isBlank() && !overridden.contains(key.toLowerCase(java.util.Locale.ROOT))) parameters.add(parameter);
+                if (!parameter.isBlank()
+                        && !overridden.contains(key.toLowerCase(java.util.Locale.ROOT))) {
+                    parameters.add(parameter);
+                }
             }
         }
         parameters.add("connectionTimeZone=" + zone);

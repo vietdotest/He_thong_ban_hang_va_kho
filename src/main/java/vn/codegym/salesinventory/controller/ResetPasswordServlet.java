@@ -11,14 +11,22 @@ import vn.codegym.salesinventory.security.CsrfTokenManager;
 import vn.codegym.salesinventory.service.PasswordResetService;
 import vn.codegym.salesinventory.validation.PasswordPolicy;
 
+/**
+ * S1-03: Nhận mã đặt lại mật khẩu và kiểm tra biểu mẫu mật khẩu mới.
+ */
 public final class ResetPasswordServlet extends HttpServlet {
+
     private PasswordResetService passwordResetService;
+
     private CsrfTokenManager csrfTokenManager;
+
     private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
-        Object resetService = getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE);
+        Object resetService =
+                getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE);
         Object csrf = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(resetService instanceof PasswordResetService configuredReset)
                 || !(csrf instanceof CsrfTokenManager configuredCsrf)) {
@@ -28,6 +36,7 @@ public final class ResetPasswordServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận yêu cầu xem đặt lại mật khẩu.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -35,9 +44,11 @@ public final class ResetPasswordServlet extends HttpServlet {
         request.setAttribute("token", token);
         request.setAttribute("tokenValid", passwordResetService.isUsable(token));
         request.setAttribute("csrfToken", csrfTokenManager.getOrCreate(request.getSession(true)));
-        request.getRequestDispatcher("/WEB-INF/views/auth/reset-password.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/auth/reset-password.jsp")
+                .forward(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu đặt lại mật khẩu.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -47,11 +58,11 @@ public final class ResetPasswordServlet extends HttpServlet {
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             request.setAttribute("tokenValid", passwordResetService.isUsable(token));
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
             render(request, response);
             return;
         }
-
         String newPassword = request.getParameter("newPassword");
         String confirmation = request.getParameter("confirmation");
         String passwordError = passwordPolicy.validate(newPassword);
@@ -65,7 +76,6 @@ public final class ResetPasswordServlet extends HttpServlet {
             render(request, response);
             return;
         }
-
         try {
             if (!passwordResetService.resetPassword(
                     token, newPassword, RequestMetadata.authenticationContext(request))) {
@@ -75,12 +85,14 @@ public final class ResetPasswordServlet extends HttpServlet {
                 return;
             }
             session.invalidate();
-            RequestMetadata.seeOther(response, request.getContextPath() + "/login?reason=password_reset");
+            RequestMetadata.seeOther(
+                    response, request.getContextPath() + "/login?reason=password_reset");
         } catch (RuntimeException exception) {
             getServletContext().log("Password reset could not be completed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             request.setAttribute("tokenValid", true);
-            request.setAttribute("formError", "Hệ thống chưa thể cập nhật mật khẩu. Vui lòng thử lại.");
+            request.setAttribute(
+                    "formError", "Hệ thống chưa thể cập nhật mật khẩu. Vui lòng thử lại.");
             render(request, response);
         }
     }
@@ -88,6 +100,7 @@ public final class ResetPasswordServlet extends HttpServlet {
     private void render(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         request.setAttribute("csrfToken", csrfTokenManager.getOrCreate(request.getSession(true)));
-        request.getRequestDispatcher("/WEB-INF/views/auth/reset-password.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/auth/reset-password.jsp")
+                .forward(request, response);
     }
 }

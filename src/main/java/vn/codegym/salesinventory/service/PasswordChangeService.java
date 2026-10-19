@@ -15,7 +15,12 @@ import vn.codegym.salesinventory.model.User;
 import vn.codegym.salesinventory.model.UserStatus;
 import vn.codegym.salesinventory.security.PasswordHasher;
 
+/**
+ * S1-04: Kiểm tra mật khẩu cũ, đổi mật khẩu và thu hồi các phiên đăng nhập khác.
+ */
 public final class PasswordChangeService {
+
+    // Liệt kê các kết quả có thể xảy ra khi đổi mật khẩu.
     public enum Result {
         SUCCESS,
         CURRENT_PASSWORD_INVALID,
@@ -24,10 +29,15 @@ public final class PasswordChangeService {
     }
 
     private final DataSource dataSource;
+
     private final UserRepository users;
+
     private final SessionRepository sessions;
+
     private final AuditLogRepository audits;
+
     private final PasswordHasher passwordHasher;
+
     private final Clock clock;
 
     public PasswordChangeService(
@@ -36,8 +46,7 @@ public final class PasswordChangeService {
             SessionRepository sessions,
             AuditLogRepository audits,
             PasswordHasher passwordHasher,
-            Clock clock
-    ) {
+            Clock clock) {
         this.dataSource = dataSource;
         this.users = users;
         this.sessions = sessions;
@@ -46,13 +55,13 @@ public final class PasswordChangeService {
         this.clock = clock;
     }
 
+    // Kiểm mật khẩu hiện tại, lưu mật khẩu mới và thu hồi các phiên khác.
     public Result change(
             long userId,
             String currentSessionId,
             String currentPassword,
             String newPassword,
-            AuthenticationContext context
-    ) {
+            AuthenticationContext context) {
         Instant now = clock.instant();
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
@@ -64,8 +73,14 @@ public final class PasswordChangeService {
                 }
                 User user = found.get();
                 if (!passwordHasher.matches(currentPassword, user.passwordHash())) {
-                    audits.record(connection, userId, "PASSWORD_CHANGE_REJECTED", "reason=CURRENT_PASSWORD_INVALID",
-                            context.ipAddress(), context.userAgent(), now);
+                    audits.record(
+                            connection,
+                            userId,
+                            "PASSWORD_CHANGE_REJECTED",
+                            "reason=CURRENT_PASSWORD_INVALID",
+                            context.ipAddress(),
+                            context.userAgent(),
+                            now);
                     connection.commit();
                     return Result.CURRENT_PASSWORD_INVALID;
                 }
@@ -74,9 +89,16 @@ public final class PasswordChangeService {
                     return Result.NEW_PASSWORD_UNCHANGED;
                 }
                 users.updatePassword(connection, userId, passwordHasher.hash(newPassword));
-                sessions.revokeOtherForUser(connection, userId, currentSessionId, now, "PASSWORD_CHANGED");
-                audits.record(connection, userId, "PASSWORD_CHANGED", "otherSessionsRevoked=true",
-                        context.ipAddress(), context.userAgent(), now);
+                sessions.revokeOtherForUser(
+                        connection, userId, currentSessionId, now, "PASSWORD_CHANGED");
+                audits.record(
+                        connection,
+                        userId,
+                        "PASSWORD_CHANGED",
+                        "otherSessionsRevoked=true",
+                        context.ipAddress(),
+                        context.userAgent(),
+                        now);
                 connection.commit();
                 return Result.SUCCESS;
             } catch (SQLException | RuntimeException exception) {
@@ -88,6 +110,7 @@ public final class PasswordChangeService {
         }
     }
 
+    // Hoàn tác giao dịch và giữ lại lỗi gốc nếu hoàn tác gặp lỗi.
     private static void rollbackQuietly(Connection connection) {
         try {
             connection.rollback();

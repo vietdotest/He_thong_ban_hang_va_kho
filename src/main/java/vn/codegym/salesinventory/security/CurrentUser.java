@@ -5,16 +5,19 @@ import java.io.Serializable;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * S1-01, S1-02: Chứa danh tính và vai trò của người đang đăng nhập trong phiên.
+ */
 public record CurrentUser(
         long id,
         String username,
         String email,
         String fullName,
         Set<String> roleCodes,
-        boolean mustChangePassword
-) implements Serializable {
-    @Serial
-    private static final long serialVersionUID = 1L;
+        boolean mustChangePassword)
+        implements Serializable {
+
+    @Serial private static final long serialVersionUID = 1L;
 
     public CurrentUser {
         roleCodes = roleCodes == null ? Set.of() : Set.copyOf(roleCodes);

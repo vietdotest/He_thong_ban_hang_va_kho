@@ -2,7 +2,12 @@ package vn.codegym.salesinventory.dto;
 
 import vn.codegym.salesinventory.security.CurrentUser;
 
-public record SessionValidationResult(boolean valid, CurrentUser currentUser, String serverSessionId) {
+/**
+ * S1-02: Trả kết quả kiểm tra phiên và lý do phiên không còn hợp lệ.
+ */
+public record SessionValidationResult(
+        boolean valid, CurrentUser currentUser, String serverSessionId) {
+
     public static SessionValidationResult valid(CurrentUser user, String serverSessionId) {
         return new SessionValidationResult(true, user, serverSessionId);
     }

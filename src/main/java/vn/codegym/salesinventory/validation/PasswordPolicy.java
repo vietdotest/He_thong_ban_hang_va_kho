@@ -1,9 +1,15 @@
 package vn.codegym.salesinventory.validation;
 
+/**
+ * S1-03, S1-04: Kiểm tra mật khẩu mới theo quy tắc của ứng dụng.
+ */
 public final class PasswordPolicy {
+
     public static final int MIN_LENGTH = 8;
+
     public static final int MAX_LENGTH = 72;
 
+    // Kiểm tra dữ liệu trước khi tiếp tục xử lý.
     public String validate(String password) {
         if (password == null || password.isBlank()) {
             return "Vui lòng nhập mật khẩu mới.";

@@ -3,6 +3,9 @@ package vn.codegym.salesinventory.dto;
 import java.util.Locale;
 import vn.codegym.salesinventory.model.UserStatus;
 
+/**
+ * S1-08: Mang dữ liệu đầu vào khi tạo hoặc sửa tài khoản.
+ */
 public record UserAccountCommand(
         String username,
         String email,
@@ -10,8 +13,8 @@ public record UserAccountCommand(
         String phone,
         String roleCode,
         UserStatus status,
-        long version
-) {
+        long version) {
+
     public UserAccountCommand {
         username = trim(username);
         email = trim(email);
@@ -29,6 +32,7 @@ public record UserAccountCommand(
         return email.toLowerCase(Locale.ROOT);
     }
 
+    // Chuẩn hóa số điện thoại trước khi kiểm tra hoặc lưu tài khoản.
     public String normalizedPhone() {
         String digits = phone.replaceAll("[^0-9+]", "");
         return digits.startsWith("+84") ? "0" + digits.substring(3) : digits;

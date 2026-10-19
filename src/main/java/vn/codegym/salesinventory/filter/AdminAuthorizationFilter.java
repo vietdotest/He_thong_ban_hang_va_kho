@@ -12,7 +12,12 @@ import java.io.IOException;
 import vn.codegym.salesinventory.security.CurrentUser;
 import vn.codegym.salesinventory.security.SessionKeys;
 
+/**
+ * S1-05: Chặn yêu cầu nếu người dùng không có vai trò ADMIN; chỉ có tác dụng khi được ánh xạ.
+ */
 public final class AdminAuthorizationFilter implements Filter {
+
+    // Chặn yêu cầu nếu phiên không có người dùng với vai trò ADMIN.
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -21,7 +26,8 @@ public final class AdminAuthorizationFilter implements Filter {
         HttpSession session = httpRequest.getSession(false);
         Object principal = session == null ? null : session.getAttribute(SessionKeys.CURRENT_USER);
         if (!(principal instanceof CurrentUser user) || !user.hasRole("ADMIN")) {
-            httpResponse.sendError(HttpServletResponse.SC_FORBIDDEN,
+            httpResponse.sendError(
+                    HttpServletResponse.SC_FORBIDDEN,
                     "Bạn không có quyền truy cập chức năng quản trị người dùng.");
             return;
         }

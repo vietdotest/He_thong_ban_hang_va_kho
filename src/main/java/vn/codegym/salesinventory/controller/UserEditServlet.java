@@ -19,14 +19,22 @@ import vn.codegym.salesinventory.security.SessionKeys;
 import vn.codegym.salesinventory.service.UserManagementService;
 import vn.codegym.salesinventory.validation.UserAccountValidator;
 
+/**
+ * S1-08: Hiển thị thông tin và nhận yêu cầu sửa tài khoản.
+ */
 public final class UserEditServlet extends HttpServlet {
+
     private UserManagementService userManagementService;
+
     private CsrfTokenManager csrfTokenManager;
+
     private final UserAccountValidator validator = new UserAccountValidator();
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
-        Object service = getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE);
+        Object service =
+                getServletContext().getAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE);
         Object csrf = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(service instanceof UserManagementService configuredService)
                 || !(csrf instanceof CsrfTokenManager configuredCsrf)) {
@@ -36,6 +44,7 @@ public final class UserEditServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận yêu cầu xem sửa tài khoản.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -47,12 +56,20 @@ public final class UserEditServlet extends HttpServlet {
         }
         ManagedUser user = found.get();
         request.setAttribute("userId", user.id());
-        request.setAttribute("form", new UserAccountCommand(
-                user.username(), user.email(), user.fullName(), user.phone(), user.roleCode(), user.status(),
-                user.version()));
+        request.setAttribute(
+                "form",
+                new UserAccountCommand(
+                        user.username(),
+                        user.email(),
+                        user.fullName(),
+                        user.phone(),
+                        user.roleCode(),
+                        user.status(),
+                        user.version()));
         render(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu sửa tài khoản.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -60,13 +77,26 @@ public final class UserEditServlet extends HttpServlet {
         long userId = positiveLong(request.getParameter("id"));
         long version = nonNegativeLong(request.getParameter("version"));
         UserAccountCommand submitted = UserCreateServlet.commandFrom(request, version);
-        ManagedUser existing = userManagementService.find(userId).orElseThrow(() -> new IllegalArgumentException("Không tìm thấy tài khoản."));
-        UserAccountCommand command=new UserAccountCommand(submitted.username(),submitted.email(),submitted.fullName(),submitted.phone(),existing.roleCode(),existing.status(),submitted.version());
+        ManagedUser existing =
+                userManagementService
+                        .find(userId)
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Không tìm thấy tài khoản."));
+        UserAccountCommand command =
+                new UserAccountCommand(
+                        submitted.username(),
+                        submitted.email(),
+                        submitted.fullName(),
+                        submitted.phone(),
+                        existing.roleCode(),
+                        existing.status(),
+                        submitted.version());
         request.setAttribute("userId", userId);
         request.setAttribute("form", command);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
             render(request, response);
             return;
         }
@@ -79,10 +109,15 @@ public final class UserEditServlet extends HttpServlet {
         }
         CurrentUser actor = (CurrentUser) session.getAttribute(SessionKeys.CURRENT_USER);
         try {
-            UserManagementResult result = userManagementService.update(
-                    userId, command, actor.id(), RequestMetadata.authenticationContext(request));
+            UserManagementResult result =
+                    userManagementService.update(
+                            userId,
+                            command,
+                            actor.id(),
+                            RequestMetadata.authenticationContext(request));
             if (result.status() == UserManagementResult.Status.SUCCESS) {
-                RequestMetadata.seeOther(response, request.getContextPath() + "/admin/users?notice=updated");
+                RequestMetadata.seeOther(
+                        response, request.getContextPath() + "/admin/users?notice=updated");
                 return;
             }
             if (result.status() == UserManagementResult.Status.NOT_FOUND) {
@@ -90,24 +125,31 @@ public final class UserEditServlet extends HttpServlet {
                 return;
             }
             if (result.status() == UserManagementResult.Status.SELF_PROTECTION) {
-                request.setAttribute("formError", "Bạn không thể tự khóa tài khoản hoặc tự gỡ quyền quản trị.");
+                request.setAttribute(
+                        "formError", "Bạn không thể tự khóa tài khoản hoặc tự gỡ quyền quản trị.");
             } else if (result.status() == UserManagementResult.Status.STALE_UPDATE) {
-                request.setAttribute("formError", "Tài khoản vừa được người khác cập nhật. Vui lòng tải lại trước khi sửa.");
+                request.setAttribute(
+                        "formError",
+                        "Tài khoản vừa được người khác cập nhật. Vui lòng tải lại trước khi sửa.");
             } else {
                 UserCreateServlet.applyResult(result, errors, request);
             }
-            response.setStatus(result.status() == UserManagementResult.Status.FORBIDDEN
-                    ? HttpServletResponse.SC_FORBIDDEN : HttpServletResponse.SC_BAD_REQUEST);
+            response.setStatus(
+                    result.status() == UserManagementResult.Status.FORBIDDEN
+                            ? HttpServletResponse.SC_FORBIDDEN
+                            : HttpServletResponse.SC_BAD_REQUEST);
             request.setAttribute("errors", errors);
             render(request, response);
         } catch (RuntimeException exception) {
             getServletContext().log("User could not be updated", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            request.setAttribute("formError", "Hệ thống chưa thể cập nhật tài khoản. Vui lòng thử lại.");
+            request.setAttribute(
+                    "formError", "Hệ thống chưa thể cập nhật tài khoản. Vui lòng thử lại.");
             render(request, response);
         }
     }
 
+    // Hiển thị trang sửa tài khoản cùng dữ liệu đã chuẩn bị.
     private void render(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
@@ -115,7 +157,8 @@ public final class UserEditServlet extends HttpServlet {
         request.setAttribute("currentUser", session.getAttribute(SessionKeys.CURRENT_USER));
         request.setAttribute("csrfToken", csrfTokenManager.getOrCreate(session));
         request.setAttribute("editing", true);
-        request.getRequestDispatcher("/WEB-INF/views/admin/users/form.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/admin/users/form.jsp")
+                .forward(request, response);
     }
 
     private static long positiveLong(String value) {
@@ -123,6 +166,7 @@ public final class UserEditServlet extends HttpServlet {
         return parsed > 0 ? parsed : -1;
     }
 
+    // Đọc phiên bản dữ liệu và từ chối giá trị âm hoặc sai định dạng.
     private static long nonNegativeLong(String value) {
         try {
             return Math.max(0, Long.parseLong(value));

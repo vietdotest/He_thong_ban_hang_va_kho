@@ -1,33 +1,83 @@
 package vn.codegym.salesinventory.controller;
+
 import jakarta.servlet.http.*;
 import vn.codegym.salesinventory.service.CategoryService;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * S2-06: Hiển thị và xử lý biểu mẫu quản lý nhóm hàng.
+ */
 public final class CategoryServlet extends PortalServlet {
+
     private final CategoryService configured;
-    public CategoryServlet() { configured=null; }
-    CategoryServlet(CategoryService configured) { this.configured=configured; }
-    private CategoryService service() { return configured==null?new CategoryService(source()):configured; }
-    private void options(HttpServletRequest r){var tree=service().tree(actor(r).id(),value(r,"q"));r.setAttribute("categories",tree);r.setAttribute("categoryCount",tree.size());r.setAttribute("categoryReturn",returnPath(r));}
-    private static String returnPath(HttpServletRequest r){return "/catalog/categories?q="+URLEncoder.encode(value(r,"q"),StandardCharsets.UTF_8);}
-    protected void get(HttpServletRequest r,HttpServletResponse s)throws Exception {
-        access(r).require("CATALOG_READ");
-        options(r);
-        if(!value(r,"id").isEmpty())r.setAttribute("edit",service().find(actor(r).id(),number(r,"id")));
-        view(r,s,"catalog/categories");
+
+    public CategoryServlet() {
+        configured = null;
     }
-    protected void post(HttpServletRequest r,HttpServletResponse s)throws Exception {
-        access(r).require("PRODUCT_MANAGE");
-        var form=formValues(r,"id","version","code","name","parent");form.put("parent_id",form.remove("parent"));
+
+    CategoryServlet(CategoryService configured) {
+        this.configured = configured;
+    }
+
+    private CategoryService service() {
+        return configured == null ? new CategoryService(source()) : configured;
+    }
+
+    // Lấy các lựa chọn cần dùng trên biểu mẫu nhóm hàng.
+    private void options(HttpServletRequest request) {
+        var tree = service().tree(actor(request).id(), value(request, "q"));
+        request.setAttribute("categories", tree);
+        request.setAttribute("categoryCount", tree.size());
+        request.setAttribute("categoryReturn", returnPath(request));
+    }
+
+    private static String returnPath(HttpServletRequest request) {
+        return "/catalog/categories?q="
+                + URLEncoder.encode(value(request, "q"), StandardCharsets.UTF_8);
+    }
+
+    // Nạp dữ liệu và hiển thị trang nhóm hàng.
+    protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        access(request).require("CATALOG_READ");
+        options(request);
+        if (!value(request, "id").isEmpty()) {
+            request.setAttribute(
+                    "edit", service().find(actor(request).id(), number(request, "id")));
+        }
+        view(request, response, "catalog/categories");
+    }
+
+    // Tiếp nhận và xử lý thay đổi nhóm hàng.
+    protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        access(request).require("PRODUCT_MANAGE");
+        var form = formValues(request, "id", "version", "code", "name", "parent");
+        form.put("parent_id", form.remove("parent"));
         try {
-            long id=value(r,"id").isEmpty()?0:number(r,"id");
-            if(value(r,"action").equals("delete"))service().delete(actor(r).id(),id);
-            else service().save(actor(r).id(),id,value(r,"code"),value(r,"name"),value(r,"parent").isEmpty()?null:number(r,"parent"),value(r,"version").isEmpty()?0:number(r,"version"));
-            redirect(r,s,returnPath(r)+"&notice=saved");
-        } catch(IllegalArgumentException invalid) {
-            s.setStatus(400);r.setAttribute("edit",form);r.setAttribute("errors",fieldErrors(invalid));
-            options(r);view(r,s,"catalog/categories");
+            long id = value(request, "id").isEmpty() ? 0 : number(request, "id");
+            if (value(request, "action").equals("delete")) {
+                service().delete(actor(request).id(), id);
+            } else {
+                service()
+                        .save(
+                                actor(request).id(),
+                                id,
+                                value(request, "code"),
+                                value(request, "name"),
+                                value(request, "parent").isEmpty()
+                                        ? null
+                                        : number(request, "parent"),
+                                value(request, "version").isEmpty()
+                                        ? 0
+                                        : number(request, "version"));
+            }
+            redirect(request, response, returnPath(request) + "&notice=saved");
+        } catch (IllegalArgumentException invalid) {
+            response.setStatus(400);
+            request.setAttribute("edit", form);
+            request.setAttribute("errors", fieldErrors(invalid));
+            options(request);
+            view(request, response, "catalog/categories");
         }
     }
 }

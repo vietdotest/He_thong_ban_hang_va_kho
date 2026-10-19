@@ -5,15 +5,33 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import vn.codegym.salesinventory.config.VietnamTime;
 
+/**
+ * Dùng chung: Định dạng ngày giờ theo múi giờ Việt Nam cho giao diện.
+ */
 public final class TimeDisplay {
-    private static final DateTimeFormatter FORMAT=DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-    private TimeDisplay() { }
+
+    private static final DateTimeFormatter FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+
+    private TimeDisplay() {}
+
+    // Định dạng giá trị để hiển thị trên giao diện.
     public static String format(Object value) {
-        if(value==null)return "";
-        if(value instanceof Timestamp stamp)return FORMAT.format(stamp.toInstant().atZone(VietnamTime.ZONE));
-        if(value instanceof Instant instant)return FORMAT.format(instant.atZone(VietnamTime.ZONE));
-        if(value instanceof LocalDateTime local)return FORMAT.format(local);
-        if(value instanceof OffsetDateTime offset)return FORMAT.format(offset.atZoneSameInstant(VietnamTime.ZONE));
+        if (value == null) {
+            return "";
+        }
+        if (value instanceof Timestamp stamp) {
+            return FORMAT.format(stamp.toInstant().atZone(VietnamTime.ZONE));
+        }
+        if (value instanceof Instant instant) {
+            return FORMAT.format(instant.atZone(VietnamTime.ZONE));
+        }
+        if (value instanceof LocalDateTime local) {
+            return FORMAT.format(local);
+        }
+        if (value instanceof OffsetDateTime offset) {
+            return FORMAT.format(offset.atZoneSameInstant(VietnamTime.ZONE));
+        }
         return value.toString();
     }
 }

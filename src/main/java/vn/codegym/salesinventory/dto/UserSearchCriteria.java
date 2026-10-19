@@ -2,7 +2,12 @@ package vn.codegym.salesinventory.dto;
 
 import java.util.Locale;
 
-public record UserSearchCriteria(String keyword, String roleCode, String status, int page, int pageSize) {
+/**
+ * S1-08: Gom từ khóa, bộ lọc và trang khi tìm tài khoản.
+ */
+public record UserSearchCriteria(
+        String keyword, String roleCode, String status, int page, int pageSize) {
+
     public static final int PAGE_SIZE = 20;
 
     public UserSearchCriteria {

@@ -6,8 +6,13 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
+/**
+ * Dùng chung: Tạo, đổi và kiểm tra mã chống giả mạo yêu cầu gửi từ biểu mẫu.
+ */
 public final class CsrfTokenManager {
+
     private static final int TOKEN_BYTES = 32;
+
     private final SecureRandom secureRandom;
 
     public CsrfTokenManager() {
@@ -18,6 +23,7 @@ public final class CsrfTokenManager {
         this.secureRandom = secureRandom;
     }
 
+    // Lấy mã CSRF trong phiên hoặc tạo mã mới nếu chưa có.
     public String getOrCreate(HttpSession session) {
         Object existing = session.getAttribute(SessionKeys.CSRF_TOKEN);
         if (existing instanceof String token && !token.isBlank()) {
@@ -30,6 +36,7 @@ public final class CsrfTokenManager {
         return token;
     }
 
+    // Kiểm tra mã xác nhận có khớp dữ liệu lưu trong phiên.
     public boolean isValid(HttpSession session, String submittedToken) {
         if (session == null || submittedToken == null) {
             return false;
@@ -40,10 +47,10 @@ public final class CsrfTokenManager {
         }
         return MessageDigest.isEqual(
                 expectedToken.getBytes(StandardCharsets.UTF_8),
-                submittedToken.getBytes(StandardCharsets.UTF_8)
-        );
+                submittedToken.getBytes(StandardCharsets.UTF_8));
     }
 
+    // Thay mã CSRF hiện tại bằng mã mới.
     public void rotate(HttpSession session) {
         session.removeAttribute(SessionKeys.CSRF_TOKEN);
         getOrCreate(session);

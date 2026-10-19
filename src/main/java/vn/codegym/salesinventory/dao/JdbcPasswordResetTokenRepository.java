@@ -9,7 +9,12 @@ import java.time.Instant;
 import java.util.Optional;
 import vn.codegym.salesinventory.model.PasswordResetToken;
 
+/**
+ * S1-03: Thực hiện truy vấn SQL cho mã đặt lại mật khẩu, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcPasswordResetTokenRepository implements PasswordResetTokenRepository {
+
+    // Tạo mã đặt lại mật khẩu từ dữ liệu đầu vào.
     @Override
     public void create(
             Connection connection,
@@ -17,9 +22,10 @@ public final class JdbcPasswordResetTokenRepository implements PasswordResetToke
             String tokenHash,
             Instant requestedAt,
             Instant expiresAt,
-            String requestedIp
-    ) throws SQLException {
-        String sql = """
+            String requestedIp)
+            throws SQLException {
+        String sql =
+                """
                 INSERT INTO password_reset_tokens
                     (user_id, token_hash, requested_at, expires_at, requested_ip)
                 VALUES (?, ?, ?, ?, ?)
@@ -34,10 +40,12 @@ public final class JdbcPasswordResetTokenRepository implements PasswordResetToke
         }
     }
 
+    // Tìm và khóa mã xác nhận đã băm để kiểm tra, sử dụng.
     @Override
     public Optional<PasswordResetToken> findForUpdateByHash(Connection connection, String tokenHash)
             throws SQLException {
-        String sql = """
+        String sql =
+                """
                 SELECT id, user_id, expires_at, used_at
                 FROM password_reset_tokens
                 WHERE token_hash = ?
@@ -51,30 +59,37 @@ public final class JdbcPasswordResetTokenRepository implements PasswordResetToke
                     return Optional.empty();
                 }
                 Timestamp usedAt = resultSet.getTimestamp("used_at");
-                return Optional.of(new PasswordResetToken(
-                        resultSet.getLong("id"),
-                        resultSet.getLong("user_id"),
-                        resultSet.getTimestamp("expires_at").toInstant(),
-                        usedAt == null ? null : usedAt.toInstant()
-                ));
+                return Optional.of(
+                        new PasswordResetToken(
+                                resultSet.getLong("id"),
+                                resultSet.getLong("user_id"),
+                                resultSet.getTimestamp("expires_at").toInstant(),
+                                usedAt == null ? null : usedAt.toInstant()));
             }
         }
     }
 
+    // Đánh dấu mã xác nhận đã được sử dụng.
     @Override
     public void markUsed(Connection connection, long id, Instant usedAt) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "UPDATE password_reset_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL")) {
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "UPDATE password_reset_tokens SET used_at = ? WHERE id = ? AND used_at IS"
+                                + " NULL")) {
             statement.setTimestamp(1, Timestamp.from(usedAt));
             statement.setLong(2, id);
             statement.executeUpdate();
         }
     }
 
+    // Vô hiệu hóa các mã xác nhận chưa dùng của người dùng.
     @Override
-    public void invalidateUnusedForUser(Connection connection, long userId, Instant usedAt) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL")) {
+    public void invalidateUnusedForUser(Connection connection, long userId, Instant usedAt)
+            throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at"
+                                + " IS NULL")) {
             statement.setTimestamp(1, Timestamp.from(usedAt));
             statement.setLong(2, userId);
             statement.executeUpdate();

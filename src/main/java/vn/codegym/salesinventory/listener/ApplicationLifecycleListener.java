@@ -28,14 +28,21 @@ import vn.codegym.salesinventory.service.SessionService;
 import vn.codegym.salesinventory.service.SmtpMailService;
 import vn.codegym.salesinventory.service.UserManagementService;
 
+/**
+ * Hạ tầng: Khởi tạo kết nối, service, tác vụ nền và đóng tài nguyên khi ứng dụng dừng.
+ */
 public final class ApplicationLifecycleListener implements ServletContextListener {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ApplicationLifecycleListener.class);
 
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(ApplicationLifecycleListener.class);
+
+    // Khởi tạo các thành phần khi ứng dụng bắt đầu chạy.
     @Override
     public void contextInitialized(ServletContextEvent event) {
         ServletContext servletContext = event.getServletContext();
         AppConfig config = AppConfig.load();
-        vn.codegym.salesinventory.config.SchemaMigration.initialize(config.database(),config.migration(),config.flywayLocations());
+        vn.codegym.salesinventory.config.SchemaMigration.initialize(
+                config.database(), config.migration(), config.flywayLocations());
         HikariDataSource dataSource = DatabaseFactory.create(config.database());
         try {
             Clock clock = Clock.system(vn.codegym.salesinventory.config.VietnamTime.ZONE);
@@ -44,67 +51,90 @@ public final class ApplicationLifecycleListener implements ServletContextListene
             JdbcSessionRepository sessions = new JdbcSessionRepository();
             BCryptPasswordHasher passwordHasher = new BCryptPasswordHasher();
             SmtpMailService mailService = new SmtpMailService(config.mail());
-            AuthenticationService authenticationService = new AuthenticationService(
-                    dataSource,
-                    users,
-                    new JdbcLoginAttemptRepository(),
-                    audits,
-                    passwordHasher,
-                    clock
-            );
-            SessionService sessionService = new SessionService(
-                    dataSource,
-                    sessions,
-                    audits,
-                    clock,
-                    Duration.ofMinutes(config.session().idleTimeoutMinutes()),
-                    Duration.ofHours(config.session().absoluteTimeoutHours())
-            );
-            PasswordResetService passwordResetService = new PasswordResetService(
-                    dataSource,
-                    users,
-                    new JdbcPasswordResetTokenRepository(),
-                    sessions,
-                    audits,
-                    passwordHasher,
-                    mailService,
-                    new SecureTokenGenerator(),
-                    clock,
-                    Duration.ofMinutes(config.passwordReset().expiryMinutes()),
-                    config.passwordReset().appBaseUrl()
-            );
-            PasswordChangeService passwordChangeService = new PasswordChangeService(
-                    dataSource, users, sessions, audits, passwordHasher, clock);
-            vn.codegym.salesinventory.service.ActivationService activationService=new vn.codegym.salesinventory.service.ActivationService(dataSource,clock,config.passwordReset().appBaseUrl(),mailService);
-            servletContext.setAttribute("app.activationService",activationService);
-            UserManagementService userManagementService = new UserManagementService(
-                    dataSource,
-                    new JdbcUserManagementRepository(),
-                    sessions,
-                    audits,
-                    passwordHasher,
-                    mailService,
-                    new TemporaryPasswordGenerator(),
-                    clock, activationService
-            );
-
+            AuthenticationService authenticationService =
+                    new AuthenticationService(
+                            dataSource,
+                            users,
+                            new JdbcLoginAttemptRepository(),
+                            audits,
+                            passwordHasher,
+                            clock);
+            SessionService sessionService =
+                    new SessionService(
+                            dataSource,
+                            sessions,
+                            audits,
+                            clock,
+                            Duration.ofMinutes(config.session().idleTimeoutMinutes()),
+                            Duration.ofHours(config.session().absoluteTimeoutHours()));
+            PasswordResetService passwordResetService =
+                    new PasswordResetService(
+                            dataSource,
+                            users,
+                            new JdbcPasswordResetTokenRepository(),
+                            sessions,
+                            audits,
+                            passwordHasher,
+                            mailService,
+                            new SecureTokenGenerator(),
+                            clock,
+                            Duration.ofMinutes(config.passwordReset().expiryMinutes()),
+                            config.passwordReset().appBaseUrl());
+            PasswordChangeService passwordChangeService =
+                    new PasswordChangeService(
+                            dataSource, users, sessions, audits, passwordHasher, clock);
+            vn.codegym.salesinventory.service.ActivationService activationService =
+                    new vn.codegym.salesinventory.service.ActivationService(
+                            dataSource, clock, config.passwordReset().appBaseUrl(), mailService);
+            servletContext.setAttribute("app.activationService", activationService);
+            UserManagementService userManagementService =
+                    new UserManagementService(
+                            dataSource,
+                            new JdbcUserManagementRepository(),
+                            sessions,
+                            audits,
+                            passwordHasher,
+                            mailService,
+                            new TemporaryPasswordGenerator(),
+                            clock,
+                            activationService);
             servletContext.setAttribute(ApplicationContextKeys.DATA_SOURCE, dataSource);
-            servletContext.setAttribute(ApplicationContextKeys.AUTHENTICATION_SERVICE, authenticationService);
+            servletContext.setAttribute(
+                    ApplicationContextKeys.AUTHENTICATION_SERVICE, authenticationService);
             servletContext.setAttribute(ApplicationContextKeys.SESSION_SERVICE, sessionService);
-            servletContext.setAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE, passwordResetService);
-            servletContext.setAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE, passwordChangeService);
-            servletContext.setAttribute(ApplicationContextKeys.USER_MANAGEMENT_SERVICE, userManagementService);
-            servletContext.setAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER, new CsrfTokenManager());
-            var imports=config.imports();
-            var reportAge=Duration.ofDays(imports.reportDays());
-            var jobs=new vn.codegym.salesinventory.service.ImportJobService(dataSource,clock,Duration.ofMinutes(imports.previewMinutes()),reportAge);
-            var worker=new vn.codegym.salesinventory.service.ImportWorker(dataSource,userManagementService,imports.workers(),config.database().maximumPoolSize(),clock,reportAge);
-            servletContext.setAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE,jobs);
-            servletContext.setAttribute(ApplicationContextKeys.IMPORT_WORKER,worker);
-            var stockMaintenance=new vn.codegym.salesinventory.service.StockMaintenance(dataSource,clock);
+            servletContext.setAttribute(
+                    ApplicationContextKeys.PASSWORD_RESET_SERVICE, passwordResetService);
+            servletContext.setAttribute(
+                    ApplicationContextKeys.PASSWORD_CHANGE_SERVICE, passwordChangeService);
+            servletContext.setAttribute(
+                    ApplicationContextKeys.USER_MANAGEMENT_SERVICE, userManagementService);
+            servletContext.setAttribute(
+                    ApplicationContextKeys.CSRF_TOKEN_MANAGER, new CsrfTokenManager());
+            var imports = config.imports();
+            var reportAge = Duration.ofDays(imports.reportDays());
+            var jobs =
+                    new vn.codegym.salesinventory.service.ImportJobService(
+                            dataSource,
+                            clock,
+                            Duration.ofMinutes(imports.previewMinutes()),
+                            reportAge);
+            var worker =
+                    new vn.codegym.salesinventory.service.ImportWorker(
+                            dataSource,
+                            userManagementService,
+                            imports.workers(),
+                            config.database().maximumPoolSize(),
+                            clock,
+                            reportAge);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_JOB_SERVICE, jobs);
+            servletContext.setAttribute(ApplicationContextKeys.IMPORT_WORKER, worker);
+            var stockMaintenance =
+                    new vn.codegym.salesinventory.service.StockMaintenance(dataSource, clock);
             stockMaintenance.start();
-            servletContext.setAttribute("app.stockMaintenance",stockMaintenance);
-            if(config.importWorkerEnabled())worker.start();
+            servletContext.setAttribute("app.stockMaintenance", stockMaintenance);
+            if (config.importWorkerEnabled()) {
+                worker.start();
+            }
             LOGGER.info("Application initialized and database migrations completed");
         } catch (RuntimeException exception) {
             dataSource.close();
@@ -112,13 +142,20 @@ public final class ApplicationLifecycleListener implements ServletContextListene
         }
     }
 
+    // Dừng tác vụ nền và đóng tài nguyên khi ứng dụng kết thúc.
     @Override
     public void contextDestroyed(ServletContextEvent event) {
-        Object maintenance=event.getServletContext().getAttribute("app.stockMaintenance");
-        if(maintenance instanceof vn.codegym.salesinventory.service.StockMaintenance stock)stock.close();
-        Object worker=event.getServletContext().getAttribute(ApplicationContextKeys.IMPORT_WORKER);
-        if(worker instanceof vn.codegym.salesinventory.service.ImportWorker imports)imports.close();
-        Object dataSource = event.getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
+        Object maintenance = event.getServletContext().getAttribute("app.stockMaintenance");
+        if (maintenance instanceof vn.codegym.salesinventory.service.StockMaintenance stock) {
+            stock.close();
+        }
+        Object worker =
+                event.getServletContext().getAttribute(ApplicationContextKeys.IMPORT_WORKER);
+        if (worker instanceof vn.codegym.salesinventory.service.ImportWorker imports) {
+            imports.close();
+        }
+        Object dataSource =
+                event.getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
         if (dataSource instanceof HikariDataSource hikariDataSource) {
             hikariDataSource.close();
             LOGGER.info("Database connection pool closed");

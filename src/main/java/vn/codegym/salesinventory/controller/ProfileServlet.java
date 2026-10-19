@@ -1,4 +1,5 @@
 package vn.codegym.salesinventory.controller;
+
 import jakarta.servlet.http.*;
 import vn.codegym.salesinventory.dao.Sql;
 import vn.codegym.salesinventory.service.ProfileService;
@@ -9,52 +10,111 @@ import jakarta.servlet.ServletException;
 import java.io.IOException;
 import java.util.Map;
 import vn.codegym.salesinventory.validation.ProfileValidationException;
+
+/**
+ * S2-02: Hiển thị và tiếp nhận cập nhật hồ sơ cá nhân.
+ */
 public final class ProfileServlet extends PortalServlet {
+
     private final ProfileService configuredService;
-    public ProfileServlet() { configuredService=null; }
-    ProfileServlet(ProfileService service) { configuredService=service; }
-    private ProfileService service() { return configuredService==null ? new ProfileService(source()) : configuredService; }
-    protected void preparePost(HttpServletRequest r) throws Exception {
-        if(!multipart(r)) return;
-        try { r.getPart("image"); }
-        catch(IllegalStateException tooLarge) { throw new IllegalArgumentException("Ảnh JPG/PNG phải có dung lượng tối đa 2MB.",tooLarge); }
+
+    public ProfileServlet() {
+        configuredService = null;
     }
-    private boolean multipart(HttpServletRequest r) {
-        return r.getContentType()!=null && r.getContentType().toLowerCase(java.util.Locale.ROOT).startsWith("multipart/form-data");
+
+    ProfileServlet(ProfileService service) {
+        configuredService = service;
     }
-    protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception {
-        var profile=service().find(actor(r).id());
-        r.setAttribute("profile",profile);
-        r.setAttribute("form",Map.of("fullName",Sql.text(profile.get("full_name")),"phone",Sql.text(profile.get("phone"))));
-        view(r,s,"account/profile");
+
+    private ProfileService service() {
+        return configuredService == null ? new ProfileService(source()) : configuredService;
     }
-    protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception {
-        String name=r.getParameter("fullName"),phone=r.getParameter("phone");
+
+    // Chuẩn bị dữ liệu cần thiết trước khi xử lý biểu mẫu.
+    protected void preparePost(HttpServletRequest request) throws Exception {
+        if (!multipart(request)) {
+            return;
+        }
         try {
-            Part image=multipart(r)?r.getPart("image"):null;
-            if(image!=null && image.getSize()>0) {
-                if(image.getSize()>ImageStorage.MAX_BYTES) throw new IllegalArgumentException("Ảnh JPG/PNG phải có dung lượng tối đa 2MB.");
-                byte[] bytes;
-                try(var input=image.getInputStream()) { bytes=input.readNBytes(ImageStorage.MAX_BYTES+1); }
-                service().updateWithAvatar(actor(r).id(),name,phone,bytes);
-            } else service().update(actor(r).id(),name,phone);
-            CurrentUser current=actor(r);
-            r.getSession(false).setAttribute(SessionKeys.CURRENT_USER,new CurrentUser(current.id(),current.username(),current.email(),name.trim(),current.roleCodes(),current.mustChangePassword()));
-            redirect(r,s,"/account/profile?notice=saved");
-        } catch(ProfileValidationException exception) {
-            invalid(r,s,exception.errors());
-        } catch(IllegalArgumentException exception) {
-            invalid(r,s,Map.of("image",exception.getMessage()));
+            request.getPart("image");
+        } catch (IllegalStateException tooLarge) {
+            throw new IllegalArgumentException(
+                    "Ảnh JPG/PNG phải có dung lượng tối đa 2MB.", tooLarge);
         }
     }
-    protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws ServletException,IOException {
-        invalid(r,s,Map.of("image",message));
+
+    private boolean multipart(HttpServletRequest request) {
+        return request.getContentType() != null
+                && request.getContentType()
+                        .toLowerCase(java.util.Locale.ROOT)
+                        .startsWith("multipart/form-data");
     }
-    private void invalid(HttpServletRequest r,HttpServletResponse s,Map<String,String> errors) throws ServletException,IOException {
-        s.setStatus(400);
-        r.setAttribute("profile",service().find(actor(r).id()));
-        r.setAttribute("form",formValues(r,"fullName","phone"));
-        r.setAttribute("errors",errors);
-        view(r,s,"account/profile");
+
+    // Nạp dữ liệu và hiển thị trang hồ sơ cá nhân.
+    protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        var profile = service().find(actor(request).id());
+        request.setAttribute("profile", profile);
+        request.setAttribute(
+                "form",
+                Map.of(
+                        "fullName",
+                        Sql.text(profile.get("full_name")),
+                        "phone",
+                        Sql.text(profile.get("phone"))));
+        view(request, response, "account/profile");
+    }
+
+    // Tiếp nhận và xử lý thay đổi hồ sơ cá nhân.
+    protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        String name = request.getParameter("fullName"), phone = request.getParameter("phone");
+        try {
+            Part image = multipart(request) ? request.getPart("image") : null;
+            if (image != null && image.getSize() > 0) {
+                if (image.getSize() > ImageStorage.MAX_BYTES) {
+                    throw new IllegalArgumentException(
+                            "Ảnh JPG/PNG phải có dung lượng tối đa 2MB.");
+                }
+                byte[] bytes;
+                try (var input = image.getInputStream()) {
+                    bytes = input.readNBytes(ImageStorage.MAX_BYTES + 1);
+                }
+                service().updateWithAvatar(actor(request).id(), name, phone, bytes);
+            } else {
+                service().update(actor(request).id(), name, phone);
+            }
+            CurrentUser current = actor(request);
+            request.getSession(false)
+                    .setAttribute(
+                            SessionKeys.CURRENT_USER,
+                            new CurrentUser(
+                                    current.id(),
+                                    current.username(),
+                                    current.email(),
+                                    name.trim(),
+                                    current.roleCodes(),
+                                    current.mustChangePassword()));
+            redirect(request, response, "/account/profile?notice=saved");
+        } catch (ProfileValidationException exception) {
+            invalid(request, response, exception.errors());
+        } catch (IllegalArgumentException exception) {
+            invalid(request, response, Map.of("image", exception.getMessage()));
+        }
+    }
+
+    protected void badRequest(
+            HttpServletRequest request, HttpServletResponse response, String message)
+            throws ServletException, IOException {
+        invalid(request, response, Map.of("image", message));
+    }
+
+    // Hiển thị lại hồ sơ với dữ liệu đã nhập và lỗi tương ứng.
+    private void invalid(
+            HttpServletRequest request, HttpServletResponse response, Map<String, String> errors)
+            throws ServletException, IOException {
+        response.setStatus(400);
+        request.setAttribute("profile", service().find(actor(request).id()));
+        request.setAttribute("form", formValues(request, "fullName", "phone"));
+        request.setAttribute("errors", errors);
+        view(request, response, "account/profile");
     }
 }

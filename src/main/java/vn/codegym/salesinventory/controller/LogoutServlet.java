@@ -11,10 +11,16 @@ import vn.codegym.salesinventory.config.ApplicationContextKeys;
 import vn.codegym.salesinventory.security.CsrfTokenManager;
 import vn.codegym.salesinventory.service.SessionService;
 
+/**
+ * S1-02: Thu hồi phiên hiện tại và chuyển người dùng về trang đăng nhập.
+ */
 public final class LogoutServlet extends HttpServlet {
+
     private SessionService sessionService;
+
     private CsrfTokenManager csrfTokenManager;
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
         Object sessions = getServletContext().getAttribute(ApplicationContextKeys.SESSION_SERVICE);
@@ -27,15 +33,17 @@ public final class LogoutServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận và xử lý biểu mẫu đăng xuất.
     @Override
-    protected void doPost(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws IOException {
         HttpSession session = request.getSession(false);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
-
-        sessionService.revoke(session.getId(), "USER_LOGOUT", RequestMetadata.authenticationContext(request));
+        sessionService.revoke(
+                session.getId(), "USER_LOGOUT", RequestMetadata.authenticationContext(request));
         session.invalidate();
         Cookie cookie = new Cookie("JSESSIONID", "");
         cookie.setHttpOnly(true);
