@@ -5,9 +5,6 @@ import javax.sql.DataSource;
 import vn.codegym.salesinventory.dao.*;
 import vn.codegym.salesinventory.security.Access;
 
-/**
- * S1-09: Gán nhiều vai trò, kho và địa bàn cho người dùng.
- */
 public final class AssignmentService {
 
     private final DataSource source;
