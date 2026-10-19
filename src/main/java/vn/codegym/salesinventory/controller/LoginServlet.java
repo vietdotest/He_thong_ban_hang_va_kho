@@ -18,12 +18,20 @@ import vn.codegym.salesinventory.service.AuthenticationService;
 import vn.codegym.salesinventory.service.SessionService;
 import vn.codegym.salesinventory.validation.LoginValidator;
 
+/**
+ * S1-01: Hiển thị biểu mẫu, kiểm tra đầu vào và tạo phiên sau khi đăng nhập thành công.
+ */
 public final class LoginServlet extends HttpServlet {
+
     static final String GENERIC_AUTHENTICATION_ERROR =
             "Thông tin đăng nhập không chính xác hoặc tài khoản hiện không thể đăng nhập.";
+
     private AuthenticationService authenticationService;
+
     private SessionService sessionService;
+
     private CsrfTokenManager csrfTokenManager;
+
     private LoginValidator loginValidator;
 
     public LoginServlet() {
@@ -34,22 +42,25 @@ public final class LoginServlet extends HttpServlet {
             AuthenticationService authenticationService,
             SessionService sessionService,
             CsrfTokenManager csrfTokenManager,
-            LoginValidator loginValidator
-    ) {
+            LoginValidator loginValidator) {
         this.authenticationService = authenticationService;
         this.sessionService = sessionService;
         this.csrfTokenManager = csrfTokenManager;
         this.loginValidator = loginValidator;
     }
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
         if (authenticationService != null && sessionService != null && csrfTokenManager != null) {
             return;
         }
-        Object service = getServletContext().getAttribute(ApplicationContextKeys.AUTHENTICATION_SERVICE);
-        Object configuredSessionService = getServletContext().getAttribute(ApplicationContextKeys.SESSION_SERVICE);
-        Object csrfManager = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
+        Object service =
+                getServletContext().getAttribute(ApplicationContextKeys.AUTHENTICATION_SERVICE);
+        Object configuredSessionService =
+                getServletContext().getAttribute(ApplicationContextKeys.SESSION_SERVICE);
+        Object csrfManager =
+                getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(service instanceof AuthenticationService configuredService)
                 || !(configuredSessionService instanceof SessionService sessionManager)
                 || !(csrfManager instanceof CsrfTokenManager configuredCsrfManager)) {
@@ -60,11 +71,13 @@ public final class LoginServlet extends HttpServlet {
         this.csrfTokenManager = configuredCsrfManager;
     }
 
+    // Tiếp nhận yêu cầu xem đăng nhập.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession existingSession = request.getSession(false);
-        if (existingSession != null && existingSession.getAttribute(SessionKeys.CURRENT_USER) != null) {
+        if (existingSession != null
+                && existingSession.getAttribute(SessionKeys.CURRENT_USER) != null) {
             if (sessionService.validate(existingSession.getId()).valid()) {
                 RequestMetadata.seeOther(response, request.getContextPath() + "/dashboard");
                 return;
@@ -75,7 +88,9 @@ public final class LoginServlet extends HttpServlet {
         if ("logged_out".equals(reason)) {
             request.setAttribute("notice", "Bạn đã đăng xuất.");
         } else if ("activated".equals(reason)) {
-            request.setAttribute("successMessage","Tài khoản đã được kích hoạt. Vui lòng đăng nhập bằng mật khẩu tạm.");
+            request.setAttribute(
+                    "successMessage",
+                    "Tài khoản đã được kích hoạt. Vui lòng đăng nhập bằng mật khẩu tạm.");
         } else if ("session_expired".equals(reason)) {
             request.setAttribute("notice", "Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.");
         } else if ("password_reset".equals(reason)) {
@@ -85,21 +100,21 @@ public final class LoginServlet extends HttpServlet {
         renderLogin(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu đăng nhập.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         String identity = request.getParameter("identity");
         request.setAttribute("identity", safeIdentityForDisplay(identity));
-
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang và thử lại.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang và thử lại.");
             prepareCsrf(request);
             renderLogin(request, response);
             return;
         }
-
         LoginRequest loginRequest = new LoginRequest(identity, request.getParameter("password"));
         Map<String, String> errors = loginValidator.validate(loginRequest);
         if (!errors.isEmpty()) {
@@ -111,30 +126,35 @@ public final class LoginServlet extends HttpServlet {
             renderLogin(request, response);
             return;
         }
-
         try {
-            AuthenticationResult result = authenticationService.authenticate(
-                    loginRequest,
-                    RequestMetadata.authenticationContext(request)
-            );
+            AuthenticationResult result =
+                    authenticationService.authenticate(
+                            loginRequest, RequestMetadata.authenticationContext(request));
             if (!result.authenticated()) {
                 request.setAttribute("formError", GENERIC_AUTHENTICATION_ERROR);
                 prepareCsrf(request);
                 renderLogin(request, response);
                 return;
             }
-
             String newSessionId = request.changeSessionId();
             session.setAttribute(SessionKeys.CURRENT_USER, result.currentUser());
             csrfTokenManager.rotate(session);
-            String serverSessionId = sessionService.create(
-                    result.currentUser(), newSessionId, RequestMetadata.authenticationContext(request));
+            String serverSessionId =
+                    sessionService.create(
+                            result.currentUser(),
+                            newSessionId,
+                            RequestMetadata.authenticationContext(request));
             session.setAttribute(SessionKeys.SERVER_SESSION_ID, serverSessionId);
-            RequestMetadata.seeOther(response, request.getContextPath() + (result.currentUser().hasRole("DEALER")?"/portal":"/dashboard"));
+            RequestMetadata.seeOther(
+                    response,
+                    request.getContextPath()
+                            + (result.currentUser().hasRole("DEALER") ? "/portal" : "/dashboard"));
         } catch (AuthenticationException exception) {
             getServletContext().log("Login could not be processed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            request.setAttribute("formError", "Hệ thống tạm thời không thể xử lý đăng nhập. Vui lòng thử lại sau.");
+            request.setAttribute(
+                    "formError",
+                    "Hệ thống tạm thời không thể xử lý đăng nhập. Vui lòng thử lại sau.");
             prepareCsrf(request);
             renderLogin(request, response);
         }
@@ -149,6 +169,7 @@ public final class LoginServlet extends HttpServlet {
         request.getRequestDispatcher("/WEB-INF/views/auth/login.jsp").forward(request, response);
     }
 
+    // Giới hạn thông tin tài khoản trước khi đưa lại lên biểu mẫu.
     private static String safeIdentityForDisplay(String identity) {
         if (identity == null) {
             return "";

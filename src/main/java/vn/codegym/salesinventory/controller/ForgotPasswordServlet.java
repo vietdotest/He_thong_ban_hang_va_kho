@@ -10,14 +10,22 @@ import vn.codegym.salesinventory.config.ApplicationContextKeys;
 import vn.codegym.salesinventory.security.CsrfTokenManager;
 import vn.codegym.salesinventory.service.PasswordResetService;
 
+/**
+ * S1-03: Nhận yêu cầu quên mật khẩu và trả thông báo chung cho người dùng.
+ */
 public final class ForgotPasswordServlet extends HttpServlet {
+
     private static final int MAX_IDENTITY_LENGTH = 254;
+
     private PasswordResetService passwordResetService;
+
     private CsrfTokenManager csrfTokenManager;
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
-        Object resetService = getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE);
+        Object resetService =
+                getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_RESET_SERVICE);
         Object csrf = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(resetService instanceof PasswordResetService configuredReset)
                 || !(csrf instanceof CsrfTokenManager configuredCsrf)) {
@@ -27,6 +35,7 @@ public final class ForgotPasswordServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận yêu cầu xem yêu cầu quên mật khẩu.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -34,38 +43,52 @@ public final class ForgotPasswordServlet extends HttpServlet {
             request.setAttribute("requestSent", true);
         }
         prepareCsrf(request);
-        request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp")
+                .forward(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu yêu cầu quên mật khẩu.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
             prepareCsrf(request);
-            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
+            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp")
+                    .forward(request, response);
             return;
         }
         String identity = request.getParameter("identity");
         if (identity == null || identity.isBlank() || identity.length() > MAX_IDENTITY_LENGTH) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            request.setAttribute("identity", identity == null ? "" : identity.substring(0, Math.min(identity.length(), MAX_IDENTITY_LENGTH)));
+            request.setAttribute(
+                    "identity",
+                    identity == null
+                            ? ""
+                            : identity.substring(
+                                    0, Math.min(identity.length(), MAX_IDENTITY_LENGTH)));
             request.setAttribute("identityError", "Vui lòng nhập tên đăng nhập hoặc email hợp lệ.");
             prepareCsrf(request);
-            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
+            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp")
+                    .forward(request, response);
             return;
         }
         try {
-            passwordResetService.requestReset(identity, RequestMetadata.authenticationContext(request));
-            RequestMetadata.seeOther(response, request.getContextPath() + "/forgot-password?status=sent");
+            passwordResetService.requestReset(
+                    identity, RequestMetadata.authenticationContext(request));
+            RequestMetadata.seeOther(
+                    response, request.getContextPath() + "/forgot-password?status=sent");
         } catch (RuntimeException exception) {
             getServletContext().log("Password reset request could not be processed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            request.setAttribute("formError", "Hệ thống chưa thể gửi hướng dẫn. Vui lòng thử lại sau.");
+            request.setAttribute(
+                    "formError", "Hệ thống chưa thể gửi hướng dẫn. Vui lòng thử lại sau.");
             prepareCsrf(request);
-            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp").forward(request, response);
+            request.getRequestDispatcher("/WEB-INF/views/auth/forgot-password.jsp")
+                    .forward(request, response);
         }
     }
 

@@ -2,15 +2,26 @@ package vn.codegym.salesinventory.security;
 
 import java.security.SecureRandom;
 
+/**
+ * S1-08: Sinh mật khẩu tạm cho tài khoản mới được tạo.
+ */
 public final class TemporaryPasswordGenerator {
+
     private static final char[] UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
+
     private static final char[] LOWER = "abcdefghijkmnopqrstuvwxyz".toCharArray();
+
     private static final char[] DIGITS = "23456789".toCharArray();
+
     private static final char[] SYMBOLS = "!@#$%".toCharArray();
-    private static final char[] ALL = (
-            new String(UPPER) + new String(LOWER) + new String(DIGITS) + new String(SYMBOLS)).toCharArray();
+
+    private static final char[] ALL =
+            (new String(UPPER) + new String(LOWER) + new String(DIGITS) + new String(SYMBOLS))
+                    .toCharArray();
+
     private final SecureRandom random = new SecureRandom();
 
+    // Sinh giá trị ngẫu nhiên dùng cho bước xác nhận.
     public String generate() {
         char[] password = new char[14];
         password[0] = pick(UPPER);

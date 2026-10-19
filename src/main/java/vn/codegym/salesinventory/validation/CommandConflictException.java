@@ -1,6 +1,11 @@
 package vn.codegym.salesinventory.validation;
 
-/** Business state changed; retry must keep the original request key. */
+/**
+ * Dùng chung: Báo dữ liệu đã thay đổi hoặc yêu cầu trùng; lần thử lại cần giữ mã yêu cầu ban đầu.
+ */
 public final class CommandConflictException extends IllegalArgumentException {
-    public CommandConflictException(String message) { super(message); }
+
+    public CommandConflictException(String message) {
+        super(message);
+    }
 }

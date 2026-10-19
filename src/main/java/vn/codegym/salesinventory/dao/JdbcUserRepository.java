@@ -12,25 +12,34 @@ import java.util.Set;
 import vn.codegym.salesinventory.model.User;
 import vn.codegym.salesinventory.model.UserStatus;
 
+/**
+ * S1-01: Thực hiện truy vấn SQL cho tài khoản phục vụ xác thực, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcUserRepository implements UserRepository {
-    private static final String FIND_FOR_UPDATE = """
-            SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
-                   failed_login_count, locked_until
-            FROM users
-            WHERE username_normalized = ? OR email_normalized = ?
-            LIMIT 1
-            FOR UPDATE
-            """;
-    private static final String FIND_BY_ID_FOR_UPDATE = """
-            SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
-                   failed_login_count, locked_until
-            FROM users
-            WHERE id = ?
-            FOR UPDATE
-            """;
 
+    private static final String FIND_FOR_UPDATE =
+            """
+SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
+       failed_login_count, locked_until
+FROM users
+WHERE username_normalized = ? OR email_normalized = ?
+LIMIT 1
+FOR UPDATE
+""";
+
+    private static final String FIND_BY_ID_FOR_UPDATE =
+            """
+SELECT id, username, email, full_name, phone, password_hash, must_change_password, status,
+       failed_login_count, locked_until
+FROM users
+WHERE id = ?
+FOR UPDATE
+""";
+
+    // Tìm và khóa tài khoản theo username hoặc email để cập nhật an toàn.
     @Override
-    public Optional<User> findByIdentityForUpdate(Connection connection, String normalizedIdentity) throws SQLException {
+    public Optional<User> findByIdentityForUpdate(Connection connection, String normalizedIdentity)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(FIND_FOR_UPDATE)) {
             statement.setString(1, normalizedIdentity);
             statement.setString(2, normalizedIdentity);
@@ -40,8 +49,10 @@ public final class JdbcUserRepository implements UserRepository {
         }
     }
 
+    // Tìm và khóa tài khoản theo mã trước khi thay đổi.
     @Override
-    public Optional<User> findByIdForUpdate(Connection connection, long userId) throws SQLException {
+    public Optional<User> findByIdForUpdate(Connection connection, long userId)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(FIND_BY_ID_FOR_UPDATE)) {
             statement.setLong(1, userId);
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -50,9 +61,11 @@ public final class JdbcUserRepository implements UserRepository {
         }
     }
 
+    // Lấy các mã vai trò đang gán cho người dùng.
     @Override
     public Set<String> findRoleCodes(Connection connection, long userId) throws SQLException {
-        String sql = """
+        String sql =
+                """
                 SELECT r.code
                 FROM user_roles ur
                 JOIN roles r ON r.id = ur.role_id
@@ -71,10 +84,13 @@ public final class JdbcUserRepository implements UserRepository {
         return roles;
     }
 
+    // Lưu số lần đăng nhập sai và thời điểm kết thúc khóa tạm.
     @Override
-    public void updateFailedLogin(Connection connection, long userId, int failureCount, Instant lockedUntil)
+    public void updateFailedLogin(
+            Connection connection, long userId, int failureCount, Instant lockedUntil)
             throws SQLException {
-        String sql = """
+        String sql =
+                """
                 UPDATE users
                 SET failed_login_count = ?, locked_until = ?, version = version + 1
                 WHERE id = ?
@@ -91,9 +107,12 @@ public final class JdbcUserRepository implements UserRepository {
         }
     }
 
+    // Ghi nhận đăng nhập thành công và xóa bộ đếm nhập sai.
     @Override
-    public void recordSuccessfulLogin(Connection connection, long userId, Instant loginTime) throws SQLException {
-        String sql = """
+    public void recordSuccessfulLogin(Connection connection, long userId, Instant loginTime)
+            throws SQLException {
+        String sql =
+                """
                 UPDATE users
                 SET failed_login_count = 0,
                     locked_until = NULL,
@@ -108,9 +127,12 @@ public final class JdbcUserRepository implements UserRepository {
         }
     }
 
+    // Lưu mật khẩu mới đã băm cho tài khoản.
     @Override
-    public void updatePassword(Connection connection, long userId, String passwordHash) throws SQLException {
-        String sql = """
+    public void updatePassword(Connection connection, long userId, String passwordHash)
+            throws SQLException {
+        String sql =
+                """
                 UPDATE users
                 SET password_hash = ?, must_change_password = FALSE,
                     failed_login_count = 0, locked_until = NULL, version = version + 1
@@ -135,7 +157,6 @@ public final class JdbcUserRepository implements UserRepository {
                 resultSet.getBoolean("must_change_password"),
                 UserStatus.valueOf(resultSet.getString("status")),
                 resultSet.getInt("failed_login_count"),
-                lockedUntil == null ? null : lockedUntil.toInstant()
-        );
+                lockedUntil == null ? null : lockedUntil.toInstant());
     }
 }

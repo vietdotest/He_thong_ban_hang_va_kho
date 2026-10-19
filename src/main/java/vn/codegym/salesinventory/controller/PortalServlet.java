@@ -8,39 +8,137 @@ import javax.sql.DataSource;
 import vn.codegym.salesinventory.config.ApplicationContextKeys;
 import vn.codegym.salesinventory.security.*;
 
+/**
+ * Dùng chung: Lớp cha của các màn hình: đọc tham số, kiểm CSRF, điều hướng và xử lý lỗi.
+ */
 public abstract class PortalServlet extends HttpServlet {
-    protected DataSource source() { return (DataSource)getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE); }
-    protected CurrentUser actor(HttpServletRequest r) { return (CurrentUser)r.getSession(false).getAttribute(SessionKeys.CURRENT_USER); }
-    protected Access access(HttpServletRequest r) { return (Access)r.getAttribute("access"); }
-    protected static String value(HttpServletRequest r,String key) { String v=r.getParameter(key); return v==null ? "" : v.trim(); }
-    protected static Map<String,Object> formValues(HttpServletRequest r,String... fields) {
-        Map<String,Object> values=new LinkedHashMap<>();for(String field:fields){String value=r.getParameter(field);values.put(field,value==null?"":value);}return values;
+
+    protected DataSource source() {
+        return (DataSource) getServletContext().getAttribute(ApplicationContextKeys.DATA_SOURCE);
     }
-    protected static Map<String,String> fieldErrors(IllegalArgumentException error) {
-        return error instanceof vn.codegym.salesinventory.validation.FieldValidationException fields ? fields.errors() : Map.of("form",error.getMessage());
+
+    protected CurrentUser actor(HttpServletRequest request) {
+        return (CurrentUser) request.getSession(false).getAttribute(SessionKeys.CURRENT_USER);
     }
-    protected static long number(HttpServletRequest r,String key) { try { return Long.parseLong(value(r,key)); } catch(NumberFormatException e) { throw new IllegalArgumentException("Mã bản ghi không hợp lệ."); } }
-    protected void view(HttpServletRequest r,HttpServletResponse s,String path) throws ServletException,IOException {
-        String uri = r.getRequestURI();
-        if(uri != null) r.setAttribute("paginationPath", uri.substring(Objects.requireNonNullElse(r.getContextPath(),"").length()));
-        r.getRequestDispatcher("/WEB-INF/views/"+path+".jsp").forward(r,s);
+
+    protected Access access(HttpServletRequest request) {
+        return (Access) request.getAttribute("access");
     }
-    protected void redirect(HttpServletRequest r,HttpServletResponse s,String path) { s.setStatus(303); s.setHeader("Location",r.getContextPath()+path); }
-    protected void get(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
-    protected void post(HttpServletRequest r,HttpServletResponse s) throws Exception { s.sendError(405); }
-    protected void preparePost(HttpServletRequest r) throws Exception { }
-    protected void badRequest(HttpServletRequest r,HttpServletResponse s,String message) throws ServletException,IOException {
-        s.setStatus(400); r.setAttribute("message",message); r.setAttribute("returnPath",r.getRequestURI()); view(r,s,"message");
+
+    // Đọc tham số, bỏ khoảng trắng đầu cuối và dùng chuỗi rỗng khi thiếu.
+    protected static String value(HttpServletRequest request, String key) {
+        String value = request.getParameter(key);
+        return value == null ? "" : value.trim();
     }
-    @Override protected final void doGet(HttpServletRequest r,HttpServletResponse s) throws ServletException,IOException { dispatch(r,s,false); }
-    @Override protected final void doPost(HttpServletRequest r,HttpServletResponse s) throws ServletException,IOException { dispatch(r,s,true); }
-    private void dispatch(HttpServletRequest r,HttpServletResponse s,boolean post) throws ServletException,IOException {
+
+    // Giữ dữ liệu đã nhập để hiển thị lại biểu mẫu khi có lỗi.
+    protected static Map<String, Object> formValues(HttpServletRequest request, String... fields) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        for (String field : fields) {
+            String value = request.getParameter(field);
+            values.put(field, value == null ? "" : value);
+        }
+        return values;
+    }
+
+    protected static Map<String, String> fieldErrors(IllegalArgumentException error) {
+        return error instanceof vn.codegym.salesinventory.validation.FieldValidationException fields
+                ? fields.errors()
+                : Map.of("form", error.getMessage());
+    }
+
+    // Đọc mã bản ghi từ yêu cầu và báo lỗi nếu không phải số.
+    protected static long number(HttpServletRequest request, String key) {
         try {
-            if(post) preparePost(r);
-            if(post && !((CsrfTokenManager)getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER)).isValid(r.getSession(false),r.getParameter("_csrf"))) { s.sendError(403); return; }
-            if(post) post(r,s); else get(r,s);
-        } catch(SecurityException e) { s.sendError(403); }
-        catch(IllegalArgumentException e) { badRequest(r,s,e.getMessage()); }
-        catch(Exception e) { getServletContext().log("Không thể xử lý yêu cầu",e); s.sendError(500); }
+            return Long.parseLong(value(request, key));
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Mã bản ghi không hợp lệ.");
+        }
+    }
+
+    // Chuyển yêu cầu đến trang JSP cùng dữ liệu đã chuẩn bị.
+    protected void view(HttpServletRequest request, HttpServletResponse response, String path)
+            throws ServletException, IOException {
+        String uri = request.getRequestURI();
+        if (uri != null) {
+            request.setAttribute(
+                    "paginationPath",
+                    uri.substring(
+                            Objects.requireNonNullElse(request.getContextPath(), "").length()));
+        }
+        request.getRequestDispatcher("/WEB-INF/views/" + path + ".jsp").forward(request, response);
+    }
+
+    // Chuyển trình duyệt sang địa chỉ sau khi xử lý biểu mẫu.
+    protected void redirect(HttpServletRequest request, HttpServletResponse response, String path) {
+        response.setStatus(303);
+        response.setHeader("Location", request.getContextPath() + path);
+    }
+
+    // Trả lỗi phương thức không được hỗ trợ nếu màn hình chưa định nghĩa xử lý GET.
+    protected void get(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.sendError(405);
+    }
+
+    // Trả lỗi phương thức không được hỗ trợ nếu màn hình chưa định nghĩa xử lý POST.
+    protected void post(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        response.sendError(405);
+    }
+
+    protected void preparePost(HttpServletRequest request) throws Exception {}
+
+    // Hiển thị lại dữ liệu và thông báo khi yêu cầu không hợp lệ.
+    protected void badRequest(
+            HttpServletRequest request, HttpServletResponse response, String message)
+            throws ServletException, IOException {
+        response.setStatus(400);
+        request.setAttribute("message", message);
+        request.setAttribute("returnPath", request.getRequestURI());
+        view(request, response, "message");
+    }
+
+    // Chuyển yêu cầu GET qua luồng xử lý và bắt lỗi dùng chung.
+    @Override
+    protected final void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        dispatch(request, response, false);
+    }
+
+    // Chuyển yêu cầu POST qua bước kiểm CSRF và xử lý biểu mẫu dùng chung.
+    @Override
+    protected final void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        dispatch(request, response, true);
+    }
+
+    // Kiểm CSRF, gọi xử lý GET hoặc POST và chuyển lỗi sang phản hồi HTTP phù hợp.
+    private void dispatch(HttpServletRequest request, HttpServletResponse response, boolean post)
+            throws ServletException, IOException {
+        try {
+            if (post) {
+                preparePost(request);
+            }
+            if (post
+                    && !((CsrfTokenManager)
+                                    getServletContext()
+                                            .getAttribute(
+                                                    ApplicationContextKeys.CSRF_TOKEN_MANAGER))
+                            .isValid(request.getSession(false), request.getParameter("_csrf"))) {
+                response.sendError(403);
+                return;
+            }
+            if (post) {
+                post(request, response);
+            } else {
+                get(request, response);
+            }
+        } catch (SecurityException exception) {
+            response.sendError(403);
+        } catch (IllegalArgumentException e) {
+            badRequest(request, response, e.getMessage());
+        } catch (Exception e) {
+            getServletContext().log("Không thể xử lý yêu cầu", e);
+            response.sendError(500);
+        }
     }
 }

@@ -7,22 +7,42 @@ import java.util.Set;
 import vn.codegym.salesinventory.dto.UserAccountCommand;
 import vn.codegym.salesinventory.model.UserStatus;
 
+/**
+ * S2-01: Kiểm tra từng dòng Excel và chuyển thành dữ liệu tài khoản, vai trò, phạm vi.
+ */
 public final class UserImportValidator {
-    public record Input(UserAccountCommand command, Set<String> roles,
-                        Set<String> warehouses, Set<String> territories) { }
 
-    private UserImportValidator() { }
+    // Chứa dữ liệu người dùng đã kiểm tra từ một dòng Excel.
+    public record Input(
+            UserAccountCommand command,
+            Set<String> roles,
+            Set<String> warehouses,
+            Set<String> territories) {}
 
+    private UserImportValidator() {}
+
+    // Kiểm tra dữ liệu trước khi tiếp tục xử lý.
     public static Input validate(List<String> row) {
-        if (row.size() > 7) throw new IllegalArgumentException("Dòng có cột ngoài tệp mẫu.");
+        if (row.size() > 7) {
+            throw new IllegalArgumentException("Dòng có cột ngoài tệp mẫu.");
+        }
         String phone = PhoneNumber.normalize(cell(row, 3));
         Set<String> roles = codes(cell(row, 4).toUpperCase(Locale.ROOT));
-        var command = new UserAccountCommand(cell(row, 0), cell(row, 1), cell(row, 2), phone,
-                roles.stream().findFirst().orElse(""), UserStatus.PENDING_ACTIVATION, 0);
+        var command =
+                new UserAccountCommand(
+                        cell(row, 0),
+                        cell(row, 1),
+                        cell(row, 2),
+                        phone,
+                        roles.stream().findFirst().orElse(""),
+                        UserStatus.PENDING_ACTIVATION,
+                        0);
         var errors = new UserAccountValidator().validate(command);
         // PhoneNumber đã kiểm tra cả số di động và số cố định Việt Nam.
         errors.remove("phone");
-        if (!errors.isEmpty()) throw new IllegalArgumentException(String.join(" ", errors.values()));
+        if (!errors.isEmpty()) {
+            throw new IllegalArgumentException(String.join(" ", errors.values()));
+        }
         return new Input(command, roles, codes(cell(row, 5)), codes(cell(row, 6)));
     }
 
@@ -30,9 +50,14 @@ public final class UserImportValidator {
         return index < row.size() ? row.get(index) : "";
     }
 
+    // Tách danh sách mã trong ô Excel và loại giá trị lặp.
     private static Set<String> codes(String text) {
         Set<String> result = new LinkedHashSet<>();
-        for (String code : text.split(",")) if (!code.isBlank()) result.add(code.trim());
+        for (String code : text.split(",")) {
+            if (!code.isBlank()) {
+                result.add(code.trim());
+            }
+        }
         return result;
     }
 }

@@ -3,6 +3,9 @@ package vn.codegym.salesinventory.model;
 import java.time.Instant;
 import java.util.Set;
 
+/**
+ * S1-02: Chứa thông tin phiên đăng nhập được lưu tại server.
+ */
 public record ServerSession(
         String id,
         long userId,
@@ -17,8 +20,8 @@ public record ServerSession(
         Instant createdAt,
         Instant lastActivityAt,
         Instant expiresAt,
-        Instant revokedAt
-) {
+        Instant revokedAt) {
+
     public ServerSession {
         roleCodes = roleCodes == null ? Set.of() : Set.copyOf(roleCodes);
     }
@@ -35,9 +38,21 @@ public record ServerSession(
             Instant createdAt,
             Instant lastActivityAt,
             Instant expiresAt,
-            Instant revokedAt
-    ) {
-        this(id, userId, tokenHash, username, email, fullName, Set.of(), false, userStatus,
-                userLockedUntil, createdAt, lastActivityAt, expiresAt, revokedAt);
+            Instant revokedAt) {
+        this(
+                id,
+                userId,
+                tokenHash,
+                username,
+                email,
+                fullName,
+                Set.of(),
+                false,
+                userStatus,
+                userLockedUntil,
+                createdAt,
+                lastActivityAt,
+                expiresAt,
+                revokedAt);
     }
 }

@@ -7,7 +7,12 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 
+/**
+ * S1-01: Thực hiện truy vấn SQL cho các lần thử đăng nhập, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcLoginAttemptRepository implements LoginAttemptRepository {
+
+    // Lưu kết quả thử đăng nhập, định danh đã băm và thông tin yêu cầu.
     @Override
     public void record(
             Connection connection,
@@ -16,9 +21,10 @@ public final class JdbcLoginAttemptRepository implements LoginAttemptRepository 
             String outcome,
             String ipAddress,
             String userAgent,
-            Instant occurredAt
-    ) throws SQLException {
-        String sql = """
+            Instant occurredAt)
+            throws SQLException {
+        String sql =
+                """
                 INSERT INTO login_attempts
                     (user_id, identity_hash, outcome, ip_address, user_agent, occurred_at)
                 VALUES (?, ?, ?, ?, ?, ?)

@@ -81,8 +81,127 @@
     finally{if(sequence===quoteSequence)status.removeAttribute('aria-busy');}
   }
   function schedule(){controls();clearTimeout(quoteTimer);quoteController?.abort();const seq=++quoteSequence;if(!form.elements.address.value||busy.size||failures.size){status.textContent='Chọn điểm giao và tải đủ tùy chọn để tính báo giá.';return;}quoteTimer=setTimeout(()=>preview(seq),250);}
-  form.addEventListener('input',()=>{markUnsaved();schedule();});
-  form.addEventListener('change',async event=>{markUnsaved();const row=event.target.closest('[data-order-line]');if(event.target.name==='dealer'){await addresses(false);await Promise.all([...lines.children].map(r=>units(r,false)));}else if(event.target.name==='product'&&row)await units(row,false);schedule();});
+  const historyPanel = form.querySelector('[data-purchase-history]');
+  const historyStatus = historyPanel?.querySelector('[data-history-status]');
+  const historyAdd = historyPanel?.querySelector('[data-history-add]');
+  const historyRetry = historyPanel?.querySelector('[data-history-retry]');
+  let historyController, historySequence = 0, addingHistory = false;
+
+  // Mỗi lần tải đều kiểm phân công ở server; phản hồi của đại lý cũ không được đưa lên màn hình.
+  async function loadHistory() {
+    if (!historyPanel) return null;
+    historyController?.abort();
+    const controller = new AbortController();
+    historyController = controller;
+    const sequence = ++historySequence;
+    const selectedDealer = dealer();
+    const table = historyPanel.querySelector('[data-history-table]');
+    const body = historyPanel.querySelector('[data-history-rows]');
+    historyAdd.disabled = true;
+    historyRetry.hidden = true;
+    table.hidden = true;
+    body.replaceChildren();
+    historyPanel.setAttribute('aria-busy', String(Boolean(selectedDealer)));
+    historyStatus.textContent = selectedDealer ? 'Đang tải lịch sử mua…' : 'Chọn đại lý để xem lịch sử mua.';
+    if (!selectedDealer) return null;
+    try {
+      const response = await fetch(context + '/api/orders/purchase-history?dealer=' + encodeURIComponent(selectedDealer), {
+        signal: controller.signal, headers: {Accept: 'application/json'}, cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(response.status === 403 ? 'scope' : 'history');
+      const data = await response.json();
+      if (controller.signal.aborted || sequence !== historySequence || dealer() !== selectedDealer) return null;
+      for (const item of data.items || []) {
+        const row = document.createElement('tr');
+        for (const value of [item.sku + ' — ' + item.name, item.unit, item.totalQuantity, item.purchaseCount, item.averageQuantity]) {
+          const cell = document.createElement('td');
+          cell.textContent = String(value);
+          row.append(cell);
+        }
+        body.append(row);
+      }
+      table.hidden = !body.children.length;
+      historyStatus.textContent = body.children.length
+        ? 'Từ ' + data.from + ' đến ' + data.to + '. Lần mua gần nhất: ' + data.lastPurchaseDate + '.'
+        : 'Đại lý chưa có hàng xuất hóa đơn trong 3 tháng gần nhất.';
+      historyAdd.disabled = addingHistory || !(data.previousItems || []).length;
+      return data;
+    } catch (error) {
+      if (error.name !== 'AbortError' && sequence === historySequence) {
+        historyStatus.textContent = error.message === 'scope'
+          ? 'Bạn không còn quyền xem lịch sử của đại lý này.'
+          : 'Không tải được lịch sử mua. Dữ liệu đơn đang nhập được giữ lại.';
+        historyRetry.hidden = false;
+      }
+      return null;
+    } finally {
+      if (sequence === historySequence) historyPanel.removeAttribute('aria-busy');
+    }
+  }
+
+  // Thêm gợi ý vào biểu mẫu hiện tại, không dùng lại giá cũ và không tự lưu hoặc gửi đơn.
+  async function addPreviousPurchase() {
+    if (addingHistory) return;
+    addingHistory = true;
+    try {
+      const selectedDealer = dealer();
+      const data = await loadHistory();
+      if (!data || selectedDealer !== dealer()) return;
+      historyAdd.disabled = true;
+      const addedRows = [], notices = [];
+      const existing = new Set([...lines.querySelectorAll('[name=product]')].map(select => select.value).filter(Boolean));
+      for (const item of data.previousItems || []) {
+        const productId = String(item.productId);
+        if (!item.available || !item.unitId) {
+          notices.push(item.sku + ': ' + (item.notice || 'Sản phẩm không còn hợp lệ.'));
+          continue;
+        }
+        if (existing.has(productId)) {
+          notices.push(item.sku + ': đã có trong đơn, giữ nguyên dòng hiện tại.');
+          continue;
+        }
+        let row = [...lines.querySelectorAll('[data-order-line]')].find(candidate =>
+          !candidate.querySelector('[name=product]').value && !candidate.querySelector('[name=unit]').value
+          && ['', '1'].includes(candidate.querySelector('[name=quantity]').value.trim())
+          && !candidate.querySelector('.lookup-control input')?.value.trim());
+        if (!row && lines.querySelectorAll('[data-order-line]').length >= 100) {
+          notices.push(item.sku + ': đơn đã đủ 100 dòng.');
+          continue;
+        }
+        if (!row) {
+          row = document.getElementById('order-line-template').content.firstElementChild.cloneNode(true);
+          lines.append(row);
+        }
+        const product = row.querySelector('[name=product]');
+        product.replaceChildren(new Option(item.sku + ' — ' + item.name, productId, true, true));
+        const unit = row.querySelector('[name=unit]');
+        unit.replaceChildren(new Option(item.unit, String(item.unitId), true, true));
+        row.querySelector('[name=quantity]').value = item.quantity;
+        window.NvdoForms.mountLookups(row);
+        const lookup = product.closest('.lookup-control')?.querySelector('input');
+        if (lookup) { lookup.value = item.sku + ' — ' + item.name; lookup.setCustomValidity(''); }
+        existing.add(productId);
+        addedRows.push(row);
+        if (item.notice) notices.push(item.sku + ': ' + item.notice);
+      }
+      renumber();
+      if (addedRows.length) markUnsaved();
+      await Promise.all(addedRows.map(row => units(row, true)));
+      if (addedRows.length) form.dispatchEvent(new Event('input', {bubbles: true}));
+      schedule();
+      if (dealer() === selectedDealer) {
+        historyStatus.textContent = 'Đã thêm ' + addedRows.length + ' SKU vào nháp. ' + notices.join(' ');
+        historyAdd.disabled = false;
+      }
+    } finally {
+      addingHistory = false;
+    }
+  }
+  historyAdd?.addEventListener('click', addPreviousPurchase);
+  historyRetry?.addEventListener('click', loadHistory);
+
+  form.addEventListener('input',event=>{markUnsaved();if(event.target.closest?.('.lookup-control')?.querySelector('[name=dealer]'))loadHistory();schedule();});
+  form.addEventListener('change',async event=>{markUnsaved();const row=event.target.closest('[data-order-line]');if(event.target.name==='dealer'){loadHistory();await addresses(false);await Promise.all([...lines.children].map(r=>units(r,false)));}else if(event.target.name==='product'&&row)await units(row,false);schedule();});
   form.querySelector('[data-add-line]').addEventListener('click',()=>{if(lines.children.length>=100)return;const row=document.getElementById('order-line-template').content.firstElementChild.cloneNode(true);lines.append(row);window.NvdoForms.mountLookups(row);renumber();markUnsaved();form.dispatchEvent(new Event('input',{bubbles:true}));row.querySelector('.lookup-control input')?.focus();});
   lines.addEventListener('click',event=>{const button=event.target.closest('[data-remove-line]');if(!button||lines.children.length<=1)return;const row=button.closest('[data-order-line]');unitRequests.get(row)?.abort();for(const select of row.querySelectorAll('select')){busy.delete(select);failures.delete(select);}row.remove();renumber();markUnsaved();form.dispatchEvent(new Event('input',{bubbles:true}));});
   form.querySelector('[data-refresh-quote]').addEventListener('click',schedule);
@@ -92,5 +211,5 @@
   controls();
   renumber();const firstError=[...lines.children].find(r=>r.querySelector('[data-line-error]').textContent.trim());if(firstError){const field=firstError.querySelector('[name=quantity]');field.setAttribute('aria-invalid','true');field.focus();}
   const initialAddresses=dealer()&&!form.elements.address.value?addresses(true):Promise.resolve();
-  initialAddresses.then(()=>Promise.all([...lines.children].filter(r=>r.querySelector('[name=product]').value).map(r=>units(r,true)))).then(schedule);
+  initialAddresses.then(()=>Promise.all([...lines.children].filter(r=>r.querySelector('[name=product]').value).map(r=>units(r,true)))).then(()=>{schedule();loadHistory();});
 })();

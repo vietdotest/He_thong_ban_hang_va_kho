@@ -9,7 +9,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
+/**
+ * Dùng chung: Gắn các header bảo vệ trình duyệt cho phản hồi HTTP.
+ */
 public final class SecurityHeadersFilter implements Filter {
+
+    // Gắn các header bảo vệ trình duyệt rồi chuyển yêu cầu cho bước tiếp theo.
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
@@ -23,9 +28,9 @@ public final class SecurityHeadersFilter implements Filter {
         httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
         httpResponse.setHeader(
                 "Content-Security-Policy",
-                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
-                        + "font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
-        );
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;"
+                        + " font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors"
+                        + " 'none'; form-action 'self'");
         chain.doFilter(request, response);
     }
 }

@@ -2,7 +2,11 @@ package vn.codegym.salesinventory.validation;
 
 import java.util.Map;
 
+/**
+ * S2-02: Mang lỗi nhập liệu hồ sơ cá nhân về biểu mẫu.
+ */
 public final class ProfileValidationException extends IllegalArgumentException {
+
     private final Map<String, String> errors;
 
     public ProfileValidationException(Map<String, String> errors) {
