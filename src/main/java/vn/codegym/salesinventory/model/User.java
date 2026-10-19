@@ -2,6 +2,9 @@ package vn.codegym.salesinventory.model;
 
 import java.time.Instant;
 
+/**
+ * S1-01: Chứa dữ liệu tài khoản cần cho xác thực và kiểm tra trạng thái đăng nhập.
+ */
 public record User(
         long id,
         String username,
@@ -12,8 +15,8 @@ public record User(
         boolean mustChangePassword,
         UserStatus status,
         int failedLoginCount,
-        Instant lockedUntil
-) {
+        Instant lockedUntil) {
+
     public User(
             long id,
             String username,
@@ -22,8 +25,17 @@ public record User(
             String passwordHash,
             UserStatus status,
             int failedLoginCount,
-            Instant lockedUntil
-    ) {
-        this(id, username, email, fullName, null, passwordHash, false, status, failedLoginCount, lockedUntil);
+            Instant lockedUntil) {
+        this(
+                id,
+                username,
+                email,
+                fullName,
+                null,
+                passwordHash,
+                false,
+                status,
+                failedLoginCount,
+                lockedUntil);
     }
 }

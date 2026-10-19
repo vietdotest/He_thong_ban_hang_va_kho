@@ -7,7 +7,12 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
 
+/**
+ * S2-04: Thực hiện truy vấn SQL cho nhật ký thao tác, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcAuditLogRepository implements AuditLogRepository {
+
+    // Thêm sự kiện nhật ký bằng kết nối của giao dịch đang xử lý.
     @Override
     public void record(
             Connection connection,
@@ -16,9 +21,10 @@ public final class JdbcAuditLogRepository implements AuditLogRepository {
             String details,
             String ipAddress,
             String userAgent,
-            Instant occurredAt
-    ) throws SQLException {
-        String sql = """
+            Instant occurredAt)
+            throws SQLException {
+        String sql =
+                """
                 INSERT INTO audit_logs
                     (actor_user_id, event_type, details, ip_address, user_agent, occurred_at)
                 VALUES (?, ?, ?, ?, ?, ?)

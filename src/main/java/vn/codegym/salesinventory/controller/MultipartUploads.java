@@ -6,37 +6,62 @@ import jakarta.servlet.http.Part;
 import java.io.IOException;
 import java.util.Locale;
 
-/** Convert only multipart parsing failures to input errors; downstream failures remain server errors. */
+/**
+ * Dùng chung: Giới hạn và đọc dữ liệu tải lên trước khi chuyển cho nghiệp vụ xử lý.
+ */
 final class MultipartUploads {
-    private MultipartUploads() { }
+
+    private MultipartUploads() {}
+
     static boolean multipart(HttpServletRequest request) {
         String type = request.getContentType();
         return type != null && type.toLowerCase(Locale.ROOT).startsWith("multipart/form-data");
     }
-    static Part read(HttpServletRequest request, String name, String missing, String tooLarge) throws IOException {
-        if (!multipart(request)) throw new IllegalArgumentException(missing);
+
+    // Đọc dữ liệu nguồn và kiểm tra giới hạn cho phép.
+    static Part read(HttpServletRequest request, String name, String missing, String tooLarge)
+            throws IOException {
+        if (!multipart(request)) {
+            throw new IllegalArgumentException(missing);
+        }
         try {
             return request.getPart(name);
         } catch (IllegalStateException invalid) {
-            if (sizeLimit(invalid)) throw new IllegalArgumentException(tooLarge, invalid);
+            if (sizeLimit(invalid)) {
+                throw new IllegalArgumentException(tooLarge, invalid);
+            }
             throw invalid;
         } catch (ServletException invalid) {
-            if (sizeLimit(invalid)) throw new IllegalArgumentException(tooLarge, invalid);
-            throw new IllegalArgumentException("Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
+            if (sizeLimit(invalid)) {
+                throw new IllegalArgumentException(tooLarge, invalid);
+            }
+            throw new IllegalArgumentException(
+                    "Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
         } catch (IOException invalid) {
-            if (sizeLimit(invalid)) throw new IllegalArgumentException(tooLarge, invalid);
+            if (sizeLimit(invalid)) {
+                throw new IllegalArgumentException(tooLarge, invalid);
+            }
             for (Throwable cause = invalid; cause != null; cause = cause.getCause()) {
                 String type = cause.getClass().getName();
-                if (type.contains(".fileupload.") && (type.endsWith(".FileUploadException") || type.endsWith("MalformedStreamException")))
-                    throw new IllegalArgumentException("Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
+                if (type.contains(".fileupload.")
+                        && (type.endsWith(".FileUploadException")
+                                || type.endsWith("MalformedStreamException"))) {
+                    throw new IllegalArgumentException(
+                            "Dữ liệu tải lên không hợp lệ. Vui lòng chọn lại tệp.", invalid);
+                }
             }
             throw invalid;
         }
     }
+
+    // Nhận diện lỗi vượt giới hạn dung lượng tải lên.
     private static boolean sizeLimit(Throwable failure) {
         for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
             String type = cause.getClass().getName();
-            if (type.endsWith("SizeLimitExceededException") || type.endsWith("FileSizeLimitExceededException")) return true;
+            if (type.endsWith("SizeLimitExceededException")
+                    || type.endsWith("FileSizeLimitExceededException")) {
+                return true;
+            }
         }
         return String.valueOf(failure.getMessage()).toLowerCase(Locale.ROOT).contains("size limit");
     }

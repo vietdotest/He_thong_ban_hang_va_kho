@@ -17,14 +17,28 @@ import vn.codegym.salesinventory.model.ManagedUser;
 import vn.codegym.salesinventory.model.RoleOption;
 import vn.codegym.salesinventory.model.UserStatus;
 
+/**
+ * S1-08: Thực hiện truy vấn SQL cho tài khoản trên màn hình quản trị, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcUserManagementRepository implements UserManagementRepository {
-    @Override public boolean isPortalAccount(Connection connection,long userId)throws SQLException{return "DEALER".equals(Sql.one(connection,"SELECT account_kind FROM users WHERE id=?",userId).get("account_kind"));}
-    private static final String SCOPES = """
-            ,CONCAT_WS(' · ',
-              (SELECT GROUP_CONCAT(CONCAT('Kho: ',w.name) ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
-              (SELECT GROUP_CONCAT(CONCAT('Địa bàn: ',t.name) ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
-            """;
-    private static final String FILTER = """
+
+    @Override
+    public boolean isPortalAccount(Connection connection, long userId) throws SQLException {
+        return "DEALER"
+                .equals(
+                        Sql.one(connection, "SELECT account_kind FROM users WHERE id=?", userId)
+                                .get("account_kind"));
+    }
+
+    private static final String SCOPES =
+            """
+,CONCAT_WS(' · ',
+  (SELECT GROUP_CONCAT(CONCAT('Kho: ',w.name) ORDER BY w.name SEPARATOR ', ') FROM user_warehouses uw JOIN warehouses w ON w.id=uw.warehouse_id WHERE uw.user_id=u.id),
+  (SELECT GROUP_CONCAT(CONCAT('Địa bàn: ',t.name) ORDER BY t.name SEPARATOR ', ') FROM user_territories ut JOIN territories t ON t.id=ut.territory_id WHERE ut.user_id=u.id)) AS scope_summary
+""";
+
+    private static final String FILTER =
+            """
             WHERE (? = ''
                    OR LOWER(u.full_name) LIKE ?
                    OR u.username_normalized LIKE ?
@@ -36,9 +50,12 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
               AND (? = '' OR u.status = ?)
             """;
 
+    // Kiểm tra người dùng đang được gán vai trò được yêu cầu.
     @Override
-    public boolean userHasRole(Connection connection, long userId, String roleCode) throws SQLException {
-        String sql = """
+    public boolean userHasRole(Connection connection, long userId, String roleCode)
+            throws SQLException {
+        String sql =
+                """
                 SELECT 1
                 FROM user_roles ur
                 JOIN roles r ON r.id = ur.role_id
@@ -54,9 +71,11 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Kiểm tra mã vai trò đã có trong danh mục.
     @Override
     public boolean roleExists(Connection connection, String roleCode) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM roles WHERE code = ? LIMIT 1")) {
+        try (PreparedStatement statement =
+                connection.prepareStatement("SELECT 1 FROM roles WHERE code = ? LIMIT 1")) {
             statement.setString(1, roleCode);
             try (ResultSet resultSet = statement.executeQuery()) {
                 return resultSet.next();
@@ -64,36 +83,46 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Lấy các vai trò có thể dùng khi quản lý tài khoản.
     @Override
     public List<RoleOption> findRoles(Connection connection) throws SQLException {
         List<RoleOption> roles = new ArrayList<>();
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT id, code, name FROM roles WHERE code<>'DEALER' ORDER BY name, code");
-             ResultSet resultSet = statement.executeQuery()) {
+        try (PreparedStatement statement =
+                        connection.prepareStatement(
+                                "SELECT id, code, name FROM roles WHERE code<>'DEALER' ORDER BY"
+                                        + " name, code");
+                ResultSet resultSet = statement.executeQuery()) {
             while (resultSet.next()) {
-                roles.add(new RoleOption(
-                        resultSet.getLong("id"),
-                        resultSet.getString("code"),
-                        resultSet.getString("name")
-                ));
+                roles.add(
+                        new RoleOption(
+                                resultSet.getLong("id"),
+                                resultSet.getString("code"),
+                                resultSet.getString("name")));
             }
         }
         return roles;
     }
 
+    // Tìm tài khoản người dùng theo bộ lọc và phân trang.
     @Override
-    public List<ManagedUser> search(Connection connection, UserSearchCriteria criteria) throws SQLException {
-        String sql = """
-                SELECT u.id, u.username, u.email, u.full_name, u.phone, u.status,
-                       u.must_change_password, u.version, u.created_at,
-                       (SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-                        WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_code,
-                       (SELECT GROUP_CONCAT(r.name ORDER BY r.code SEPARATOR ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id
-                        WHERE ur.user_id = u.id) AS role_name
-                """ + SCOPES + " FROM users u " + FILTER + """
-                ORDER BY u.full_name, u.id
-                LIMIT ? OFFSET ?
-                """;
+    public List<ManagedUser> search(Connection connection, UserSearchCriteria criteria)
+            throws SQLException {
+        String sql =
+                """
+SELECT u.id, u.username, u.email, u.full_name, u.phone, u.status,
+       u.must_change_password, u.version, u.created_at,
+       (SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = u.id ORDER BY r.code LIMIT 1) AS role_code,
+       (SELECT GROUP_CONCAT(r.name ORDER BY r.code SEPARATOR ', ') FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = u.id) AS role_name
+"""
+                        + SCOPES
+                        + " FROM users u "
+                        + FILTER
+                        + """
+                          ORDER BY u.full_name, u.id
+                          LIMIT ? OFFSET ?
+                          """;
         List<ManagedUser> users = new ArrayList<>();
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int next = bindFilters(statement, criteria);
@@ -108,6 +137,7 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         return users;
     }
 
+    // Đếm số bản ghi phù hợp với điều kiện tìm kiếm.
     @Override
     public long count(Connection connection, UserSearchCriteria criteria) throws SQLException {
         String sql = "SELECT COUNT(*) FROM users u " + FILTER;
@@ -120,21 +150,26 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Tìm và khóa tài khoản theo mã trước khi thay đổi.
     @Override
-    public Optional<ManagedUser> findByIdForUpdate(Connection connection, long userId) throws SQLException {
-        String sql = """
+    public Optional<ManagedUser> findByIdForUpdate(Connection connection, long userId)
+            throws SQLException {
+        String sql =
+                """
                 SELECT u.id, u.username, u.email, u.full_name, u.phone, u.status,
                        u.must_change_password, u.version, u.created_at,
                        r.code AS role_code, r.name AS role_name
-                """ + SCOPES + """
-                FROM users u
-                LEFT JOIN user_roles ur ON ur.user_id = u.id
-                LEFT JOIN roles r ON r.id = ur.role_id
-                WHERE u.id = ?
-                ORDER BY r.code
-                LIMIT 1
-                FOR UPDATE
-                """;
+                """
+                        + SCOPES
+                        + """
+                          FROM users u
+                          LEFT JOIN user_roles ur ON ur.user_id = u.id
+                          LEFT JOIN roles r ON r.id = ur.role_id
+                          WHERE u.id = ?
+                          ORDER BY r.code
+                          LIMIT 1
+                          FOR UPDATE
+                          """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setLong(1, userId);
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -143,17 +178,24 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Tạo tài khoản người dùng từ dữ liệu đầu vào.
     @Override
-    public long create(Connection connection, UserAccountCommand command, String passwordHash, Instant createdAt)
+    public long create(
+            Connection connection,
+            UserAccountCommand command,
+            String passwordHash,
+            Instant createdAt)
             throws SQLException {
-        String sql = """
+        String sql =
+                """
                 INSERT INTO users (
                     username, username_normalized, email, email_normalized,
                     full_name, phone, phone_normalized, password_hash,
                     must_change_password, status, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?, ?)
                 """;
-        try (PreparedStatement statement = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (PreparedStatement statement =
+                connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             statement.setString(1, command.username());
             statement.setString(2, command.normalizedUsername());
             statement.setString(3, command.email());
@@ -175,13 +217,17 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Thay vai trò của tài khoản theo dữ liệu được cung cấp.
     @Override
-    public void replaceRole(Connection connection, long userId, String roleCode) throws SQLException {
-        try (PreparedStatement delete = connection.prepareStatement("DELETE FROM user_roles WHERE user_id = ?")) {
+    public void replaceRole(Connection connection, long userId, String roleCode)
+            throws SQLException {
+        try (PreparedStatement delete =
+                connection.prepareStatement("DELETE FROM user_roles WHERE user_id = ?")) {
             delete.setLong(1, userId);
             delete.executeUpdate();
         }
-        String sql = """
+        String sql =
+                """
                 INSERT INTO user_roles (user_id, role_id)
                 SELECT ?, id FROM roles WHERE code = ?
                 """;
@@ -194,9 +240,12 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
+    // Cập nhật thông tin tài khoản người dùng.
     @Override
-    public int update(Connection connection, long userId, UserAccountCommand command) throws SQLException {
-        String sql = """
+    public int update(Connection connection, long userId, UserAccountCommand command)
+            throws SQLException {
+        String sql =
+                """
                 UPDATE users
                 SET username = ?, username_normalized = ?, email = ?, email_normalized = ?,
                     full_name = ?, phone = ?, phone_normalized = ?, status = ?,
@@ -218,10 +267,13 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
         }
     }
 
-    private static int bindFilters(PreparedStatement statement, UserSearchCriteria criteria) throws SQLException {
+    // Gắn các giá trị tìm kiếm vào tham số truy vấn tài khoản.
+    private static int bindFilters(PreparedStatement statement, UserSearchCriteria criteria)
+            throws SQLException {
         String keyword = criteria.keyword().toLowerCase(Locale.ROOT);
         String pattern = "%" + keyword + "%";
-        String phoneDigits = vn.codegym.salesinventory.validation.PhoneNumber.searchDigits(criteria.keyword());
+        String phoneDigits =
+                vn.codegym.salesinventory.validation.PhoneNumber.searchDigits(criteria.keyword());
         String phonePattern = phoneDigits.isBlank() ? "\u0000" : "%" + phoneDigits + "%";
         int index = 1;
         statement.setString(index++, keyword);
@@ -248,7 +300,6 @@ public final class JdbcUserManagementRepository implements UserManagementReposit
                 resultSet.getBoolean("must_change_password"),
                 resultSet.getLong("version"),
                 resultSet.getTimestamp("created_at").toInstant(),
-                resultSet.getString("scope_summary")
-        );
+                resultSet.getString("scope_summary"));
     }
 }

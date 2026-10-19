@@ -5,15 +5,24 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import vn.codegym.salesinventory.dto.UserAccountCommand;
 
+/**
+ * S1-08: Kiểm tra username, email, số điện thoại và dữ liệu tài khoản.
+ */
 public final class UserAccountValidator {
+
     private static final Pattern USERNAME = Pattern.compile("[A-Za-z0-9._-]{3,64}");
+
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+
     private static final Pattern PHONE = Pattern.compile("0[0-9]{9}");
 
+    // Kiểm tra dữ liệu trước khi tiếp tục xử lý.
     public Map<String, String> validate(UserAccountCommand command) {
         Map<String, String> errors = new LinkedHashMap<>();
         if (!USERNAME.matcher(command.username()).matches()) {
-            errors.put("username", "Tên đăng nhập gồm 3–64 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.");
+            errors.put(
+                    "username",
+                    "Tên đăng nhập gồm 3–64 ký tự: chữ, số, dấu chấm, gạch dưới hoặc gạch ngang.");
         }
         if (command.fullName().length() < 2 || command.fullName().length() > 150) {
             errors.put("fullName", "Họ tên phải có từ 2 đến 150 ký tự.");

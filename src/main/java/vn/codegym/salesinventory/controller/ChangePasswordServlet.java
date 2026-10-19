@@ -13,14 +13,22 @@ import vn.codegym.salesinventory.security.SessionKeys;
 import vn.codegym.salesinventory.service.PasswordChangeService;
 import vn.codegym.salesinventory.validation.PasswordPolicy;
 
+/**
+ * S1-04: Hiển thị biểu mẫu đổi mật khẩu và chuyển yêu cầu cho service.
+ */
 public final class ChangePasswordServlet extends HttpServlet {
+
     private PasswordChangeService passwordChangeService;
+
     private CsrfTokenManager csrfTokenManager;
+
     private final PasswordPolicy passwordPolicy = new PasswordPolicy();
 
+    // Lấy các thành phần đã khởi tạo để phục vụ yêu cầu HTTP.
     @Override
     public void init() throws ServletException {
-        Object changeService = getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE);
+        Object changeService =
+                getServletContext().getAttribute(ApplicationContextKeys.PASSWORD_CHANGE_SERVICE);
         Object csrf = getServletContext().getAttribute(ApplicationContextKeys.CSRF_TOKEN_MANAGER);
         if (!(changeService instanceof PasswordChangeService configuredChange)
                 || !(csrf instanceof CsrfTokenManager configuredCsrf)) {
@@ -30,20 +38,24 @@ public final class ChangePasswordServlet extends HttpServlet {
         csrfTokenManager = configuredCsrf;
     }
 
+    // Tiếp nhận yêu cầu xem đổi mật khẩu.
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         prepare(request);
-        request.getRequestDispatcher("/WEB-INF/views/account/change-password.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/account/change-password.jsp")
+                .forward(request, response);
     }
 
+    // Tiếp nhận và xử lý biểu mẫu đổi mật khẩu.
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         HttpSession session = request.getSession(false);
         if (!csrfTokenManager.isValid(session, request.getParameter("_csrf"))) {
             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            request.setAttribute("formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
+            request.setAttribute(
+                    "formError", "Phiên biểu mẫu không hợp lệ. Vui lòng tải lại trang.");
             render(request, response);
             return;
         }
@@ -63,13 +75,16 @@ public final class ChangePasswordServlet extends HttpServlet {
             render(request, response);
             return;
         }
-
         CurrentUser user = (CurrentUser) session.getAttribute(SessionKeys.CURRENT_USER);
         String serverSessionId = (String) session.getAttribute(SessionKeys.SERVER_SESSION_ID);
         try {
-            PasswordChangeService.Result result = passwordChangeService.change(
-                    user.id(), serverSessionId, currentPassword, newPassword,
-                    RequestMetadata.authenticationContext(request));
+            PasswordChangeService.Result result =
+                    passwordChangeService.change(
+                            user.id(),
+                            serverSessionId,
+                            currentPassword,
+                            newPassword,
+                            RequestMetadata.authenticationContext(request));
             if (result == PasswordChangeService.Result.CURRENT_PASSWORD_INVALID) {
                 response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
                 request.setAttribute("currentPasswordError", "Mật khẩu hiện tại không chính xác.");
@@ -78,18 +93,22 @@ public final class ChangePasswordServlet extends HttpServlet {
                 request.setAttribute("passwordError", "Mật khẩu mới cần khác mật khẩu hiện tại.");
             } else if (result == PasswordChangeService.Result.USER_UNAVAILABLE) {
                 session.invalidate();
-                RequestMetadata.seeOther(response, request.getContextPath() + "/login?reason=session_expired");
+                RequestMetadata.seeOther(
+                        response, request.getContextPath() + "/login?reason=session_expired");
                 return;
             } else {
                 session.setAttribute(SessionKeys.CURRENT_USER, user.passwordChangeCompleted());
                 csrfTokenManager.rotate(session);
-                request.setAttribute("successMessage", "Mật khẩu đã được cập nhật. Các phiên đăng nhập khác đã được kết thúc.");
+                request.setAttribute(
+                        "successMessage",
+                        "Mật khẩu đã được cập nhật. Các phiên đăng nhập khác đã được kết thúc.");
             }
             render(request, response);
         } catch (RuntimeException exception) {
             getServletContext().log("Password change could not be completed", exception);
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            request.setAttribute("formError", "Hệ thống chưa thể cập nhật mật khẩu. Vui lòng thử lại.");
+            request.setAttribute(
+                    "formError", "Hệ thống chưa thể cập nhật mật khẩu. Vui lòng thử lại.");
             render(request, response);
         }
     }
@@ -97,7 +116,8 @@ public final class ChangePasswordServlet extends HttpServlet {
     private void render(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         prepare(request);
-        request.getRequestDispatcher("/WEB-INF/views/account/change-password.jsp").forward(request, response);
+        request.getRequestDispatcher("/WEB-INF/views/account/change-password.jsp")
+                .forward(request, response);
     }
 
     private void prepare(HttpServletRequest request) {

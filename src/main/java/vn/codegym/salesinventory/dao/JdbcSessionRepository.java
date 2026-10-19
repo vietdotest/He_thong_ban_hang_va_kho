@@ -13,15 +13,22 @@ import java.util.Set;
 import vn.codegym.salesinventory.model.ServerSession;
 import vn.codegym.salesinventory.model.UserStatus;
 
+/**
+ * S1-02: Thực hiện truy vấn SQL cho phiên đăng nhập, dùng tham số để truyền dữ liệu.
+ */
 public final class JdbcSessionRepository implements SessionRepository {
+
+    // Tạo phiên đăng nhập từ dữ liệu đầu vào.
     @Override
-    public void create(Connection connection, ServerSession session, String ipAddress, String userAgent)
+    public void create(
+            Connection connection, ServerSession session, String ipAddress, String userAgent)
             throws SQLException {
-        String sql = """
-                INSERT INTO user_sessions
-                    (id, user_id, token_hash, created_at, last_activity_at, expires_at, ip_address, user_agent)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """;
+        String sql =
+                """
+INSERT INTO user_sessions
+    (id, user_id, token_hash, created_at, last_activity_at, expires_at, ip_address, user_agent)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+""";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, session.id());
             statement.setLong(2, session.userId());
@@ -35,9 +42,12 @@ public final class JdbcSessionRepository implements SessionRepository {
         }
     }
 
+    // Tìm phiên theo mã đã băm.
     @Override
-    public Optional<ServerSession> findByTokenHash(Connection connection, String tokenHash) throws SQLException {
-        String sql = """
+    public Optional<ServerSession> findByTokenHash(Connection connection, String tokenHash)
+            throws SQLException {
+        String sql =
+                """
                 SELECT s.id, s.user_id, s.token_hash, s.created_at, s.last_activity_at,
                        s.expires_at, s.revoked_at,
                        u.username, u.email, u.full_name, u.must_change_password,
@@ -60,20 +70,27 @@ public final class JdbcSessionRepository implements SessionRepository {
         }
     }
 
+    // Cập nhật thời điểm hoạt động của phiên đăng nhập.
     @Override
-    public void touch(Connection connection, String sessionId, Instant lastActivityAt) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "UPDATE user_sessions SET last_activity_at = ? WHERE id = ? AND revoked_at IS NULL")) {
+    public void touch(Connection connection, String sessionId, Instant lastActivityAt)
+            throws SQLException {
+        try (PreparedStatement statement =
+                connection.prepareStatement(
+                        "UPDATE user_sessions SET last_activity_at = ? WHERE id = ? AND revoked_at"
+                                + " IS NULL")) {
             statement.setTimestamp(1, Timestamp.from(lastActivityAt));
             statement.setString(2, sessionId);
             statement.executeUpdate();
         }
     }
 
+    // Thu hồi phiên theo mã phiên đã băm.
     @Override
-    public void revokeByTokenHash(Connection connection, String tokenHash, Instant revokedAt, String reason)
+    public void revokeByTokenHash(
+            Connection connection, String tokenHash, Instant revokedAt, String reason)
             throws SQLException {
-        String sql = """
+        String sql =
+                """
                 UPDATE user_sessions
                 SET revoked_at = ?, revoke_reason = ?
                 WHERE token_hash = ? AND revoked_at IS NULL
@@ -87,7 +104,8 @@ public final class JdbcSessionRepository implements SessionRepository {
     }
 
     @Override
-    public void revokeAllForUser(Connection connection, long userId, Instant revokedAt, String reason)
+    public void revokeAllForUser(
+            Connection connection, long userId, Instant revokedAt, String reason)
             throws SQLException {
         revokeForUser(connection, userId, null, revokedAt, reason);
     }
@@ -98,21 +116,25 @@ public final class JdbcSessionRepository implements SessionRepository {
             long userId,
             String currentSessionId,
             Instant revokedAt,
-            String reason
-    ) throws SQLException {
+            String reason)
+            throws SQLException {
         revokeForUser(connection, userId, currentSessionId, revokedAt, reason);
     }
 
+    // Thu hồi phiên của người dùng theo điều kiện cung cấp.
     private static void revokeForUser(
             Connection connection,
             long userId,
             String excludedSessionId,
             Instant revokedAt,
-            String reason
-    ) throws SQLException {
-        String sql = excludedSessionId == null
-                ? "UPDATE user_sessions SET revoked_at = ?, revoke_reason = ? WHERE user_id = ? AND revoked_at IS NULL"
-                : "UPDATE user_sessions SET revoked_at = ?, revoke_reason = ? WHERE user_id = ? AND id <> ? AND revoked_at IS NULL";
+            String reason)
+            throws SQLException {
+        String sql =
+                excludedSessionId == null
+                        ? "UPDATE user_sessions SET revoked_at = ?, revoke_reason = ? WHERE user_id"
+                                + " = ? AND revoked_at IS NULL"
+                        : "UPDATE user_sessions SET revoked_at = ?, revoke_reason = ? WHERE user_id"
+                                + " = ? AND id <> ? AND revoked_at IS NULL";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setTimestamp(1, Timestamp.from(revokedAt));
             statement.setString(2, reason);
@@ -141,10 +163,10 @@ public final class JdbcSessionRepository implements SessionRepository {
                 resultSet.getTimestamp("created_at").toInstant(),
                 resultSet.getTimestamp("last_activity_at").toInstant(),
                 resultSet.getTimestamp("expires_at").toInstant(),
-                revokedAt == null ? null : revokedAt.toInstant()
-        );
+                revokedAt == null ? null : revokedAt.toInstant());
     }
 
+    // Tách các mã vai trò đã lưu thành tập vai trò của phiên.
     private static Set<String> parseRoleCodes(String value) {
         if (value == null || value.isBlank()) {
             return Set.of();
